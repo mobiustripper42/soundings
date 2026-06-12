@@ -49,6 +49,24 @@ Everything needed to develop safely. No user-facing changes. Do this phase first
 
 ---
 
+## Tank Level Sensor (V1 sensor add-on)
+
+Approved-for-V1 cluster level sensor. Spec in `docs/tank-level-sensor.md`;
+architecture in DEC-005 / DEC-006. Tracked here standalone — slots into the
+sensor-node phase once the feature phases below are named. Velocity baseline not
+yet established, so estimates are first-pass.
+
+| # | Task | Effort | Notes |
+|---|------|--------|-------|
+| TL.1 | Tank node firmware — A02YYUW UART read, deep-sleep + ±30 s jitter, LoRa payload (raw `distance_mm`) | 5 | Standard node spec; sensor read + framing |
+| TL.2 | Payload decoder — two-segment empirical volume curve, publish `farm/water/cluster/{level_gal,percent,distance_mm}` | 5 | Raw distance always on the wire (DEC-006) |
+| TL.3 | Field calibration — log distance vs. known volume (≥2 below IBC top, ≥2 above), fit the two lines + breakpoint | 3 | Empirical; no tank dimensions needed |
+
+**Note:** the downstream low-tank pump lockout is **tinkle's** job (tinkle DEC-017,
+V2), not Soundings — Soundings' scope ends at publishing the level.
+
+---
+
 ## Phase 1: [Name]
 
 [Description of what this phase delivers and why it comes first]
