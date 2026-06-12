@@ -27,7 +27,45 @@ Decisions are numbered DEC-NNN. "DEC-TBD" means the decision is flagged but unre
 
 ---
 
-## DEC-TBD: [Decision placeholder]
-**Question:** [What needs to be decided]
-**Options:** [Option A vs Option B]
-**Consult @architect before building.**
+> **Note:** DEC-001 through DEC-004 above are leftover `seeds/dev` webapp template
+> (Supabase/Next.js/shadcn) and do not describe this LoRa sensor-mesh project.
+> They're left untouched here pending a proper docs pass; the real architecture
+> record starts at DEC-005.
+
+## DEC-005: A02YYUW ultrasonic level sensor — one node covers the cluster
+**Decision:** Measure the tank cluster's water level with a single **A02YYUW
+ultrasonic distance sensor** on one dedicated Soundings node, mounted in the lid of
+a 1100-gal cylinder (the tallest tank). One sensor serves all three tanks.
+**Why:** The three tanks (2× 1100-gal cylinders + 1× 330-gal IBC) are plumbed
+together at the bottom — communicating vessels share one water level in height
+terms, so a single height reading covers the whole 2530-gal cluster. Non-contact
+ultrasonic keeps anything out of the irrigation water (no fouling). The A02YYUW's
+clean UART output beats the cheaper JSN-SR04T's noisier interface — worth a few
+dollars on a mount-once-and-forget sensor. The tallest tank gives the best vertical
+shot and the most dead-zone headroom.
+**Tradeoff:** A ~20–25 cm transducer dead zone clamps the very top of the tank to
+"full." Accepted — the load-bearing range is the *bottom*, where running the
+irrigation pump dry is the real risk. A condensation-dropout mitigation (recess the
+transducer in a short PVC standoff through the lid) is required, not optional.
+**See:** `docs/tank-level-sensor.md`.
+
+## DEC-006: Two-segment empirical volume curve; publish raw distance always
+**Decision:** Convert measured distance → gallons with a **two-segment
+piecewise-linear curve** fit **empirically** (log sensor reading vs. known volume
+at several fills — a couple below the IBC's ~46" top, a couple above — and fit the
+two lines; the breakpoint falls out of the data). The decoder **always publishes
+the raw `distance_mm`** alongside the derived gallons and percent. MQTT topic
+namespace is `farm/water/cluster/*`: `level_gal`, `percent` (of 2530 gal), and
+`distance_mm`.
+**Why:** Gallons-per-inch steps where the IBC tops out — below ~46" all three tanks
+rise together (steeper), above it only the two cylinders rise (shallower) — so the
+volume curve is naturally two linear segments with one breakpoint. Fitting it
+empirically calibrates out all tank geometry, fitting elevations, and sensor offset
+at once, with no tank measurements. Publishing raw distance means the curve can be
+re-fit in software later (more calibration points, a changed cluster) **without
+re-calibrating hardware or touching the node** — the raw measurement is the durable
+record; the gallons curve is a derived convenience.
+**Tradeoff:** Two segments + a fitted breakpoint is marginally more decoder logic
+than a single linear map, and the early curve is only as good as its first few
+calibration points — which is exactly why raw distance is always on the wire.
+**See:** `docs/tank-level-sensor.md`.

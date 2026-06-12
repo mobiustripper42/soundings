@@ -39,8 +39,20 @@ Local Supabase, pgTAP RLS tests, Playwright integration tests, session skills, u
 ### Phase 2 — [Name]
 [etc.]
 
+### Sensors (V1)
+The mesh's V1 sensor set. (The rest of this spec is still `seeds/dev` template
+pending a docs pass; this section is filled because the sensor is approved.)
+
+- **Tank level (cluster)** — ✅ approved for V1. One A02YYUW ultrasonic sensor on a
+  dedicated node, measuring the shared level across the three plumbed-together
+  catchment tanks (2530 gal). Publishes raw distance + calibrated gallons + percent.
+  Full spec: `docs/tank-level-sensor.md`; architecture: DEC-005 / DEC-006.
+
 ## Not V1
 [List things explicitly out of scope for V1. This is the scope guardrail — Claude will check here before adding anything.]
 
+- **Closed-loop pump control / low-tank lockout** — Soundings publishes the tank
+  level; acting on it (locking out the irrigation pump before it runs dry) lives in
+  the **tinkle** controller (tinkle DEC-017), not here.
 - [Feature X] — defer to V2
 - [Feature Y] — defer to V2
