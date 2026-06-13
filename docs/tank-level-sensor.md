@@ -17,7 +17,7 @@ shared water level across the farm's three plumbed-together rain-catchment tanks
   water level (in height terms)
 - All bottoms at the same elevation; all tops open
 
-Because the tanks share a level, **one sensor covers all three** (DEC-005).
+Because the tanks share a level, **one sensor covers all three**.
 
 ---
 
@@ -74,7 +74,7 @@ the IBC's top (~46"):
   gallons-per-inch.
 
 Total volume vs. height is therefore **two linear segments** with a single
-breakpoint where the IBC tops out (DEC-006).
+breakpoint where the IBC tops out.
 
 ### Calibration — empirical, no tank dimensions needed
 
@@ -90,7 +90,7 @@ heights or fitting elevations required.
 
 ## Integration
 
-**MQTT topics** (`farm/water/cluster/*` namespace, DEC-006):
+**MQTT topics** (`farm/water/cluster/*` namespace):
 
 | Topic | Payload | Notes |
 |-------|---------|-------|
