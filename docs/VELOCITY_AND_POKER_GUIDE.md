@@ -1,51 +1,57 @@
 # Velocity Tracking & Scrum Poker — How-To Guide
 
-A lightweight solo-dev process for tracking effort, estimating work, and knowing where you stand against a deadline. Built for CC-assisted development with fragmented time.
+A lightweight solo-dev process for estimating work and knowing where you stand
+against a deadline. Built for Claude-Code-assisted development with fragmented,
+bursty time.
 
 ---
 
-## Part 1: Velocity Tracking
+## Part 1: Velocity Tracking — throughput (DEC-S026)
 
 ### What it measures
 
-**Velocity = hours per effort point (hrs/pt).** Lower is faster. Track it per session, watch the trend.
+**Velocity = throughput: effort points closed per calendar week (pts/wk).**
 
-### The workflow
+This deliberately replaced the old hours-per-point model. We do **not** measure
+at-keyboard time, read session transcripts, or do wall-clock math. Throughput is
+a **capacity signal that already includes your availability** — a week with two
+hours of farm-free evenings and a week of rain both just produce "points closed
+that week." That's the number that actually forecasts a calendar date.
 
-**During a CC session:**
-1. Note your start time (or let session-log.md track it)
-2. Work on one or more tasks
-3. At session end, record: date, phase, tasks completed, total effort points, actual hours
+Because real work comes in bursts (a long Saturday, then nothing for ten days),
+throughput is **burst-aware**: a short, intense phase is reported as a burst
+rather than a misleadingly high weekly rate.
 
-**After the session:**
-- @pm updates PROJECT_PLAN.md velocity table (source of truth)
-- Open the velocity tracker artifact in Claude → click "+ log session" → enter the numbers
-- Or just tell Claude: "log session: Phase 1, Xola client, 3 pts, 1.25 hrs"
+### Where the number comes from
 
-### What the tracker shows you
+`/retro` computes it at each phase boundary, entirely from **GitHub data**:
 
-| Metric | What it means |
-|--------|---------------|
-| **Logged** | Total points and hours completed |
-| **Remaining** | Points left across all phases |
-| **Lifetime Velocity** | Your average hrs/pt across all sessions |
-| **Recent Velocity** | Your avg over the last 5 sessions (more responsive to current pace) |
-| **Projected** | Hours remaining at recent velocity (your realistic forecast) |
-| **Phase Progress** | Bar chart showing completion per phase |
+- Each task is a GitHub Issue with a `points:N` label (set by `/start-phase`).
+- A task's points count when its Issue `closedAt` lands inside the phase window.
+- `phase points ÷ phase span in weeks = throughput`.
 
-### Reading the numbers
+No manual logging, no timers, no "log session" step. If the issues and their
+`points:` labels are honest, the velocity is honest.
 
-- **Lifetime velocity** is your stable baseline. Use it for long-range planning.
-- **Recent velocity** catches changes — are you speeding up (learning the codebase) or slowing down (hitting complexity)?
-- If recent is significantly higher than lifetime, you might be in a harder phase — normal for polish/integration work.
-- If projected hours exceed your available hours before deadline, it's time to cut scope. The tracker doesn't lie.
+### Reading it
+
+- **Throughput is your forecasting input.** `remaining points ÷ throughput ≈
+  calendar weeks left`. Multiply by your real availability/seasonality to land a
+  date.
+- A phase that came in as a "burst" tells you little about sustainable pace —
+  weight multi-phase trends over a single burst.
+- If the forecast date slips past the **2027 transplant critical path**, that's
+  the cue to cut scope (the plan keeps a cuttable-tasks list), not to pad
+  estimates.
 
 ### Rules of thumb
 
-- Log every session, even short ones (0.25 hrs counts)
-- Don't fudge hours to look good — the point is accurate forecasting, not performance review
-- Re-estimate tasks that turn out to be bigger than expected — update PROJECT_PLAN.md, note the change
-- Velocity stabilizes after ~10 sessions. Before that, take projections with a grain of salt.
+- **Keep `points:` labels honest.** Re-label an Issue if it turns out bigger —
+  that's the calibration signal, not a failure.
+- Don't chase a single phase's number; throughput stabilizes over a few phases.
+- The estimate-calibration tally (`/retro`) — how many tasks were re-estimated and
+  the net drift — is as useful as the rate itself: it tells you whether your
+  poker is systematically low.
 
 ---
 
@@ -53,82 +59,75 @@ A lightweight solo-dev process for tracking effort, estimating work, and knowing
 
 ### The scale
 
-**Fibonacci sequence: 2, 3, 5, 8, 13**
+**Fibonacci: 2, 3, 5, 8, 13**
 
-| Points | Meaning | Examples |
-|--------|---------|----------|
-| **2** | Small, well-understood, minimal unknowns | Add a column to a table, wire up an existing API endpoint, simple UI component |
-| **3** | Moderate, clear approach, maybe one unknown | CRUD page with form validation, API client with auth + error handling |
-| **5** | Significant work, some complexity or unknowns | Agent prompt design + structured output, data normalization pipeline, schedule board UI |
-| **8** | Large, multiple moving parts, real unknowns | Full admin view with multiple interactive components, complex agent with business rules |
-| **13** | Epic — probably should be broken up | Full auth system, complete write-back pipeline with error recovery. If you see a 13, ask: can this be two 5s and a 3? |
+| Points | Meaning | Examples (this project) |
+|--------|---------|-------------------------|
+| **2** | Small, well-understood, minimal unknowns | Add a sensor field to the packet struct, wire an existing adapter into the run cycle, a single constexpr config table |
+| **3** | Moderate, clear approach, maybe one unknown | A fake sensor driver behind an adapter, the VPD calc + its host tests, one Grafana panel from existing series |
+| **5** | Significant work, some complexity or unknowns | Packet serializer + parser pinned by golden round-trip vectors, Watermark tension math with temp compensation, node→location mapping |
+| **8** | Large, multiple moving parts, real unknowns | The full simulation spine (fake node → gateway → bus → DB → chart), the declared-manifest config + node-type presets, the gateway decode daemon with malformed-packet handling |
+| **13** | Epic — break it up | "Build the gateway," "build the node firmware." If you see a 13, it's two or three things you haven't separated yet. |
 
-**No 1s** — if it's that small, just do it. Don't plan it.
-**No 13s if avoidable** — break them down. A 13 means you don't understand the task well enough yet.
+**No 1s** — just do it. **No 13s if avoidable** — a 13 means the task isn't
+understood well enough yet.
+
+> **Splitting is a reviewability/risk call, not a model-capability one.** Don't
+> chop a coherent 8 just to honor a ceiling — a well-specified 8 with crisp
+> acceptance criteria and the `@architect` gate beats two stitched-together 5s.
+> Do split when the diff is too big to review well, the blast radius worries you,
+> or an "8" is secretly two unrelated things. Still break genuine 13s.
 
 ### How to poker (solo dev + Claude)
 
 **Setup:** Claude proposes effort for each task in a phase. You review.
 
-**The conversation:**
 ```
-Claude: "Task 2.4 — Shift editing (split/merge/delete). I say 5."
-You: "That's an 8. The merge logic has edge cases with gaps."
-Claude: "Fair. What makes it an 8 vs a 5?"
-You: "Merging two shifts means re-linking all the Xola event IDs 
-      and recalculating crew requirements. It's not just UI."
-Claude: "Agreed — 8. I'll note the merge complexity in the task description."
+Claude: "Task 2.3 — Watermark tension math + temp compensation. I say 3."
+You:    "That's a 5. The AC-excitation sampling has to cancel DC offset, and
+         the temp-comp equation is touchy near saturation."
+Claude: "Fair — what makes it a 5 vs a 3?"
+You:    "Averaging both half-cycles, a valid-tension band, and golden vectors
+         for the noisy wet end. It's not just plugging into the formula."
+Claude: "Agreed — 5. I'll note the sampling + valid-band work in the Issue."
 ```
 
 **Rules:**
-1. **Disagree openly.** The whole point is catching misestimates before you're mid-build.
-2. **Justify the gap.** If you say 8 and Claude says 3, one of you is missing something. Talk it out.
-3. **The person doing the work wins ties.** You know your codebase and your constraints better than Claude does.
-4. **Record disagreements.** PROJECT_PLAN.md has an "Estimation Poker — Standing Disagreements" table. If you can't resolve it, log it and revisit when you start the task.
-5. **Re-estimate when surprised.** If a 3 turns into an 8 mid-session, update the plan. That's data, not failure.
-
-### When to re-estimate
-
-- **Before starting a new phase** — review all tasks, re-score anything that looks different now that you know more
-- **After a task takes 2x+ the expected hours** — either the estimate was wrong or the task changed. Update the plan.
-- **When cutting scope** — removed tasks get zeroed out, deferred tasks get marked, remaining estimates may shift
+1. **Disagree openly** — catching misestimates before the build is the point.
+2. **Justify the gap.** If you say 8 and Claude says 3, someone's missing something.
+3. **The person doing the work wins ties.**
+4. **Record unresolved disagreements** and revisit when the task starts.
+5. **Re-estimate when surprised** — re-label the Issue. That's data.
 
 ### Anti-patterns
 
-- **Anchoring:** Don't let the first number stick without challenge. If Claude says 3 and you instinctively agree, pause and think about what could go wrong.
-- **Sandbagging:** Don't inflate estimates to build in buffer. The velocity tracker already accounts for your actual pace — padding estimates just makes the projections useless.
-- **Precision theater:** Don't debate whether something is a 4 or a 5. Pick the nearest Fibonacci number and move on. The scale is intentionally coarse.
-- **Estimating during the build:** If you're mid-task and realize it's bigger, stop estimating and just finish it. Log the actual hours. Re-estimate the *next* similar task.
+- **Anchoring:** don't let the first number stick unchallenged.
+- **Sandbagging:** don't pad for buffer — throughput already reflects real pace.
+- **Precision theater:** 4-or-5 debates are wasted breath; pick the nearer Fibonacci.
+- **Estimating mid-build:** if you're in it and it's bigger, finish it, then
+  re-estimate the *next* similar task.
 
 ---
 
 ## Part 3: Putting It Together
 
-### Weekly rhythm (when actively building)
+### Rhythm
 
-**Monday (or first session of the week):**
-- Open velocity tracker — check projected hours remaining
-- Check PROJECT_PLAN.md — what phase are you in, what's next?
-- If starting a new phase, do estimation poker on its tasks
+- **Phase start (`/start-phase`):** poker the phase's tasks, create the Issues
+  with `points:` labels.
+- **During:** work tasks, close Issues via PRs (`/kill-this`). No logging ritual.
+- **Phase end (`/retro`):** throughput + calibration computed from the closed
+  Issues; RETROSPECTIVES.md entry; forecast vs. the transplant deadline.
 
-**Each session:**
-- Start timer (or note the time)
-- Work
-- Log session to tracker + PROJECT_PLAN.md
+### Cross-project note
 
-**End of week (or end of phase):**
-- Review velocity trend — speeding up or slowing down?
-- If behind projection, identify what to cut (PROJECT_PLAN.md has a cuttable tasks list)
-- If ahead, resist the urge to add scope. Ship early.
-
-### Cross-project tracking
-
-If running multiple projects (Sailbook V2 + BrewBoat):
-- Each project has its own tab in the velocity tracker
-- Each project has its own PROJECT_PLAN.md in its repo
-- At the end of a session, update whichever project you worked on
-- Velocity is per-project — don't mix them. A Supabase CRUD app and an AI agent pipeline have very different hrs/pt profiles.
+soundings and its sibling **tinkle** each have their own repo, plan, and
+throughput — don't mix them. An embedded firmware phase and a Python-ingestion
+phase have different point profiles even within one project, which is why
+throughput is read per phase, not as one lifetime constant.
 
 ### The one thing that matters
 
-**Log your sessions honestly.** Everything else — the projections, the poker, the phase progress bars — is downstream of accurate data. Fifteen seconds of logging after each session gives you a forecasting system that actually works.
+**Keep the Issues and their `points:` labels honest.** Throughput, calibration,
+and the deadline forecast are all downstream of that — and it's the only manual
+input the system needs.
