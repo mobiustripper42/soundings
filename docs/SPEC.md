@@ -296,10 +296,15 @@ gateway → message bus → ingestion → time-series DB → dashboard
 
 - **Message bus:** Mosquitto (MQTT). Pub/sub broker — same idea as MQ Series,
   lighter wire protocol. Topics like `farm/tunnel/red/bed3/soil_moisture_6in`.
-- **Time-series DB:** TimescaleDB (PostgreSQL extension) — chosen over InfluxDB
-  so SQL JOINs can correlate sensor data against existing farm records (yield,
-  fertigation, journal). Set up **downsampling/retention early**: raw 10–15 min
-  for 1 yr, hourly for 5 yr, daily indefinitely.
+- **Time-series DB:** *contested — see §12 D6.* The source spec proposed
+  TimescaleDB (PostgreSQL extension) so SQL JOINs can correlate sensor data
+  against existing farm records (yield, fertigation, journal). A separate
+  @architect review argued for **VictoriaMetrics** instead (single Go binary,
+  retention-as-a-flag, lowest unattended-ops burden) and against InfluxDB
+  (forced version-churn migrations). The deciding question is whether we truly
+  need relational JOINs to farm records — the only thing that requires a SQL
+  store. Set up **downsampling/retention early** regardless: raw 10–15 min for
+  1 yr, hourly for 5 yr, daily indefinitely.
 - **Dashboard:** Grafana — one per tunnel plus an overview, phone-usable.
 - **Alerting:** tunnel temp over threshold; soil tension over ~80 cb in a tomato
   bed; node silent > 45 min (likely dead battery or wet enclosure).
@@ -387,7 +392,7 @@ forces it; where a default keeps options open, it's noted.
 | D3 | **Gateway radio chip / node↔gateway PHY pairing** | SX1262 (node) vs SX127x/RFM95 (gateway). Behind an adapter, faked in sim; decided at the bench. *(Hardware-affects-software — evaluated and found safely deferrable.)* |
 | D4 | **Gateway box** | Pi Zero 2 W vs Heltec LoRa→WiFi bridge vs radio-on-the-server. Central/on-LAN placement removes the antenna-reach pressure that would force this. |
 | D5 | **Firmware toolchain** | PlatformIO vs Arduino IDE. Decided when we stand up the firmware skeleton. |
-| D6 | **Server stack** (Mosquitto / TimescaleDB / Grafana) | Proposals from the source spec; confirmed or replaced as we reach each in simulation. |
+| D6 | **Server stack** — esp. the time-series DB | Contested. **TimescaleDB** (source spec, for SQL JOINs to farm records) vs **VictoriaMetrics** (@architect review: single binary, retention-as-a-flag, lowest unattended-ops burden) vs InfluxDB (rejected — version-churn) vs SQLite (rejected — loses Grafana-native source + alerting). **Deciding question: do we genuinely need SQL JOINs between sensor data and farm records?** Yes → Timescale/Postgres; visual correlation enough → VM. VM's Pi-specific edges (SD wear, low RAM) shrink now that the DB runs on the headless box, not the gateway Pi. Mosquitto + Grafana also proposals. Resolve in simulation. |
 | D7 | **Node-ID → location mapping** | Config file vs DB table. Designed with the gateway. |
 | D8 | **TimescaleDB schema + JOIN shape to farm records** | Designed with ingestion. |
 | D9 | **MQTT topic hierarchy** | Finalized with the gateway/ingestion. |
