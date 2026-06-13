@@ -1,50 +1,51 @@
 # soundings — Phase Retrospectives
 
-Written at each phase boundary. See Phase Boundary Checklist in `PROJECT_PLAN.md`.
+Written at each phase boundary by `/retro`. Velocity is **throughput (points per
+calendar week)** computed from GitHub issue `closedAt` dates + `points:` labels
+(DEC-S026) — not hours/point.
 
-Format per entry: velocity, scope changes, what worked, what didn't, forecast update.
+Format per entry: throughput, estimate calibration, scope changes, what worked,
+what didn't, forecast update.
 
 ---
 
 ## Phase [N] — [Name]
-**Completed:** [date]
-**Sessions:** [range]
 
-### Velocity
+**Closed:** [date]
+**Span:** [N] days · **Points:** [N] · **PRs:** [N]
+
+### Throughput
 
 | Metric | Value |
 |--------|-------|
-| Effort points | [N] pts |
-| Projected hours | ~[N] hrs |
-| Actual hours | ~[N] hrs |
-| **Hrs/point** | **[N.NN]** |
-| vs. prior baseline | [faster/slower/same] |
+| Points closed | [N] |
+| Span | [N] days |
+| **Throughput** | **[N] pts/wk** (or "burst") |
 
-**Why:** [One sentence on what drove the variance — infra investment paying off, heavier tasks than estimated, unexpected rework, etc.]
+**Estimate calibration:** [tasks re-estimated mid-phase: N. Net drift: ±N pts.]
+
+**Why:** [One sentence on what drove the throughput — infra investment paying
+off, heavier tasks than estimated, rework, availability, etc.]
 
 ### Scope Changes
 
-Tasks added during this phase (not in original plan):
-- **[task ID]** — [description] ([N] pts) — [why it was added]
+- **[task ID]** — [description] ([N] pts) — [why added/cut]
 
-Original estimate: [N] pts. Final: [N] pts ([+/-N] pts, [+/-N]%).
+Original estimate: [N] pts. Final: [N] pts ([±N] pts).
 
 ### What Worked
 
-- [Process or tooling win]
-- [Pattern that should be repeated]
+- [Process or tooling win to repeat]
 
 ### What Didn't Work
 
-- [Friction point]
-- [Thing to do differently next phase]
+- [Friction point to change next phase]
 
 ### Forecast Update (as of [date])
 
-**Deadline:** [date] ([N] days remaining)
-**Remaining work:** ~[N] pts across Phases [N]–[N]
+**Critical path:** Red Tunnel by ~March 2027.
+**Remaining work:** ~[N] pts across Phases [N]–[N].
 
-| Scope | Hrs needed | Hrs/wk needed | Verdict |
-|-------|-----------|---------------|---------|
-| Full scope ([N] pts @ [vel]) | ~[N] hrs | ~[N] hrs/wk | [on track / at risk / behind] |
-| Critical path ([N] pts) | ~[N] hrs | ~[N] hrs/wk | [verdict] |
+At [N] pts/wk throughput → ~[N] weeks of work remaining. Combined with real
+availability, that lands ~[date] — [on track / at risk / behind] vs. the
+transplant.
