@@ -12,7 +12,7 @@ This is a `tool`-type project, so `@ui-reviewer` (webapp-only) is not used.
 
 | Agent | Model | When | Purpose |
 |-------|-------|------|---------|
-| `@architect` | Fable 5 | Before design decisions, new dependencies, scope creep, any DEC-TBD | Keep architecture coherent against SPEC + DECISIONS. Output: proceed/modify/reject + reasoning, draft DEC entry. |
+| `@architect` | Opus 4.8 | Before design decisions, new dependencies, scope creep, any DEC-TBD | Keep architecture coherent against SPEC + DECISIONS. Runs Opus; escalate to a Fable run for genuinely hard or bundled design work (DEC-S027). Output: proceed/modify/reject + reasoning, draft DEC entry. |
 | `@code-review` | Sonnet | After commits (wired into `/kill-this`) | Lightweight post-commit review — bugs, inconsistencies, convention drift. Output: findings ranked by severity, or clean bill. |
 | `@pm` | Sonnet | Session start/end | Tracks state — done, next, blocked. Flags timeline risk, recommends order, suggests scope cuts. |
 | `@sync-config` | Sonnet | `/push-seeds`, `/pull-seeds` | Classifies template-vs-project diffs, proposes backports, schema-version gated. |

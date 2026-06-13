@@ -184,7 +184,7 @@ current-phase tasks are GitHub Issues; a phase ends when its issues close.
 
 | Agent | Model | When | Purpose |
 |-------|-------|------|---------|
-| @architect | Fable 5 | Before design decisions, new deps, scope creep | Coherence vs SPEC + DECISIONS |
+| @architect | Opus 4.8 | Before design decisions, new deps, scope creep | Coherence vs SPEC + DECISIONS |
 | @code-review | Sonnet | After commits (wired into `/kill-this`) | Catch issues early |
 | @pm | Sonnet | Session start/end | Track progress, flag risks |
 | @sync-config | Sonnet | `/push-seeds`, `/pull-seeds` | Classify template-vs-project diffs |
@@ -192,23 +192,40 @@ current-phase tasks are GitHub Issues; a phase ends when its issues close.
 (`@ui-reviewer` omitted — `tool` type. `@tape-reader` / `@doc-consistency` can be
 copied from seeds if/when their skills are used.)
 
-## Model Selection
+## Model Selection (DEC-S027)
 
-Three tiers. Default low; escalate by **task length and complexity**.
+Default to the cheapest model that does the job. **Opus 4.8 is the standing
+model** for real development and architecture; Sonnet handles cheap/scoped work;
+Fable is a deliberate, on-demand escalation for *bundled* long-horizon work —
+never the default ($10/$50 per MTok, 2× Opus, drains usage fast).
 
 | Tier | Model | Use for |
 |------|-------|---------|
-| Workhorse | `claude-sonnet-4-6` | Default session and most agents. Single-file edits, scoped tasks, reviews. |
-| Hard | `claude-opus-4-8` | The "stuck" escalation; safety/correctness-critical logic where being wrong is expensive but the task is bounded. |
-| Frontier | `claude-fable-5` | Long-horizon, multi-file, high-autonomy work; architecture decisions (`@architect`). Reserve accordingly. |
+| Cheap | `claude-sonnet-4-6` | Trivial/scoped agents and reviews — fast, low-cost. |
+| Default | `claude-opus-4-8` | The standing model for development and architecture. Most work runs here. |
+| Frontier (on demand) | `claude-fable-5` | A *bundled* long-horizon unit — several related tasks combined into one coherent multi-file run (e.g. the whole simulation spine, or the node firmware core end to end). Spawned deliberately and scope-confirmed. One-off task → stay on Opus. |
+
+**The Fable trigger — bundle, then escalate.** Fable's lead is largest on long,
+coherent, multi-file work, which is also where its cost amortizes across the most
+output — so don't route individual tasks to it.
+- When several related tasks form one coherent unit, **Claude proposes** bundling
+  them into one Fable run *before* starting, with the scope.
+- The **operator can request the same**: say `bundle for fable`. Either party raises it.
+- A Fable run is opt-in and announced — confirm scope before spawning, give it the
+  full combined spec up front, run it at high effort.
 
 - **Reach for `effort` before reaching for a tier.** `xhigh` is the floor for
   coding/agentic work; `high` for intelligence-sensitive work; `max` only when
   correctness must beat cost.
-- **Spec up front, then let it run.** Front-load the full task spec and let the
-  model work long rather than over-decomposing a coherent task.
-- **File memory is a force multiplier.** Keep SPEC, DECISIONS, and acceptance
-  criteria current; reference them explicitly in the task.
+- **File memory is a force multiplier** (~3× more on Fable). Keep SPEC, DECISIONS,
+  the §12 register, and acceptance criteria current; reference them explicitly —
+  matters most on a bundled Fable run.
+- **Vision.** Fable is state-of-the-art at vision — a legitimate reason to escalate
+  a unit heavy on datasheet figures, wiring diagrams, or bench photos.
+- **Agents:** `@architect` runs Opus 4.8, escalating to a Fable run only for
+  genuinely hard or bundled design work. Reviewers (`@code-review`, `@pm`,
+  `@sync-config`) stay Sonnet. New agents default to Sonnet; pin `model: opus`
+  only when the standing job needs it — don't pin Fable.
 
 ## PR Workflow
 
