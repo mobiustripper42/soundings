@@ -55,12 +55,12 @@ zero hardware. The whole pipeline is de-risked before any layer is deepened.
 
 | Task | Description | Points | Issue |
 |------|-------------|--------|-------|
-| 1.1 | Firmware toolchain skeleton + native test harness — build env, `firmware/core` layout, fake-clock/fake-sensor harness stub, one green host test. **Resolves D5.** | 3 | — |
-| 1.2 | Packet v1 schema + shared golden test vectors — the contract artifact in `contracts/`. Raw values on the wire (D1 default), CRC choice, firmware-version field, **manifest-aware field presence** (DEC-002, not just a fixed superset). **Designs D2.** | 5 | — |
-| 1.3 | C++ node-side serializer + native round-trip against the vectors. Compiles native *and* esp32-clean. | 3 | — |
-| 1.4 | Python gateway-side parser + pytest round-trip against the same vectors. Graceful on malformed (truncation, bad CRC, unknown fw-version, unexpected field set) — log + drop, never crash. | 3 | — |
-| 1.5 | Minimal sim server-stack compose — Mosquitto + a **provisional** DB + Grafana. Pick-but-switchable: fastest DB to stand up, **non-binding on D6** (labeled in compose + Issue). | 3 | — |
-| 1.6 | End-to-end spine wiring — fake-node emitter (slow drydown curve) → gateway → bus → DB → one moving chart. The fleet sim should eyeball the ±30 s jitter window. | 5 | — |
+| 1.1 | Firmware toolchain skeleton + native test harness — build env, `firmware/core` layout, fake-clock/fake-sensor harness stub, one green host test. **Resolves D5.** | 3 | [#4](https://github.com/mobiustripper42/soundings/issues/4) |
+| 1.2 | Packet v1 schema + shared golden test vectors — the contract artifact in `contracts/`. Raw values on the wire (D1 default), CRC choice, firmware-version field, **manifest-aware field presence** (DEC-002, not just a fixed superset). **Designs D2.** | 5 | [#5](https://github.com/mobiustripper42/soundings/issues/5) |
+| 1.3 | C++ node-side serializer + native round-trip against the vectors. Compiles native *and* esp32-clean. | 3 | [#6](https://github.com/mobiustripper42/soundings/issues/6) |
+| 1.4 | Python gateway-side parser + pytest round-trip against the same vectors. Graceful on malformed (truncation, bad CRC, unknown fw-version, unexpected field set) — log + drop, never crash. | 3 | [#7](https://github.com/mobiustripper42/soundings/issues/7) |
+| 1.5 | Minimal sim server-stack compose — Mosquitto + a **provisional** DB + Grafana. Pick-but-switchable: fastest DB to stand up, **non-binding on D6** (labeled in compose + Issue). | 3 | [#8](https://github.com/mobiustripper42/soundings/issues/8) |
+| 1.6 | End-to-end spine wiring — fake-node emitter (slow drydown curve) → gateway → bus → DB → one moving chart. The fleet sim should eyeball the ±30 s jitter window. | 5 | [#9](https://github.com/mobiustripper42/soundings/issues/9) |
 
 **Phase 1 total: 22 points.**
 
