@@ -67,6 +67,8 @@ def encode(node_id, fw_version, seq, battery_mv, channels, faults=()):
         by_name[name] = val
     for name in faults:
         fault_mask |= 1 << BIT_BY_NAME[name]
+    assert fault_mask & ~chan_mask == 0, \
+        f"fault on undeclared channel(s): {faults} not all in {[n for n, _ in channels]}"
 
     body = struct.pack("<BBHHHHH", PROTO_V1, node_id, fw_version, seq,
                        battery_mv, chan_mask, fault_mask)

@@ -34,7 +34,7 @@ read little-endian explicitly.
 A packet is a fixed **header**, then the **declared channel values** in ascending
 bit order, then a **CRC**.
 
-### Header (14 bytes, always present)
+### Header (12 bytes, always present)
 
 | Offset | Field | Type | Notes |
 |--------|-------|------|-------|

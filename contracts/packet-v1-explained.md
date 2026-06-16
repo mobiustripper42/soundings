@@ -30,10 +30,10 @@ Every packet has three parts, in order:
 ```
 [ HEADER ] [ SENSOR READINGS ] [ CHECKSUM ]
   always       varies per          always
-  14 bytes     node                2 bytes
+  12 bytes     node                2 bytes
 ```
 
-1. **Header** — the same 14 bytes on every packet: who sent it, a counter, the
+1. **Header** — the same 12 bytes on every packet: who sent it, a counter, the
    battery level, and two "which sensors" maps (explained below).
 2. **Sensor readings** — only the sensors this particular node actually has. A
    tank node sends one reading; a garden-bed node sends six. This is why packets
@@ -125,7 +125,7 @@ Reading it left to right:
 | `0001` | channel_mask | (switch #8 on) | "I have the tank-distance sensor" |
 | `0000` | fault_mask | (none) | nothing broke this cycle |
 | `d204` | tank distance | 1234 | 1234 mm of empty space above the water |
-| `9f96` | checksum | — | math over the 14 bytes before it |
+| `9f96` | checksum | — | math over everything before it |
 
 > Why `6400` means 100 and not 6,400: the chip writes the *low* half of a
 > two-byte number first (this is "little-endian," and it's just how the ESP32

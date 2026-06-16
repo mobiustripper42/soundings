@@ -77,7 +77,7 @@ the declared manifest as source of truth, never replacing it.
 
 ## DEC-003: Packet v1 wire contract (resolves §12 D2)
 
-**Decision:** The node→gateway binary packet is a **14-byte fixed little-endian
+**Decision:** The node→gateway binary packet is a **12-byte fixed little-endian
 header** — `proto_ver:u8`, `node_id:u8`, `fw_version:u16`, `seq:u16`,
 `battery_mv:u16`, `channel_mask:u16`, `fault_mask:u16` — followed by the
 **declared channel values in ascending channel-bit order**, then a trailing
