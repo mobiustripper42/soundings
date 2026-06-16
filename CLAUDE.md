@@ -59,8 +59,8 @@ Playwright. `@ui-reviewer` and `VersionTag.tsx` are intentionally absent
 - **Server stack:** existing headless Linux box. Message bus + time-series DB +
   Grafana — **all [proposed], unvalidated** (D6: TimescaleDB vs VictoriaMetrics
   unresolved). `mill-dev` (Tailscale VPS) is where we develop/simulate.
-- **Toolchain:** firmware build environment (PlatformIO vs Arduino IDE) is
-  **deferred (D5)** until the firmware skeleton goes up in Phase 1.
+- **Toolchain:** **PlatformIO** (D5 resolved, Phase 1.1) — `node` (Heltec V3) +
+  `native` (Unity host tests) envs in `firmware/platformio.ini`, mirroring tinkle.
 
 See `docs/SPEC.md` for the full picture and the §12 deferred-decision register.
 
@@ -113,18 +113,18 @@ Two code domains plus a wire contract between them:
 
 ## Commands
 
-Provisional — the firmware toolchain is deferred (D5), so build commands firm up
-in Phase 1. Intended shape:
+Firmware is PlatformIO (D5 resolved). Gateway and server-stack commands firm up as
+those layers land in Phase 1.
 
 ```bash
-# Firmware (toolchain TBD — PlatformIO shown as the likely shape)
-# pio run -e node            # build node firmware
-# pio test -e native         # host unit tests (core sensor/packet logic)
+# Firmware (run from firmware/)
+pio test -e native           # host unit tests (core sensor/packet logic) — the load-bearing tier
+pio run  -e node             # build node firmware (Heltec WiFi LoRa 32 V3)
 
-# Gateway (Python)
+# Gateway (Python) — lands in Phase 1.4
 # python -m pytest           # gateway + contract round-trip tests
 
-# Server stack (simulation)
+# Server stack (simulation) — lands in Phase 1.5
 # docker compose -f deploy/docker-compose.yml up   # broker + DB + Grafana
 ```
 
