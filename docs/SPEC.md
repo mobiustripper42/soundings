@@ -388,7 +388,7 @@ forces it; where a default keeps options open, it's noted.
 | # | Decision | Why deferred / default that keeps it open |
 |---|----------|-------------------------------------------|
 | D1 | **kPa & VPD math: on-node vs gateway** | Default: packet carries **raw** resistance + raw T/RH, so the math can run either place and the equations stay re-revisable against stored raw data. Decide for real in simulation. |
-| D2 | **Binary packet layout + CRC choice** | Designed in the simulation-spine work (the node serializer and gateway parser must agree — pinned by shared round-trip test vectors). |
+| ~~D2~~ | **Binary packet layout + CRC choice** — RESOLVED 2026-06-16 → **see DEC-003** | Packet v1 designed in Phase 1.2 (#5): 14-byte LE header + manifest-driven channel values + CRC-16/CCITT-FALSE, pinned by shared golden vectors. Full contract in `contracts/packet-v1.md`. |
 | D3 | **Gateway radio chip / node↔gateway PHY pairing** | SX1262 (node) vs SX127x/RFM95 (gateway). Behind an adapter, faked in sim; decided at the bench. *(Hardware-affects-software — evaluated and found safely deferrable.)* |
 | D4 | **Gateway box** | Pi Zero 2 W vs Heltec LoRa→WiFi bridge vs radio-on-the-server. Central/on-LAN placement removes the antenna-reach pressure that would force this. |
 | ~~D5~~ | **Firmware toolchain** — RESOLVED 2026-06-15 → **PlatformIO** | Picked while standing up the firmware skeleton (Phase 1.1, #4): mirrors tinkle's proven `native`+`esp32`+Unity setup, gives a one-command host-test tier, and was already on the box. See `firmware/platformio.ini`. |
