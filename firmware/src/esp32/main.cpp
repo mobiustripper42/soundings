@@ -13,8 +13,10 @@ namespace {
 
 // The ESP32 binding of the millis() seam — real hardware behind the interface.
 struct ArduinoClock : IClock {
-    uint32_t millis() override { return ::millis(); }
+    uint32_t millis() const override { return ::millis(); }
 };
+
+constexpr uint32_t kHeartbeatMs = 1000;   // skeleton liveness blink; real run-cycle intervals land in Phase 2
 
 ArduinoClock g_clock;
 Elapsed      g_heartbeat(g_clock);
@@ -23,12 +25,12 @@ Elapsed      g_heartbeat(g_clock);
 
 void setup() {
     Serial.begin(115200);
-    g_heartbeat.arm(1000);
+    g_heartbeat.arm(kHeartbeatMs);
 }
 
 void loop() {
     if (g_heartbeat.expired()) {
         Serial.println("soundings: alive");
-        g_heartbeat.arm(1000);
+        g_heartbeat.arm(kHeartbeatMs);
     }
 }
