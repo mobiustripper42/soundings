@@ -85,13 +85,13 @@ packets pass the Phase-1 contract tests.
 
 | Task | Description | Points | Issue |
 |------|-------------|--------|-------|
-| 2.1 | Adapter seam — interface set (`ISoilMoisture`, `ITemp`, `IHumidity`, `IRadio`, `IClock`, battery) + non-sensor fakes (radio queues a packet, clock fakes `millis()`/sleep, settable battery voltage). Sensor-specific fakes ride with their math tasks. | 3 | — |
-| 2.2 | Watermark tension math — AC-excitation sampling (both half-cycles, DC cancel), resistance→kPa with temp compensation, valid-tension band, golden vectors for the noisy wet end. Seed coefficients; bench-calibrate in Phase 5. The anchor measurement. | 5 | — |
-| 2.3 | VPD + soil-temp math — SHT45 T/RH → SVP/AVP/VPD (test matrix across the tomato band + extremes), DS18B20 read (feeds 2.2's temp comp). | 3 | — |
-| 2.4 | Tank-level math — two-segment distance→gallons curve (IBC kink ~46"), dead-zone clamp, raw distance always emitted. **Seed coefficients; empirical fit is a Phase 5 bench task.** | 2 | — |
-| 2.5 | Run cycle — wake → sample (walk declared set) → assemble → transmit → sleep, non-blocking against `millis()`, ±30 s wake jitter (injectable RNG), battery read. | 5 | — |
-| 2.6 | Declared-manifest config + node-type presets (DEC-002) — manifest format (identity-as-data), bed/tunnel-air/tank/rig presets, declared-but-missing → fault not silent gap. One coherent unit, no split. | 8 | — |
-| 2.7 | Wokwi node integration — `diagram.json`, sim build flag (sim-shortened cycle constants), confirm a declared node wakes → samples → assembles → "transmits" in sim. | 3 | — |
+| 2.1 | Adapter seam — interface set (`ISoilMoisture`, `ITemp`, `IHumidity`, `IRadio`, `IClock`, battery) + non-sensor fakes (radio queues a packet, clock fakes `millis()`/sleep, settable battery voltage). Sensor-specific fakes ride with their math tasks. | 3 | [#19](https://github.com/mobiustripper42/soundings/issues/19) |
+| 2.2 | Watermark tension math — AC-excitation sampling (both half-cycles, DC cancel), resistance→kPa with temp compensation, valid-tension band, golden vectors for the noisy wet end. Seed coefficients; bench-calibrate in Phase 5. The anchor measurement. | 5 | [#20](https://github.com/mobiustripper42/soundings/issues/20) |
+| 2.3 | VPD + soil-temp math — SHT45 T/RH → SVP/AVP/VPD (test matrix across the tomato band + extremes), DS18B20 read (feeds 2.2's temp comp). | 3 | [#21](https://github.com/mobiustripper42/soundings/issues/21) |
+| 2.4 | Tank-level math — two-segment distance→gallons curve (IBC kink ~46"), dead-zone clamp, raw distance always emitted. **Seed coefficients; empirical fit is a Phase 5 bench task.** | 2 | [#22](https://github.com/mobiustripper42/soundings/issues/22) |
+| 2.5 | Run cycle — wake → sample (walk declared set) → assemble → transmit → sleep, non-blocking against `millis()`, ±30 s wake jitter (injectable RNG), battery read. | 5 | [#23](https://github.com/mobiustripper42/soundings/issues/23) |
+| 2.6 | Declared-manifest config + node-type presets (DEC-002) — manifest format (identity-as-data), bed/tunnel-air/tank/rig presets, declared-but-missing → fault not silent gap. One coherent unit, no split. | 8 | [#24](https://github.com/mobiustripper42/soundings/issues/24) |
+| 2.7 | Wokwi node integration — `diagram.json`, sim build flag (sim-shortened cycle constants), confirm a declared node wakes → samples → assembles → "transmits" in sim. | 3 | [#25](https://github.com/mobiustripper42/soundings/issues/25) |
 
 **Phase 2 total: 29 points.**
 
