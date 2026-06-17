@@ -1,0 +1,80 @@
+# Soundings — simulation server stack (Phase 1.5).
+#
+# Brings up the three pieces the telemetry pipeline lands on: an MQTT broker, a
+# time-series DB, and Grafana. This is the SIM stack — it runs the whole pipeline
+# on a laptop with no hardware (software-first build philosophy). The real server
+# is an existing headless box; this compose mirrors its shape.
+#
+#   docker compose -f deploy/docker-compose.yml up -d
+#   Grafana → http://localhost:3000   (anonymous viewer; admin/admin to edit)
+#   VictoriaMetrics → http://localhost:8428
+#   MQTT broker → localhost:1883
+#
+# ─────────────────────────────────────────────────────────────────────────────
+# PROVISIONAL DB — NON-BINDING ON D6 (SPEC §12).
+# The time-series DB is VictoriaMetrics here ONLY because it is the fastest thing
+# to stand up: a single container, no schema, retention is one flag. This is NOT
+# a resolution of D6 (TimescaleDB vs VictoriaMetrics) — that's decided in Phase 3
+# against the SQL-JOIN-to-farm-records question, and this service may be swapped
+# wholesale. Nothing downstream should assume VM-specific behaviour. The seam is
+# the gateway's DB writer (Phase 3) + this datasource provisioning.
+# ─────────────────────────────────────────────────────────────────────────────
+
+name: soundings-sim
+
+services:
+  mosquitto:
+    image: eclipse-mosquitto:2.0.18   # pinned, like the other two services
+    container_name: soundings-mosquitto
+    restart: unless-stopped
+    ports:
+      - "${MQTT_PORT:-1883}:1883"        # MQTT
+      - "${MQTT_WS_PORT:-9001}:9001"     # MQTT over WebSockets (handy for browser debug tools)
+    volumes:
+      - ./mosquitto/mosquitto.conf:/mosquitto/config/mosquitto.conf:ro
+      - mosquitto-data:/mosquitto/data
+
+  victoriametrics:
+    image: victoriametrics/victoria-metrics:v1.102.1
+    container_name: soundings-vm
+    restart: unless-stopped
+    ports:
+      - "${VM_PORT:-8428}:8428"      # HTTP API: ingestion (Influx/Prometheus/Graphite) + query
+    command:
+      - "--storageDataPath=/vmdata"
+      # RETENTION KNOB (the §10 "configure DB downsampling early" gotcha starts here).
+      # How long raw samples are kept. Override with VM_RETENTION in the env.
+      # NOTE: query-time downsampling is done in Grafana/MetricsQL for the sim;
+      # storage-level downsampling is DB-specific and waits on D6.
+      - "--retentionPeriod=${VM_RETENTION:-12}"   # months
+      - "--selfScrapeInterval=10s"
+    volumes:
+      - vm-data:/vmdata
+
+  grafana:
+    image: grafana/grafana-oss:11.1.0
+    container_name: soundings-grafana
+    restart: unless-stopped
+    ports:
+      - "${GRAFANA_PORT:-3000}:3000"
+    environment:
+      GF_SECURITY_ADMIN_USER: "${GRAFANA_USER:-admin}"
+      GF_SECURITY_ADMIN_PASSWORD: "${GRAFANA_PASSWORD:-admin}"
+      # Sim convenience: anyone can view dashboards without logging in.
+      GF_AUTH_ANONYMOUS_ENABLED: "true"
+      GF_AUTH_ANONYMOUS_ORG_ROLE: "Viewer"
+    volumes:
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - grafana-data:/var/lib/grafana
+    # Start-order only — NOT a readiness gate. The VM image is FROM scratch (no
+    # shell), so a command healthcheck can't run in it. Grafana proxies datasource
+    # queries at query time, not provision time, so a VM that comes up a beat later
+    # is harmless: the datasource is registered and works once VM answers.
+    depends_on:
+      - victoriametrics
+
+volumes:
+  mosquitto-data:
+  vm-data:
+  grafana-data:

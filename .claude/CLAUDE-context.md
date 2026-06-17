@@ -65,11 +65,12 @@ Firmware is PlatformIO (D5 resolved). Gateway and server-stack commands firm up 
 pio test -e native           # host unit tests (core sensor/packet logic) — the load-bearing tier
 pio run  -e node             # build node firmware (Heltec WiFi LoRa 32 V3)
 
-# Gateway (Python) — lands in Phase 1.4
-# python -m pytest           # gateway + contract round-trip tests
+# Gateway (Python, run from gateway/) — Phase 1.4 landed
+#   venv:  python3 -m venv .venv && .venv/bin/pip install pytest
+.venv/bin/python -m pytest   # gateway parser + contract round-trip tests
 
-# Server stack (simulation) — lands in Phase 1.5
-# docker compose -f deploy/docker-compose.yml up   # broker + DB + Grafana
+# Server stack (simulation) — Phase 1.5 landed
+docker compose -f deploy/docker-compose.yml up   # broker + DB + Grafana
 ```
 
 ## Additional Docs
