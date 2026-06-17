@@ -96,6 +96,8 @@ def run(args: argparse.Namespace) -> int:
     while sink.written < decoded and time.time() < deadline:
         time.sleep(0.2)
 
+    pub.disconnect()
+    sub.disconnect()
     pub.loop_stop()
     sub.loop_stop()
     log.info("spine done: %d decoded, %d dropped, %d written to DB",

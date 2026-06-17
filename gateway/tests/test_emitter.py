@@ -51,6 +51,22 @@ def test_emitted_frames_decode_back():
     assert node_ids == {1, 2}
 
 
+def test_subzero_soil_temp_encodes():
+    """A below-freezing soil probe must encode cleanly (i16), not overflow the packer."""
+    raw = NodeSpec(node_id=1, soil_temp_c=-3.5).packet_at(0, 1)
+    r = packet.decode(raw)
+    assert r is not None
+    assert r.channel("SOIL_TEMP_0").raw == round(-3.5 * 16)  # signed round-trip
+
+
+def test_schedule_is_idempotent():
+    """Calling schedule() must not perturb a later events() (fresh RNG per call)."""
+    fleet = FleetEmitter(specs=[NodeSpec(1), NodeSpec(2)], cadence_min=10.0, max_minutes=100.0, seed=4)
+    first = fleet.schedule()
+    _ = fleet.events()
+    assert fleet.schedule() == first
+
+
 def test_event_count_matches_schedule():
     fleet = FleetEmitter(specs=[NodeSpec(1), NodeSpec(2)], cadence_min=10.0, max_minutes=100.0)
     # 10 ticks * 2 nodes

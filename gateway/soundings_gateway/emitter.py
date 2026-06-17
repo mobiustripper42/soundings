@@ -14,7 +14,7 @@ from __future__ import annotations
 import math
 import random
 from collections.abc import Iterator
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 
 from . import packet
 from .source import IPacketSource
@@ -37,8 +37,10 @@ def soil_tension_raw(wet_raw: int, dry_raw: int, tau_min: float, sim_min: float)
 
 
 def _soil_temp_raw(temp_c: float) -> int:
-    """DS18B20 raw: 1/16 °C/LSB, signed (stored as two's-complement u16)."""
-    return int(round(temp_c * 16)) & 0xFFFF
+    """DS18B20 raw: 1/16 °C/LSB, signed. encode() packs this as i16 ('<h'), so hand
+    it the signed value directly — masking to u16 would make sub-zero temps overflow
+    struct.pack and crash the encoder."""
+    return int(round(temp_c * 16))
 
 
 def _sht_temp_ticks(temp_c: float) -> int:
@@ -115,21 +117,20 @@ class FleetEmitter(IPacketSource):
     realtime: bool = False
     time_scale: float = 720.0       # sim-seconds per real-second in realtime mode
     fw_version: int = 100
-    _rng: random.Random = field(init=False, repr=False)
-
-    def __post_init__(self) -> None:
-        self._rng = random.Random(self.seed)
 
     def schedule(self) -> list[tuple[float, int, float]]:
         """(nominal_min, node_id, jitter_s) for every transmit, transmit-time
         ordered. Exposed so tests and a fleet eyeball can confirm the jitter
-        window keeps nodes off each other's slots."""
+        window keeps nodes off each other's slots. Deterministic from `seed` and
+        idempotent — a fresh RNG per call, so calling schedule() doesn't perturb a
+        later events()."""
+        rng = random.Random(self.seed)
         out: list[tuple[float, int, float]] = []
         ticks = int(self.max_minutes // self.cadence_min)
         for k in range(1, ticks + 1):
             nominal = k * self.cadence_min
             for spec in self.specs:
-                jitter = self._rng.uniform(-self.jitter_s, self.jitter_s)
+                jitter = rng.uniform(-self.jitter_s, self.jitter_s)
                 out.append((nominal, spec.node_id, jitter))
         out.sort(key=lambda e: e[0] + e[2] / 60.0)
         return out

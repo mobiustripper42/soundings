@@ -22,17 +22,16 @@ log = logging.getLogger(__name__)
 Writer = Callable[[str], None]
 
 
-def reading_to_line(msg: dict) -> str | None:
-    """Influx line protocol for one reading, or None if it carries no usable
-    values (every channel faulted)."""
+def reading_to_line(msg: dict) -> str:
+    """Influx line protocol for one reading. Faulted channels are dropped (a failed
+    read is a fault, not a value — DEC-002), but `battery_mv` is always written: even
+    a node whose every sensor faulted is worth recording as alive."""
     fields: dict[str, int] = {}
     for c in msg["channels"]:
         if c["fault"]:
             continue
         fields[c["name"].lower()] = c["raw"]
     fields["battery_mv"] = msg["battery_mv"]
-    if not fields:
-        return None
     field_str = ",".join(f"{k}={v}" for k, v in fields.items())
     line = f"soundings,node={msg['node_id']} {field_str}"
     ts = msg.get("received_at")
@@ -61,8 +60,6 @@ class Ingest:
     def handle(self, msg: dict) -> None:
         """Write one reading. Never raises — a bad write must not stop ingestion."""
         line = reading_to_line(msg)
-        if line is None:
-            return
         try:
             self.write(line)
             self.written += 1
