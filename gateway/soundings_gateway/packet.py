@@ -116,6 +116,39 @@ class Reading:
                 return c
         return None
 
+    def to_dict(self) -> dict:
+        """JSON-friendly view — the gateway publishes this over MQTT to ingestion."""
+        return {
+            "proto_ver": self.proto_ver,
+            "node_id": self.node_id,
+            "fw_version": self.fw_version,
+            "seq": self.seq,
+            "battery_mv": self.battery_mv,
+            "channel_mask": self.channel_mask,
+            "fault_mask": self.fault_mask,
+            "channels": [
+                {"name": c.name, "bit": c.bit, "raw": c.raw, "fault": c.fault}
+                for c in self.channels
+            ],
+        }
+
+    @classmethod
+    def from_dict(cls, d: dict) -> "Reading":
+        """Rebuild a Reading from to_dict() output (the ingestion side of MQTT)."""
+        return cls(
+            proto_ver=d["proto_ver"],
+            node_id=d["node_id"],
+            fw_version=d["fw_version"],
+            seq=d["seq"],
+            battery_mv=d["battery_mv"],
+            channel_mask=d["channel_mask"],
+            fault_mask=d["fault_mask"],
+            channels=tuple(
+                Channel(name=c["name"], bit=c["bit"], raw=c["raw"], fault=c["fault"])
+                for c in d["channels"]
+            ),
+        )
+
 
 def crc16_ccitt_false(data: bytes) -> int:
     """CRC-16/CCITT-FALSE: poly 0x1021, init 0xFFFF, no reflection, xorout 0x0000."""

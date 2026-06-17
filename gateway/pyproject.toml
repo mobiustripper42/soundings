@@ -1,15 +1,20 @@
 # Soundings gateway — Python decoder/ingestion service.
 #
 # Dev setup:
-#   python3 -m venv gateway/.venv && gateway/.venv/bin/pip install pytest
-# Run tests (from gateway/):
-#   .venv/bin/python -m pytest
+#   python3 -m venv gateway/.venv && gateway/.venv/bin/pip install -e gateway[dev]
+#   (or: .venv/bin/pip install paho-mqtt pytest)
+# Run tests (from gateway/):       .venv/bin/python -m pytest
+# Run the sim spine (from gateway/, stack up): .venv/bin/python -m soundings_gateway.spine --realtime
 
 [project]
 name = "soundings-gateway"
 version = "0.0.1"
 description = "Soundings LoRa gateway: decode packets into structured readings."
 requires-python = ">=3.10"
+dependencies = ["paho-mqtt>=2"]   # MQTT client for the spine; the contract parser itself is stdlib-only
+
+[project.optional-dependencies]
+dev = ["pytest"]
 
 [tool.pytest.ini_options]
 pythonpath = ["."]
