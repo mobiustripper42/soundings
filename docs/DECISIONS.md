@@ -118,10 +118,39 @@ meets a set bit outside its registry can't compute trailing offsets and therefor
 **MUST drop the packet**, never best-effort parse. `proto_ver` bumps only on a
 layout-incompatible change (header/CRC/endianness/channel-width).
 
+**Channel-ceiling upgrade path (16 → 32+ types).** The 16-bit masks cap the
+registry at 16 channel *types* (a sensor can be several channels — SHT45 = T+RH);
+the 17th type is the trigger. The path: **bump `proto_ver` to `0x02`, widen both
+masks to `u32`** (32 types, +4 header bytes). Parser branches on `proto_ver`;
+gateway updated first parses both v1 and v2; v1 field nodes need no change; only
+v2 nodes pay the extra bytes. A variable-length mask (continuation bit) is the
+"never revisit" option, taken only if a real node design needs >16 channels
+(don't gold-plate, DEC-001). Documented in `contracts/packet-v1.md` § Versioning.
+
+**Alternative considered — per-node contracts (deferred).** Instead of one global
+channel registry + a `channel_mask` in every packet, make `node_id` the key: the
+gateway looks up each node's manifest (DEC-002) and that *is* the layout, so the
+packet carries no presence mask. **Pros:** the 16-type ceiling disappears
+entirely (no global mask to overflow); slightly smaller packets; heterogeneous
+one-off nodes cost nothing. **Cons (why deferred):** parsing becomes hostage to a
+correct, in-sync `node_id`→manifest map (D7) — a packet from an unprovisioned or
+skewed node is opaque bytes, where today a self-describing packet is parseable in
+isolation; one contract becomes N, multiplying the firmware-vs-gateway drift
+surface the golden vectors exist to eliminate; you still need a per-node fault map
+(only the *presence* mask is shed); and a node loses the ability to drop a flaky
+channel mid-cycle without a gateway change. For a small fleet with a central
+gateway and a USB-flash service window — exactly where provisioning *will* skew —
+the self-describing packet is the more forgiving trade, and the ceiling fix
+(v2/u32) is small, late, and reversible. **The good part of the idea is kept:**
+the per-node manifest stays a gateway-side *validation* layer (flag a node that
+emits a channel its manifest doesn't list), not a *parsing dependency*. Flip to
+per-node contracts only if the fleet becomes genuinely large and heterogeneous.
+
 **Revisit:** If the bench excitation circuit (D11) makes raw ADC counts worth
-carrying for the Watermark; if node count ever approaches the u8 `node_id` /
-16-slot registry ceilings; or if an old-gateway/new-node ordering can't be
-guaranteed operationally (would force a self-describing TLV layout instead).
+carrying for the Watermark; at the 17th channel type (apply the v2/u32 path
+above); if `node_id` (u8) nears its ceiling; or if the fleet grows large and
+heterogeneous enough that per-node contracts (or a self-describing TLV layout)
+beat the global registry.
 
 ---
 

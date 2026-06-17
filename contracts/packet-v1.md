@@ -146,6 +146,30 @@ unknown-channel/unparseable frame); it must never best-effort parse, which would
 silently misread every trailing channel and the CRC. This turns a corruption
 mode into a defined, safe drop.
 
+### Channel ceiling and the v2 path
+
+`channel_mask`/`fault_mask` are 16-bit, so the registry holds **16 channel types
+total** (13 used, bits 13–15 reserved). One physical sensor may be several
+channels — an SHT45 is two (T + RH), a DS18B20 one — so the wall is 16 channel
+*types*, not 16 sensors. The **17th distinct channel type** is the one with no
+bit left; that's the trigger, not any single node's size (one packet maxes at 16
+channels too, but no node design approaches it).
+
+When the 17th type is needed, **bump `proto_ver` to `0x02` and widen both masks to
+`u32`** → 32 channel types, +4 header bytes. The parser branches on `proto_ver`:
+v1 packets parse with 16-bit masks, v2 with 32-bit. Roll out the usual way —
+update the gateway first (it parses both v1 and v2), then flash new nodes as v2;
+**v1 nodes already in the field need no change**, and only v2 nodes pay the extra
+4 bytes. No flag day.
+
+If hitting this twice would be annoying, the v2 bump is also the moment to make
+the mask **variable-length** (a continuation bit: top mask bit set ⇒ another 2
+bytes of mask follow), which removes the ceiling for good and keeps small packets
+small. Per "don't gold-plate" (DEC-001), reach for that only if a real node design
+actually needs it — not preemptively. A more radical alternative (per-node
+contracts keyed by `node_id`, dropping the global mask entirely) was considered
+and deferred — see DEC-003.
+
 ## Golden vectors
 
 [`vectors/packet-v1.json`](vectors/packet-v1.json) holds named cases, each with
