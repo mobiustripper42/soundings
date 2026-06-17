@@ -1,6 +1,7 @@
 #pragma once
 #include <stdint.h>
 #include <stddef.h>
+#include <cassert>
 
 // Soundings packet v1 serializer/deserializer — the C++ (node) side of the wire
 // contract in contracts/packet-v1.md (DEC-003). Byte-for-byte pinned to the
@@ -48,15 +49,27 @@ struct Packet {
     uint16_t channels[kMaxChannels] = {0};
 
     // Declare a channel and set its raw value (sets the channel_mask bit).
+    // `bit` must be a valid channel index — an out-of-range bit is a caller bug
+    // (a bad registry constant), not bad input, so it's asserted, not masked.
     void setChannel(int bit, uint16_t raw) {
+        assert(bit >= 0 && bit < kMaxChannels);
         channel_mask |= (uint16_t)(1u << bit);
         channels[bit] = raw;
     }
     // Mark an already-declared channel as faulted this cycle (DEC-002).
-    void setFault(int bit) { fault_mask |= (uint16_t)(1u << bit); }
+    void setFault(int bit) {
+        assert(bit >= 0 && bit < kMaxChannels);
+        fault_mask |= (uint16_t)(1u << bit);
+    }
 
-    bool hasChannel(int bit) const { return channel_mask & (1u << bit); }
-    bool isFault(int bit)    const { return fault_mask   & (1u << bit); }
+    bool hasChannel(int bit) const {
+        assert(bit >= 0 && bit < kMaxChannels);
+        return channel_mask & (1u << bit);
+    }
+    bool isFault(int bit) const {
+        assert(bit >= 0 && bit < kMaxChannels);
+        return fault_mask & (1u << bit);
+    }
 };
 
 enum class ParseResult {

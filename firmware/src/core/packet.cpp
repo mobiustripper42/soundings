@@ -17,11 +17,15 @@ inline uint16_t getU16(const uint8_t* buf, size_t& o) {
 }
 
 // Mask of channel bits this build knows how to size (registry width > 0).
+// Derived once from the compile-time registry (gnu++11 can't constexpr the loop).
 inline uint16_t knownMask() {
-    uint16_t m = 0;
-    for (int bit = 0; bit < kMaxChannels; ++bit)
-        if (kChannelWidth[bit]) m |= (uint16_t)(1u << bit);
-    return m;
+    static const uint16_t mask = []() {
+        uint16_t m = 0;
+        for (int bit = 0; bit < kMaxChannels; ++bit)
+            if (kChannelWidth[bit]) m |= (uint16_t)(1u << bit);
+        return m;
+    }();
+    return mask;
 }
 
 // Sum of declared channels' widths. Caller must have validated channel_mask

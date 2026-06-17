@@ -182,6 +182,28 @@ void test_serialize_refuses_unknown_channel() {
     TEST_ASSERT_EQUAL_size_t(0, serialize(p, buf, sizeof(buf)));
 }
 
+void test_bad_fault_mask_rejected() {
+    // Good tank packet, then set a fault bit (0) for a channel that isn't declared
+    // (only bit 8 is). fault_mask must be a subset of channel_mask.
+    uint8_t buf[kMaxPacketLen];
+    size_t n = goodTankPacket(buf);
+    buf[10] = 0x01; buf[11] = 0x00;        // fault_mask = bit 0 (undeclared)
+    uint16_t crc = crc16_ccitt_false(buf, n - kCrcLen);  // re-stamp CRC so only the mask is wrong
+    buf[n - 2] = (uint8_t)(crc & 0xFF); buf[n - 1] = (uint8_t)(crc >> 8);
+    Packet q;
+    TEST_ASSERT_EQUAL((int)ParseResult::BadFaultMask, (int)deserialize(buf, n, q));
+}
+
+void test_length_mismatch_rejected() {
+    // A well-formed packet with one extra byte appended (radio frame padding/junk):
+    // declared channels imply a shorter total than `len`.
+    uint8_t buf[kMaxPacketLen];
+    size_t n = goodTankPacket(buf);
+    buf[n] = 0x00;                          // trailing junk byte
+    Packet q;
+    TEST_ASSERT_EQUAL((int)ParseResult::LengthMismatch, (int)deserialize(buf, n + 1, q));
+}
+
 int main(int, char**) {
     UNITY_BEGIN();
     RUN_TEST(test_all_vectors_roundtrip);
@@ -191,5 +213,7 @@ int main(int, char**) {
     RUN_TEST(test_unknown_proto_rejected);
     RUN_TEST(test_unknown_channel_rejected);
     RUN_TEST(test_serialize_refuses_unknown_channel);
+    RUN_TEST(test_bad_fault_mask_rejected);
+    RUN_TEST(test_length_mismatch_rejected);
     return UNITY_END();
 }
