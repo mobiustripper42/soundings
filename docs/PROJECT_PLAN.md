@@ -23,7 +23,15 @@ down). Tests are baked into every estimate — no separate testing tasks. Veloci
 is tracked as **throughput (points per calendar week)** at phase boundaries
 (DEC-S026), not hours/point. See `VELOCITY_AND_POKER_GUIDE.md`.
 
-**Velocity baseline:** not yet established.
+**Velocity (throughput, DEC-S026):**
+
+| Phase | Points | Span (d) | Throughput | Re-est'd | Net drift | Sessions |
+|-------|--------|----------|------------|----------|-----------|----------|
+| 1     | 22     | 3.5      | burst (<7d) — 22 pts in 3.5d | 0 | 0 | 1 |
+
+Phase 1 was a single-session burst, so no per-week rate is quoted (a sub-week
+denominator is noise). Estimate unit held: every task shipped at its planned
+points (0 re-estimates, 0 net drift).
 
 ---
 
@@ -55,12 +63,12 @@ zero hardware. The whole pipeline is de-risked before any layer is deepened.
 
 | Task | Description | Points | Issue |
 |------|-------------|--------|-------|
-| 1.1 | Firmware toolchain skeleton + native test harness — build env, `firmware/core` layout, fake-clock/fake-sensor harness stub, one green host test. **Resolves D5.** | 3 | [#4](https://github.com/mobiustripper42/soundings/issues/4) |
-| 1.2 | Packet v1 schema + shared golden test vectors — the contract artifact in `contracts/`. Raw values on the wire (D1 default), CRC choice, firmware-version field, **manifest-aware field presence** (DEC-002, not just a fixed superset). **Designs D2.** | 5 | [#5](https://github.com/mobiustripper42/soundings/issues/5) |
-| 1.3 | C++ node-side serializer + native round-trip against the vectors. Compiles native *and* esp32-clean. | 3 | [#6](https://github.com/mobiustripper42/soundings/issues/6) |
-| 1.4 | Python gateway-side parser + pytest round-trip against the same vectors. Graceful on malformed (truncation, bad CRC, unknown fw-version, unexpected field set) — log + drop, never crash. | 3 | [#7](https://github.com/mobiustripper42/soundings/issues/7) |
-| 1.5 | Minimal sim server-stack compose — Mosquitto + a **provisional** DB + Grafana. Pick-but-switchable: fastest DB to stand up, **non-binding on D6** (labeled in compose + Issue). | 3 | [#8](https://github.com/mobiustripper42/soundings/issues/8) |
-| 1.6 | End-to-end spine wiring — fake-node emitter (slow drydown curve) → gateway → bus → DB → one moving chart. The fleet sim should eyeball the ±30 s jitter window. | 5 | [#9](https://github.com/mobiustripper42/soundings/issues/9) |
+| 1.1 | Firmware toolchain skeleton + native test harness — build env, `firmware/core` layout, fake-clock/fake-sensor harness stub, one green host test. **Resolves D5.** | 3 | [x] [#11](https://github.com/mobiustripper42/soundings/pull/11) |
+| 1.2 | Packet v1 schema + shared golden test vectors — the contract artifact in `contracts/`. Raw values on the wire (D1 default), CRC choice, firmware-version field, **manifest-aware field presence** (DEC-002, not just a fixed superset). **Designs D2.** | 5 | [x] [#12](https://github.com/mobiustripper42/soundings/pull/12) |
+| 1.3 | C++ node-side serializer + native round-trip against the vectors. Compiles native *and* esp32-clean. | 3 | [x] [#14](https://github.com/mobiustripper42/soundings/pull/14) |
+| 1.4 | Python gateway-side parser + pytest round-trip against the same vectors. Graceful on malformed (truncation, bad CRC, unknown fw-version, unexpected field set) — log + drop, never crash. | 3 | [x] [#15](https://github.com/mobiustripper42/soundings/pull/15) |
+| 1.5 | Minimal sim server-stack compose — Mosquitto + a **provisional** DB + Grafana. Pick-but-switchable: fastest DB to stand up, **non-binding on D6** (labeled in compose + Issue). | 3 | [x] [#17](https://github.com/mobiustripper42/soundings/pull/17) |
+| 1.6 | End-to-end spine wiring — fake-node emitter (slow drydown curve) → gateway → bus → DB → one moving chart. The fleet sim should eyeball the ±30 s jitter window. | 5 | [x] [#18](https://github.com/mobiustripper42/soundings/pull/18) |
 
 **Phase 1 total: 22 points.**
 
