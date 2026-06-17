@@ -1,0 +1,411 @@
+{
+  "format": "soundings-packet",
+  "proto_ver": 1,
+  "encoding": {
+    "byte_order": "little-endian",
+    "crc": "CRC-16/CCITT-FALSE (poly=0x1021, init=0xFFFF, refin=false, refout=false, xorout=0x0000), over all bytes preceding the CRC field, appended little-endian.",
+    "header_fields": [
+      "proto_ver:u8",
+      "node_id:u8",
+      "fw_version:u16",
+      "seq:u16",
+      "battery_mv:u16",
+      "channel_mask:u16",
+      "fault_mask:u16"
+    ]
+  },
+  "channel_registry": [
+    {
+      "bit": 0,
+      "name": "SOIL_TENSION_0",
+      "type": "u16"
+    },
+    {
+      "bit": 1,
+      "name": "SOIL_TENSION_1",
+      "type": "u16"
+    },
+    {
+      "bit": 2,
+      "name": "SOIL_TENSION_2",
+      "type": "u16"
+    },
+    {
+      "bit": 3,
+      "name": "SOIL_TENSION_3",
+      "type": "u16"
+    },
+    {
+      "bit": 4,
+      "name": "SOIL_TEMP_0",
+      "type": "i16"
+    },
+    {
+      "bit": 5,
+      "name": "SOIL_TEMP_1",
+      "type": "i16"
+    },
+    {
+      "bit": 6,
+      "name": "AIR_TEMP",
+      "type": "u16"
+    },
+    {
+      "bit": 7,
+      "name": "AIR_RH",
+      "type": "u16"
+    },
+    {
+      "bit": 8,
+      "name": "TANK_DISTANCE",
+      "type": "u16"
+    },
+    {
+      "bit": 9,
+      "name": "SOIL_TEMP_2",
+      "type": "i16"
+    },
+    {
+      "bit": 10,
+      "name": "LEAF_WETNESS",
+      "type": "u16"
+    },
+    {
+      "bit": 11,
+      "name": "AIR_TEMP_1",
+      "type": "u16"
+    },
+    {
+      "bit": 12,
+      "name": "AIR_RH_1",
+      "type": "u16"
+    }
+  ],
+  "vectors": [
+    {
+      "name": "tank_node_nominal",
+      "description": "Tank-level node: one ultrasonic channel. The minimal real packet.",
+      "fields": {
+        "proto_ver": 1,
+        "node_id": 10,
+        "fw_version": 100,
+        "seq": 1,
+        "battery_mv": 3700,
+        "channel_mask": 256,
+        "fault_mask": 0,
+        "channels": [
+          {
+            "name": "TANK_DISTANCE",
+            "raw": 1234,
+            "fault": false
+          }
+        ]
+      },
+      "expected": {
+        "hex": "010a64000100740e00010000d2049f96",
+        "len": 16,
+        "crc16": "0x969F"
+      }
+    },
+    {
+      "name": "bed_node_nominal",
+      "description": "Bed node: 2 Watermarks (6\"/12\") + 2 DS18B20 + SHT45 (T,RH). Typical.",
+      "fields": {
+        "proto_ver": 1,
+        "node_id": 1,
+        "fw_version": 100,
+        "seq": 42,
+        "battery_mv": 3850,
+        "channel_mask": 243,
+        "fault_mask": 0,
+        "channels": [
+          {
+            "name": "SOIL_TENSION_0",
+            "raw": 152,
+            "fault": false
+          },
+          {
+            "name": "SOIL_TENSION_1",
+            "raw": 318,
+            "fault": false
+          },
+          {
+            "name": "SOIL_TEMP_0",
+            "raw": 296,
+            "fault": false
+          },
+          {
+            "name": "SOIL_TEMP_1",
+            "raw": 272,
+            "fault": false
+          },
+          {
+            "name": "AIR_TEMP",
+            "raw": 26869,
+            "fault": false
+          },
+          {
+            "name": "AIR_RH",
+            "raw": 39000,
+            "fault": false
+          }
+        ]
+      },
+      "expected": {
+        "hex": "010164002a000a0ff300000098003e0128011001f5685898a358",
+        "len": 26,
+        "crc16": "0x58A3"
+      }
+    },
+    {
+      "name": "bed_node_one_fault",
+      "description": "Bed node where the 12\" soil-temp probe failed to read: declared (in channel_mask) AND flagged in fault_mask, value bytes still present. A fault, not a silent gap (DEC-002).",
+      "fields": {
+        "proto_ver": 1,
+        "node_id": 1,
+        "fw_version": 100,
+        "seq": 43,
+        "battery_mv": 3840,
+        "channel_mask": 243,
+        "fault_mask": 32,
+        "channels": [
+          {
+            "name": "SOIL_TENSION_0",
+            "raw": 155,
+            "fault": false
+          },
+          {
+            "name": "SOIL_TENSION_1",
+            "raw": 320,
+            "fault": false
+          },
+          {
+            "name": "SOIL_TEMP_0",
+            "raw": 298,
+            "fault": false
+          },
+          {
+            "name": "SOIL_TEMP_1",
+            "raw": 0,
+            "fault": true
+          },
+          {
+            "name": "AIR_TEMP",
+            "raw": 26900,
+            "fault": false
+          },
+          {
+            "name": "AIR_RH",
+            "raw": 38800,
+            "fault": false
+          }
+        ]
+      },
+      "expected": {
+        "hex": "010164002b00000ff30020009b0040012a010000146990971686",
+        "len": 26,
+        "crc16": "0x8616"
+      }
+    },
+    {
+      "name": "bed_node_max_watermarks",
+      "description": "4-Watermark bed node (commercial+homemade pairs) + 2 DS18B20 + SHT45 = 8 channels. The top of the ~30-byte size budget.",
+      "fields": {
+        "proto_ver": 1,
+        "node_id": 2,
+        "fw_version": 101,
+        "seq": 7,
+        "battery_mv": 4050,
+        "channel_mask": 255,
+        "fault_mask": 0,
+        "channels": [
+          {
+            "name": "SOIL_TENSION_0",
+            "raw": 140,
+            "fault": false
+          },
+          {
+            "name": "SOIL_TENSION_1",
+            "raw": 305,
+            "fault": false
+          },
+          {
+            "name": "SOIL_TENSION_2",
+            "raw": 148,
+            "fault": false
+          },
+          {
+            "name": "SOIL_TENSION_3",
+            "raw": 311,
+            "fault": false
+          },
+          {
+            "name": "SOIL_TEMP_0",
+            "raw": 290,
+            "fault": false
+          },
+          {
+            "name": "SOIL_TEMP_1",
+            "raw": 268,
+            "fault": false
+          },
+          {
+            "name": "AIR_TEMP",
+            "raw": 27000,
+            "fault": false
+          },
+          {
+            "name": "AIR_RH",
+            "raw": 40000,
+            "fault": false
+          }
+        ]
+      },
+      "expected": {
+        "hex": "010265000700d20fff0000008c0031019400370122010c017869409c4b9f",
+        "len": 30,
+        "crc16": "0x9F4B"
+      }
+    },
+    {
+      "name": "negative_soil_temp",
+      "description": "Sub-zero soil temp exercises the signed i16 encoding: -80 = -5.0 \u00b0C.",
+      "fields": {
+        "proto_ver": 1,
+        "node_id": 3,
+        "fw_version": 100,
+        "seq": 900,
+        "battery_mv": 3600,
+        "channel_mask": 17,
+        "fault_mask": 0,
+        "channels": [
+          {
+            "name": "SOIL_TENSION_0",
+            "raw": 600,
+            "fault": false
+          },
+          {
+            "name": "SOIL_TEMP_0",
+            "raw": -80,
+            "fault": false
+          }
+        ]
+      },
+      "expected": {
+        "hex": "010364008403100e110000005802b0ffb2b6",
+        "len": 18,
+        "crc16": "0xB6B2"
+      }
+    },
+    {
+      "name": "seq_wrap_battery_unknown",
+      "description": "Edge sentinels: seq at u16 max (about to wrap) and battery 0xFFFF (unknown/unread). Tank node.",
+      "fields": {
+        "proto_ver": 1,
+        "node_id": 10,
+        "fw_version": 100,
+        "seq": 65535,
+        "battery_mv": 65535,
+        "channel_mask": 256,
+        "fault_mask": 0,
+        "channels": [
+          {
+            "name": "TANK_DISTANCE",
+            "raw": 305,
+            "fault": false
+          }
+        ]
+      },
+      "expected": {
+        "hex": "010a6400ffffffff00010000310170b1",
+        "len": 16,
+        "crc16": "0xB170"
+      }
+    },
+    {
+      "name": "all_channels_registry_coverage",
+      "description": "Every v1 channel declared at once \u2014 registry parse-order coverage. Exceeds the typical LoRa size budget; a parser test, not a real node.",
+      "fields": {
+        "proto_ver": 1,
+        "node_id": 200,
+        "fw_version": 255,
+        "seq": 12345,
+        "battery_mv": 3777,
+        "channel_mask": 8191,
+        "fault_mask": 0,
+        "channels": [
+          {
+            "name": "SOIL_TENSION_0",
+            "raw": 1000,
+            "fault": false
+          },
+          {
+            "name": "SOIL_TENSION_1",
+            "raw": 1001,
+            "fault": false
+          },
+          {
+            "name": "SOIL_TENSION_2",
+            "raw": 1002,
+            "fault": false
+          },
+          {
+            "name": "SOIL_TENSION_3",
+            "raw": 1003,
+            "fault": false
+          },
+          {
+            "name": "SOIL_TEMP_0",
+            "raw": 1004,
+            "fault": false
+          },
+          {
+            "name": "SOIL_TEMP_1",
+            "raw": 1005,
+            "fault": false
+          },
+          {
+            "name": "AIR_TEMP",
+            "raw": 1006,
+            "fault": false
+          },
+          {
+            "name": "AIR_RH",
+            "raw": 1007,
+            "fault": false
+          },
+          {
+            "name": "TANK_DISTANCE",
+            "raw": 1008,
+            "fault": false
+          },
+          {
+            "name": "SOIL_TEMP_2",
+            "raw": 1009,
+            "fault": false
+          },
+          {
+            "name": "LEAF_WETNESS",
+            "raw": 1010,
+            "fault": false
+          },
+          {
+            "name": "AIR_TEMP_1",
+            "raw": 1011,
+            "fault": false
+          },
+          {
+            "name": "AIR_RH_1",
+            "raw": 1012,
+            "fault": false
+          }
+        ]
+      },
+      "expected": {
+        "hex": "01c8ff003930c10eff1f0000e803e903ea03eb03ec03ed03ee03ef03f003f103f203f303f4039639",
+        "len": 40,
+        "crc16": "0x3996"
+      }
+    }
+  ]
+}

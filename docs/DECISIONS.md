@@ -75,6 +75,56 @@ the declared manifest as source of truth, never replacing it.
 
 ---
 
+## DEC-003: Packet v1 wire contract (resolves §12 D2)
+
+**Decision:** The node→gateway binary packet is a **12-byte fixed little-endian
+header** — `proto_ver:u8`, `node_id:u8`, `fw_version:u16`, `seq:u16`,
+`battery_mv:u16`, `channel_mask:u16`, `fault_mask:u16` — followed by the
+**declared channel values in ascending channel-bit order**, then a trailing
+**CRC-16/CCITT-FALSE** (little-endian). A 16-slot **channel registry** maps each
+bit to a raw sensor channel (raw values per D1). The full contract, registry, and
+versioning policy live in `contracts/packet-v1.md`, pinned by shared golden
+vectors in `contracts/vectors/packet-v1.json` — the single source both the C++
+serializer (Phase 1.3) and the Python parser (Phase 1.4) build against, so they
+can't drift.
+
+**Why:**
+- **Manifest on the wire (DEC-002).** `channel_mask` *is* the node's declared
+  sensor set, so the layout is a node's manifest, not a fixed superset — a tank
+  node is 16 B, a typical bed node 26 B, a 4-Watermark bed node 30 B (the
+  ~20–30 B §8 target).
+- **Three unambiguous states per channel.** absent (`channel_mask` bit 0),
+  read-OK (mask 1 / `fault_mask` 0), or **declared-but-failed** (mask 1 /
+  `fault_mask` 1, value bytes present but don't-care). A declared sensor that
+  fails is an explicit fault the gateway can alert on, never a silent gap
+  (DEC-002).
+- **Layout is a pure function of `channel_mask`.** Faulted channels keep their
+  bytes, so a parser walks the packet from mask + registry alone; `fault_mask` is
+  pure metadata. A separate mask (not per-type sentinels) means the full value
+  range stays usable on channel types with no spare sentinel (SHT45 ticks).
+- **Raw resistance, not ADC counts, for the Watermark.** Resistance (kΩ) is the
+  lowest *circuit-independent* value; ADC counts would bake in the deferred
+  excitation-circuit design (D11). The temp-compensated kPa conversion — the part
+  that benefits from re-revisability (D1) — stays downstream.
+- **CRC fully parameter-pinned** (poly 0x1021, init 0xFFFF, no reflection, xorout
+  0) in both the spec and the JSON, and hard-pinned by the golden vectors — CRC
+  ambiguity is the classic C++/Python interop bug.
+
+**Tradeoff / assumption:** Adding a sensor is a new bit + registry row with **no
+`proto_ver` bump**; this relies on the **gateway registry always being a superset
+of every deployed node's** (update the gateway before flashing a node with a new
+channel — trivial given central gateway + USB-flash service window). A parser that
+meets a set bit outside its registry can't compute trailing offsets and therefore
+**MUST drop the packet**, never best-effort parse. `proto_ver` bumps only on a
+layout-incompatible change (header/CRC/endianness/channel-width).
+
+**Revisit:** If the bench excitation circuit (D11) makes raw ADC counts worth
+carrying for the Watermark; if node count ever approaches the u8 `node_id` /
+16-slot registry ceilings; or if an old-gateway/new-node ordering can't be
+guaranteed operationally (would force a self-describing TLV layout instead).
+
+---
+
 *Settled choices recorded as `[settled]` in SPEC (read-only V1, LoRa
 point-to-point not LoRaWAN, no solar, USB-flash not OTA, software-first build)
 may graduate to their own DEC entries here if their reasoning needs preserving.
