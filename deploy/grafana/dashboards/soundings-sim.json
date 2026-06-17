@@ -22,7 +22,7 @@
       "targets": [
         {
           "datasource": { "type": "prometheus", "uid": "soundings-tsdb" },
-          "expr": "soundings_soil_tension_raw",
+          "expr": "soundings_soil_tension_0",
           "legendFormat": "node {{node}}",
           "refId": "A"
         }
