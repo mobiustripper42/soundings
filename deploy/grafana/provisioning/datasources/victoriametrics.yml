@@ -1,0 +1,20 @@
+# Grafana datasource provisioning — VictoriaMetrics via its Prometheus-compatible
+# API. Provisioned (not click-configured) so the sim stack is reproducible from
+# `docker compose up` alone.
+#
+# PROVISIONAL / NON-BINDING ON D6: if D6 resolves to TimescaleDB, this file is
+# replaced by a postgres datasource — the only Grafana-side change needed.
+
+apiVersion: 1
+
+datasources:
+  - name: VictoriaMetrics
+    uid: soundings-tsdb           # stable uid so dashboards reference the DB, not the engine
+    type: prometheus
+    access: proxy
+    url: http://victoriametrics:8428
+    isDefault: true
+    jsonData:
+      httpMethod: POST
+      timeInterval: "10s"
+    editable: true
