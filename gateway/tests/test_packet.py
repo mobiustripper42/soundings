@@ -171,3 +171,24 @@ def test_decode_returns_reading_on_good_input():
     r = decode(_good_tank())
     assert isinstance(r, Reading)
     assert r.node_id == 10
+
+
+def test_empty_channel_mask_packet():
+    """A header-only packet (channel_mask=0, 14 bytes) is structurally valid."""
+    raw = encode(node_id=7, fw_version=100, seq=5, battery_mv=3700, channels={})
+    assert len(raw) == packet.HEADER_LEN + packet.CRC_LEN  # 14
+    r = parse(raw)
+    assert r.channel_mask == 0
+    assert r.channels == ()
+    assert r.node_id == 7
+
+
+def test_decode_absorbs_non_packeterror(caplog, monkeypatch):
+    """Even a non-PacketError bug in parse() must not crash the daemon."""
+    def boom(_):
+        raise ValueError("synthetic parse bug")
+
+    monkeypatch.setattr(packet, "parse", boom)
+    with caplog.at_level(logging.ERROR):
+        assert decode(_good_tank()) is None
+    assert any("unexpected error decoding packet" in rec.message for rec in caplog.records)

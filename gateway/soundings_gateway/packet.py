@@ -138,6 +138,8 @@ def parse(data: bytes) -> Reading:
     gateway to that node. Unrecognized firmware versions are a logging concern for
     the ingestion layer, not a parse failure.
     """
+    if not isinstance(data, (bytes, bytearray, memoryview)):
+        raise PacketError(f"expected bytes-like input, got {type(data).__name__}")
     if len(data) < HEADER_LEN + CRC_LEN:
         raise TooShort(f"{len(data)} bytes < minimum {HEADER_LEN + CRC_LEN}")
 
