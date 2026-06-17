@@ -8,7 +8,10 @@ providers:
     orgId: 1
     folder: "Soundings (sim)"
     type: file
-    disableDeletion: false
+    # Provisioned JSON in deploy/grafana/dashboards/ is the source of truth, so
+    # block UI deletion. UI edits live only in the named volume and are NOT written
+    # back to the repo — to keep a change, export the dashboard JSON and commit it.
+    disableDeletion: true
     allowUiUpdates: true
     options:
       path: /var/lib/grafana/dashboards

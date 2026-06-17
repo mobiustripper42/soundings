@@ -24,7 +24,7 @@ name: soundings-sim
 
 services:
   mosquitto:
-    image: eclipse-mosquitto:2
+    image: eclipse-mosquitto:2.0.18   # pinned, like the other two services
     container_name: soundings-mosquitto
     restart: unless-stopped
     ports:
@@ -67,6 +67,10 @@ services:
       - ./grafana/provisioning:/etc/grafana/provisioning:ro
       - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
       - grafana-data:/var/lib/grafana
+    # Start-order only — NOT a readiness gate. The VM image is FROM scratch (no
+    # shell), so a command healthcheck can't run in it. Grafana proxies datasource
+    # queries at query time, not provision time, so a VM that comes up a beat later
+    # is harmless: the datasource is registered and works once VM answers.
     depends_on:
       - victoriametrics
 
