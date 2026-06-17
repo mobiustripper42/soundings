@@ -1,0 +1,16 @@
+# Soundings gateway — Python decoder/ingestion service.
+#
+# Dev setup:
+#   python3 -m venv gateway/.venv && gateway/.venv/bin/pip install pytest
+# Run tests (from gateway/):
+#   .venv/bin/python -m pytest
+
+[project]
+name = "soundings-gateway"
+version = "0.0.1"
+description = "Soundings LoRa gateway: decode packets into structured readings."
+requires-python = ">=3.10"
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+testpaths = ["tests"]
