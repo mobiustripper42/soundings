@@ -296,7 +296,7 @@ gateway → message bus → ingestion → time-series DB → dashboard
 
 - **Message bus:** Mosquitto (MQTT). Pub/sub broker — same idea as MQ Series,
   lighter wire protocol. Topics like `farm/tunnel/red/bed3/soil_moisture_6in`.
-- **Time-series DB:** *contested — see §12 D6.* The source spec proposed
+- **Time-series DB:** *RESOLVED → **TimescaleDB**, hosted by Poop Deck (DEC-004 / §12 D6). The debate below is retained as the reasoning that led there.* The source spec proposed
   TimescaleDB (PostgreSQL extension) so SQL JOINs can correlate sensor data
   against existing farm records (yield, fertigation, journal). A separate
   @architect review argued for **VictoriaMetrics** instead (single Go binary,
@@ -387,12 +387,12 @@ forces it; where a default keeps options open, it's noted.
 
 | # | Decision | Why deferred / default that keeps it open |
 |---|----------|-------------------------------------------|
-| D1 | **kPa & VPD math: on-node vs gateway** | Default: packet carries **raw** resistance + raw T/RH, so the math can run either place and the equations stay re-revisable against stored raw data. Decide for real in simulation. |
+| ~~D1~~ | **kPa & VPD math: on-node vs gateway** — RESOLVED 2026-07-10 → **gateway-side derivation, raw preserved** (see DEC-004) | The gateway derives kPa/VPD/gallons and publishes **raw + derived** JSON to Poop Deck; the packet keeps **raw** on the wire (DEC-003 unchanged), and Poop Deck's `soundings_readings` stores both. Raw is the durable record; derived is a re-revisable lens. On-node derivation rejected — it would bake calibration coefficients into firmware and forfeit re-revisability against stored raw. |
 | ~~D2~~ | **Binary packet layout + CRC choice** — RESOLVED 2026-06-16 → **see DEC-003** | Packet v1 designed in Phase 1.2 (#5): 12-byte LE header + manifest-driven channel values + CRC-16/CCITT-FALSE, pinned by shared golden vectors. Full contract in `contracts/packet-v1.md`. |
 | D3 | **Gateway radio chip / node↔gateway PHY pairing** | SX1262 (node) vs SX127x/RFM95 (gateway). Behind an adapter, faked in sim; decided at the bench. *(Hardware-affects-software — evaluated and found safely deferrable.)* |
 | D4 | **Gateway box** | Pi Zero 2 W vs Heltec LoRa→WiFi bridge vs radio-on-the-server. Central/on-LAN placement removes the antenna-reach pressure that would force this. |
 | ~~D5~~ | **Firmware toolchain** — RESOLVED 2026-06-15 → **PlatformIO** | Picked while standing up the firmware skeleton (Phase 1.1, #4): mirrors tinkle's proven `native`+`esp32`+Unity setup, gives a one-command host-test tier, and was already on the box. See `firmware/platformio.ini`. |
-| D6 | **Server stack** — esp. the time-series DB | Contested. **TimescaleDB** (source spec, for SQL JOINs to farm records) vs **VictoriaMetrics** (@architect review: single binary, retention-as-a-flag, lowest unattended-ops burden) vs InfluxDB (rejected — version-churn) vs SQLite (rejected — loses Grafana-native source + alerting). **Deciding question: do we genuinely need SQL JOINs between sensor data and farm records?** Yes → Timescale/Postgres; visual correlation enough → VM. VM's Pi-specific edges (SD wear, low RAM) shrink now that the DB runs on the headless box, not the gateway Pi. The likely JOIN counterparty is the owner's separate farm recording/analysis tool (daily log, harvest, diagnosis, labor) — if that lands Postgres-backed and the correlations are real, D6 tips to Timescale/Postgres. Mosquitto + Grafana also proposals. Resolve in simulation. |
+| ~~D6~~ | **Server stack** — esp. the time-series DB — RESOLVED 2026-07-10 → **TimescaleDB, hosted by Poop Deck** (see DEC-004) | The JOIN counterparty D6's deciding question named — the owner's separate farm recording/analysis tool — materialized as **Poop Deck** (Postgres-backed; tinkle already writes to it). Both halves of the deciding question are now facts: real SQL JOINs to farm records **and** a Postgres counterparty. So D6 tips to Timescale/Postgres. Storage + graphing move to Poop Deck; soundings retires its provisional VictoriaMetrics + Grafana (the code breakout — `deploy/` VM+Grafana removal + swapping `ingest.py`'s writer to publish to Poop Deck — is scheduled follow-up). Mosquitto stays as the wire. |
 | D7 | **Node-ID → location mapping** | Config file vs DB table. Designed with the gateway. |
 | D8 | **TimescaleDB schema + JOIN shape to farm records** | Designed with ingestion. |
 | D9 | **MQTT topic hierarchy** | Finalized with the gateway/ingestion. |
