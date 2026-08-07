@@ -76,30 +76,59 @@ the IBC's top (~46"):
 Total volume vs. height is therefore **two linear segments** with a single
 breakpoint where the IBC tops out.
 
-### Calibration — empirical, no tank dimensions needed
+### Calibration — analytic seed, empirical correction (DEC-005)
 
-1. Mount the sensor.
-2. Log sensor reading vs. known volume at several fill levels — get a couple of
-   points **below** the IBC top and a couple **above**.
-3. Fit the two-segment line in the decoder. The breakpoint falls out of the data.
+> **Revised 2026-08-07 (DEC-005).** The original plan here was a purely empirical
+> fit, whose virtue was needing no tank dimensions. Its cost was a **calendar
+> dependency** — the tanks are rain-fed, so fill points on both sides of the IBC
+> breakpoint could take months, and knowing the volume at each point needs a flow
+> meter or a metered drawdown that may not exist. The revised plan removes that
+> from the critical path.
 
-This calibrates out all geometry and offsets at once. No measuring of tank
-heights or fitting elevations required.
+1. **Seed analytically.** Measure the three tanks once with a tape measure — the
+   two cylinder diameters, the IBC's footprint and height, and the height at
+   which the IBC tops out. Compute the two-segment curve from geometry. Twenty
+   minutes, and it yields a usable curve on day one.
+2. **Mount the sensor and start publishing raw distance immediately** — even
+   before the radio link works, tethered or read by hand. Every reading banked is
+   a future calibration point.
+3. **Correct empirically** as real fills happen, on whatever timeline the weather
+   provides.
+
+Because raw distance is always on the wire, any curve re-fits from stored raw
+with no reflash and no re-calibration trip to the tank.
+
+**Consequence:** calibration no longer gates "up and running." **M1 — first
+light** (real distance on a chart, analytic curve) is independent of rainfall;
+**M2 — calibrated gallons** trails it. See `docs/HARDWARE_BUILD_PLAN.md` §7.
+
+**Still open:** whether an independent volume reference exists (a meter on the
+fill line, a metered drawdown). No longer blocking, but it sets how good M2 gets.
 
 ---
 
 ## Integration
 
-**MQTT topics** (`farm/water/cluster/*` namespace):
+**MQTT topics** — under the `farm/soundings/…` namespace (DEC-004, namespace
+conflict resolved by DEC-005; the exact hierarchy below the root is designed in
+Phase 3.6):
 
 | Topic | Payload | Notes |
 |-------|---------|-------|
-| `farm/water/cluster/level_gal` | calibrated total gallons | from the two-segment curve |
-| `farm/water/cluster/percent` | percent of full (2530 gal) | |
-| `farm/water/cluster/distance_mm` | **raw sensor distance** | **published always** |
+| `farm/soundings/water/cluster/level_gal` | calibrated total gallons | from the two-segment curve |
+| `farm/soundings/water/cluster/percent` | percent of full (2530 gal) | |
+| `farm/soundings/water/cluster/distance_mm` | **raw sensor distance** | **published always** |
 
 **Publish raw distance** so the volume curve can be re-fit later in software
 without re-calibrating or touching hardware.
+
+Derivation runs **gateway-side, in Python** (DEC-004) — never in firmware, so the
+curve is re-fittable without reflashing a node in a tank lid.
+
+> Earlier drafts of this doc used a bare `farm/water/cluster/*` namespace. That
+> predates DEC-004. Everything soundings publishes now lives under
+> `farm/soundings/…`; if tinkle wants a `farm/water/…` view for its future pump
+> lockout, that's a broker-side republish on the consumer's side of the boundary.
 
 ### Downstream: tinkle pump lockout
 
