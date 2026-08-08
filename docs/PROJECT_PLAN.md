@@ -5,14 +5,25 @@ transplant (~March 2027)**. Paper planning summer 2026 → software build
 (simulation-first) summer/fall 2026 → winter bench bring-up + Green Tunnel
 shakedown → Red Tunnel deploy at transplant.
 
-> **Tasks broken down (2026-06-14 planning session).** Phases 1–2 are
-> fine-pokered; Phases 3–6 carry a coarse, provisional skeleton (re-poker at each
-> `/start-phase` — their task definitions depend on decisions Phases 1–2 resolve,
-> DEC-001). Current-phase tasks live as GitHub Issues (DEC-S013). This plan is
-> read at planning and written at retro — not edited mid-phase.
+> **Tasks broken down (2026-06-14 planning session).** Phases 1–3 are
+> fine-pokered; Phases 4–7 carry a coarse, provisional skeleton (re-poker at each
+> `/start-phase` — their task definitions depend on decisions the earlier phases
+> resolve, DEC-001). Current-phase tasks live as GitHub Issues (DEC-S013). This
+> plan is read at planning and written at retro — not edited mid-phase.
 >
-> **Scope to a trusted core: ~115 fine+coarse points** (22 + 29 + 21 + 13 + 30),
-> plus a 13–21 stretch placeholder for Phase 6.
+> **Direction change (2026-08-07, DEC-005).** The tank-level node was promoted
+> ahead of the soil/VPD sensor work and inserted as a new **Phase 3 — a
+> hardware-first vertical slice for one node type**. **Phase 2 is parked, not
+> cancelled** — its issues ([#19–#25](https://github.com/mobiustripper42/soundings/issues))
+> stay open with their `phase:2` labels and nothing in it was started, so the
+> re-sequence cost no work. Former Phases 3–6 renumbered to 4–7; none had
+> materialized issues, so no labels moved. Phases 4 and 6 shrank — the tank
+> slice absorbs parts of both.
+>
+> **Scope to a trusted core: ~140 fine+coarse points** (22 + 29 + 47 + 8 + 13 + 21),
+> plus a 13–21 stretch placeholder for Phase 7. Up from ~115 — the re-sequence
+> didn't add work, it *exposed* it: the old Phase 5 range was carrying a whole
+> hardware bring-up at ~30 coarse points that Phase 3 now itemizes honestly.
 
 ---
 
@@ -35,11 +46,17 @@ points (0 re-estimates, 0 net drift).
 
 ---
 
-## Build Order — software-first, simulation-first
+## Build Order — software-first, then the easiest hardware first
 
-The build is sequenced to front-load the riskiest integration and push all
-hardware to the end. Sensors and radios sit behind adapters; fakes drive them
-through Phases 1–4, real drivers swap in at Phase 5.
+Phases 0–2 front-load the riskiest *integration* and keep every sensor and radio
+behind an adapter driven by fakes.
+
+**Phase 3 changes the shape of the rest (DEC-005).** Rather than holding all
+hardware to the end, it takes the one node type with no analog front end — the
+tank node — all the way to real silicon. That retires the unknowns every node
+shares (link budget, sleep current, enclosure, battery model) behind a sensor
+that can't be the culprit when something doesn't work. Fakes still drive the
+parked soil/air sensors, whose real drivers swap in at Phase 6.
 
 ### Phase 0 — Re-baseline & scaffold
 
@@ -72,7 +89,15 @@ zero hardware. The whole pipeline is de-risked before any layer is deepened.
 
 **Phase 1 total: 22 points.**
 
-### Phase 2 — Node firmware core (simulated)
+### Phase 2 — Node firmware core (simulated) — ⏸ **PARKED**
+
+> **Parked 2026-08-07 (DEC-005), not cancelled.** Zero tasks were started, so
+> nothing is lost. Issues #19–#25 stay open with `phase:2` labels. Phase 3 (the
+> tank slice) builds the node firmware spine — adapter seam, run cycle, a minimal
+> manifest — against one simple sensor; this phase resumes afterward to add the
+> hard sensor math (Watermark, VPD) and the full node-type preset system on top
+> of a spine that has by then been proven on real hardware. Expect 2.1, 2.5 and
+> 2.6 to shrink at resume, since Phase 3 does a narrowed version of each.
 
 Deepen the node: every sensor behind an adapter with a fake driver; the real
 sensor math (Watermark → tension with temp compensation, VPD); the
@@ -93,35 +118,79 @@ packets pass the Phase-1 contract tests.
 | 2.6 | Declared-manifest config + node-type presets (DEC-002) — manifest format (identity-as-data), bed/tunnel-air/tank/rig presets, declared-but-missing → fault not silent gap. One coherent unit, no split. | 8 | [#24](https://github.com/mobiustripper42/soundings/issues/24) |
 | 2.7 | Wokwi node integration — `diagram.json`, sim build flag (sim-shortened cycle constants), confirm a declared node wakes → samples → assembles → "transmits" in sim. | 3 | [#25](https://github.com/mobiustripper42/soundings/issues/25) |
 
-**Phase 2 total: 29 points.**
+**Phase 2 total: 29 points (parked).**
 
-### Phase 3 — Gateway & ingestion (simulated)
+### Phase 3 — Tank node vertical slice (the first hardware)
 
-Deepen the gateway: full decode, node → location mapping, server-side derived
-math (if we land there — D1), graceful lost/malformed-packet handling and
-logging, the time-series DB schema with retention/downsampling, the finalized
-MQTT topic hierarchy, and a simulated Davis WeatherLink poller. Resolve the DB
-choice (D6) here if the farm-records cross-over has firmed up.
+One node type, all the way through: hardware plan → parts → real radio → real
+sensor → real packets → gallons on a chart. Everything the tank node needs and
+nothing it doesn't.
 
-**Done when:** a simulated fleet streams into a properly-shaped store, bad
-packets are logged not crashed, and weather data lands beside it.
+The tank node goes first because it is the only node type with no analog front
+end — no AC excitation circuit (D11), no Watermark calibration, no temperature
+compensation. One sensor, one UART. Every remaining unknown in the build (link
+budget, deep-sleep current, enclosure survival) is shared by *every* node type,
+so isolating them behind a sensor that can't be the culprit is the cheapest way
+to meet hardware. **This resolves D3, D4, D7, D9** and validates the `SPEC.md` §4
+power claim with a measurement.
 
-> **Provisional — re-poker at `/start-phase`.** These tasks' *definitions* depend
-> on decisions Phases 1–2 resolve (D1, D6, D7, D9); estimating them finely now
-> would assign points to work simulation is about to reshape (DEC-001). Coarse
-> skeleton + range for forecasting only.
+**Done when:** the real catchment-cluster level is on a chart, fed by a real node
+over a real radio link. Full detail: `docs/HARDWARE_BUILD_PLAN.md`.
+
+Sequenced hardware-plan-first: tasks 3.1–3.2 gate the spend, 3.3–3.7 are software
+that runs in parallel against fakes, 3.8–3.12 are bring-up, 3.13 trails.
+
+| Task | Description | Points | Issue |
+|------|-------------|--------|-------|
+| 3.1 | Hardware build plan + BOM + the chat↔CC research loop — resolve the `[verify]` set (HW-01…HW-08) before anything is ordered. | 3 | — |
+| 3.2 | **Range test** — 2× Heltec V3, RSSI + loss from the tank cluster to the intended gateway location. **Resolves D3 + D4.** Gates every downstream hardware choice; do it before any other spend. | 3 | — |
+| 3.3 | Adapter seam, tank subset — `IDistance`, `IRadio`, `IClock`, battery + fakes. A narrowed 2.1; the sensor-specific fakes for soil/air stay parked. | 3 | — |
+| 3.4 | Run cycle — wake → sample → assemble → transmit → sleep, non-blocking against `millis()`, ±30 s jitter (injectable RNG), battery read. Node-type-agnostic, so 2.5 is largely satisfied by this. | 5 | — |
+| 3.5 | Minimal declared manifest — tank preset only, identity-as-data shaped (DEC-002) but without the full node-type preset system. A narrowed 2.6 (8 → 3). | 3 | — |
+| 3.6 | Gateway: tank derivation (two-segment curve + dead-zone clamp + percent) in **Python, not firmware** (DEC-004), `farm/soundings/…` topic hierarchy, node→location map. **Resolves D7 + D9.** | 5 | — |
+| 3.7 | Poop Deck publish path — retire the provisional VictoriaMetrics + Grafana from `deploy/`, swap `ingest.py`'s writer. The DEC-004 breakout, previously untracked. | 3 | — |
+| 3.8 | Real A02YYUW UART driver behind `IDistance` + bench read. Switched power rail (see build plan §6). | 3 | — |
+| 3.9 | Gateway radio firmware (LoRa → USB serial) + `SerialPacketSource` behind the existing `IPacketSource` seam. | 5 | — |
+| 3.10 | Power — battery ADC, deep sleep, LVC, and a **measured** µA draw replacing `SPEC.md` §4's estimate. Also calibrates the fleet battery model ([#36](https://github.com/mobiustripper42/soundings/issues/36)). | 5 | — |
+| 3.11 | Enclosure + tank-lid mount + PVC standoff build. Gated on HW-03 (beam angle) and HW-04 (cable run). | 3 | — |
+| 3.12 | **First light** — real tank distance on a chart, analytic seed curve. **M1.** | 3 | — |
+| 3.13 | Calibration — analytic curve from measured tank geometry, then empirical correction from observed fills. **M2, calendar-gated** — may trail the phase close. | 3 | — |
+
+**Phase 3 total: 47 points.**
+
+> **The largest phase in the plan — ~2× Phase 1.** It carries a full hardware
+> bring-up, which the original plan spread across Phases 3 and 5. If it wants
+> splitting at `/start-phase`, the natural seam is after **3.12 (first light)**;
+> 3.13 is calendar-gated on rainfall and should be expected to trail regardless.
+
+### Phase 4 — Gateway & ingestion (simulated)
+
+Generalize the gateway from *one real node* (Phase 3) to a **fleet**: graceful
+lost/malformed-packet handling, structured logging, restart safety, the rest of
+the derived math, and a simulated Davis WeatherLink poller.
+
+**Done when:** a simulated fleet streams into Poop Deck, bad packets are logged
+not crashed, and weather data lands beside it.
+
+> **Shrunk by the Phase 3 re-sequence (DEC-005).** Four of the five original
+> tasks are wholly or partly absorbed: D7 + D9 are resolved by 3.6, D6 and D1 by
+> DEC-004, and the tank slice builds a real receive loop and the first
+> gateway-side derivation. What's left is fleet hardening and the work that
+> genuinely needs the parked Phase 2 sensor math.
+>
+> **Provisional — re-poker at `/start-phase`.**
 
 | Task | Description | Points |
 |------|-------------|--------|
-| 3.1 | Gateway decode daemon — wrap the 1.4 parser in a long-running service: `IPacketSource` seam, receive loop, malformed/lost-packet resilience + structured logging. | ~5 |
-| 3.2 | Node→location mapping (**resolves D7**: config vs DB table) + MQTT topic hierarchy (**resolves D9**). | ~5 |
-| 3.3 | Time-series DB schema + retention/downsampling — **resolves D6** (Timescale vs VictoriaMetrics), gated on the farm-records JOIN cross-over firming up. | ~5 |
-| 3.4 | Server-side derived math — **resolves D1**: where kPa/VPD/gallons execute; wire the (portable, Phase-2) core math into its runtime home. | ~3 |
-| 3.5 | Simulated Davis WeatherLink poller — fake the local HTTP JSON API, poll ~60 s, land weather beside sensor data. | ~3 |
+| 4.1 | Gateway daemon hardening for a *fleet* — the 3.9 receive loop generalized: multi-node, lost/malformed resilience, structured logging, restart safety. | ~3 |
+| 4.2 | Extend gateway-side derivation to kPa + VPD — the tank curve (3.6) is the first instance; this adds the rest. **Gated on the parked Phase 2 math.** | ~3 |
+| 4.3 | Simulated Davis WeatherLink poller — fake the local HTTP JSON API, poll ~60 s, land weather beside sensor data. *(Confirm this is still soundings' job and not Poop Deck's under DEC-004.)* | ~3 |
+| ~~Node→location + topic hierarchy~~ | Absorbed by 3.6 — D7 + D9 resolved there. | — |
+| ~~Time-series DB schema~~ | D6 resolved by DEC-004; the store is Poop Deck's. Publish shape lands in 3.7. | — |
 
-**Phase 3 coarse total: ~21 points (provisional).**
+**Phase 4 coarse total: ~8 points (provisional, was ~21).**
 
-### Phase 4 — Dashboards & alerting (simulated)
+### Phase 5 — Dashboards & alerting (simulated)
 
 The per-tunnel and overview dashboards (phone-usable) plus the alerts (tunnel
 over-temp, soil tension > ~80 cb, node silent > 45 min, low battery) — all driven
@@ -130,41 +199,43 @@ by the simulator so they're real before hardware exists.
 **Done when:** the dashboards and every alert fire correctly against simulated
 conditions.
 
-> **Provisional — re-poker at `/start-phase`.** Layout depends on D10 and the DB
-> chosen in Phase 3.
+> **Provisional — re-poker at `/start-phase`.** Layout depends on D10. Under
+> DEC-004 these are dashboard/alert *definitions* versioned here and provisioned
+> into Poop Deck's shared Grafana — the tank chart from 3.12 is the first one.
 
 | Task | Description | Points |
 |------|-------------|--------|
-| 4.1 | Per-tunnel + overview dashboards (phone-usable) from the existing series (**resolves D10**). | ~8 |
-| 4.2 | Alerting — tunnel over-temp, soil tension > ~80 cb, node silent > 45 min, low battery — driven by the simulator. | ~5 |
+| 5.1 | Per-tunnel + overview dashboards (phone-usable) from the existing series (**resolves D10**). | ~8 |
+| 5.2 | Alerting — tunnel over-temp, soil tension > ~80 cb, node silent > 45 min, low battery — driven by the simulator. | ~5 |
 
-**Phase 4 coarse total: ~13 points (provisional).**
+**Phase 5 coarse total: ~13 points (provisional).**
 
-### Phase 5 — Bench bring-up (winter — the swap)
+### Phase 6 — Bench bring-up, remaining sensors (winter — the swap)
 
-Swap fakes for real drivers behind the same adapters: one real node, the real
-gateway radio, the AC excitation circuit, real sensors. Resolve the remaining
-deferred hardware decisions (radio pairing D3, gateway box D4). Green Tunnel
-shakedown.
+Swap the rest of the fakes for real drivers behind the same adapters. Phase 3
+already did this for the tank node — the radio, the battery read, one real
+sensor, one real node. What's left is the analog front end and the sensors the
+parked Phase 2 math serves.
 
-**Done when:** a real reading off real hardware lands on the dashboard — the
+**Done when:** a real reading off a real *bed* node lands on the dashboard — the
 spec's bar: *"I can watch soil moisture change as I add water."*
 
-> **Provisional — re-poker at `/start-phase`.** Widest uncertainty in the plan:
-> first contact with hardware, and it resolves the remaining hardware deferrals
-> (D3, D4, D11). Range, not a point estimate.
+> **Shrunk by the Phase 3 re-sequence (DEC-005).** D3, D4, the A02YYUW driver,
+> the battery read, and the tank curve all move to Phase 3. The widest remaining
+> uncertainty is **D11** — the AC excitation circuit, the hardest hardware in the
+> project. **Provisional — re-poker at `/start-phase`.**
 
 | Task | Description | Points |
 |------|-------------|--------|
-| 5.1 | Swap fakes for real drivers behind the same adapters — DS18B20, SHT45, A02YYUW, battery read on real silicon. | ~8 |
-| 5.2 | AC excitation circuit + real Watermark driver (**D11**) — the anchor sensor on the bench. | ~8 |
-| 5.3 | Real gateway radio — **resolves D3** (SX1262↔SX127x/RFM95 PHY pairing) and **D4** (gateway box). | ~5 |
-| 5.4 | Calibration — Watermark against the commercial reader, tank curve against known fills (the empirical fits deferred from 2.2/2.4). | ~5 |
-| 5.5 | Green Tunnel shakedown — one real node end-to-end, the "watch moisture change as I add water" gate. | ~5 |
+| 6.1 | Remaining real drivers behind the same adapters — DS18B20, SHT45 on real silicon. *(A02YYUW + battery read done in 3.8/3.10.)* | ~5 |
+| 6.2 | AC excitation circuit + real Watermark driver (**D11**) — the anchor sensor on the bench. | ~8 |
+| 6.3 | Watermark calibration against the commercial reader. *(The tank curve is calibrated in 3.13.)* | ~3 |
+| 6.4 | Green Tunnel shakedown — one real bed node end-to-end, the "watch moisture change as I add water" gate. | ~5 |
+| ~~Real gateway radio~~ | Absorbed by 3.2 + 3.9 — D3 + D4 resolved there. | — |
 
-**Phase 5 coarse total: ~30 points (provisional, ±).**
+**Phase 6 coarse total: ~21 points (provisional, ±, was ~30).**
 
-### Phase 6 — Stretch sensors (after core is trusted)
+### Phase 7 — Stretch sensors (after core is trusted)
 
 Leaf-wetness node and the portable stratification rig.
 
@@ -175,10 +246,10 @@ Leaf-wetness node and the portable stratification rig.
 
 | Task | Description | Points |
 |------|-------------|--------|
-| 6.1 | Leaf-wetness node (SPEC §5.5 — highest-priority stretch; may promote to core). | TBD |
-| 6.2 | Portable stratification rig (SPEC §5.6 — one relocatable node, vertical temp profile). | TBD |
+| 7.1 | Leaf-wetness node (SPEC §5.5 — highest-priority stretch; may promote to core). | TBD |
+| 7.2 | Portable stratification rig (SPEC §5.6 — one relocatable node, vertical temp profile). | TBD |
 
-**Phase 6: TBD (nominal 13–21 placeholder).**
+**Phase 7: TBD (nominal 13–21 placeholder).**
 
 ---
 
