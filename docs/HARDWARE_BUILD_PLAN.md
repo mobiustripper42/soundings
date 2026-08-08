@@ -560,7 +560,7 @@ how good M2 can get.
 | # | Step | Gate to pass |
 |---|---|---|
 | 1 | ~~Resolve the `[verify]` set~~ | ✅ **Done 2026-08-08** — Round 1 closed, 10 answers promoted |
-| 2 | Order 2× Stick Lite V3, 2 antennas, 2 pigtails + bulkheads | Round 2 does **not** gate this |
+| 2 | ~~Order boards + antennas~~ | ✅ **Ordered 2026-08-08** — 3× Wireless Stick Lite V3 + 3× 915 MHz whip with IPEX→SMA wire, $67.20 delivered |
 | 3 | **Range test** (§2) | RSSI and loss recorded tank ↔ server. **D3 + D4 resolved.** |
 | 4 | Order the rest of the BOM | Branch chosen (§3); HW-11/HW-12 answered |
 | 5 | **Bench session — four checks, one sitting** (see below). Sensor wires soldered direct to the pads, no breadboard. | Resolves HW-13, HW-14, HW-18, HW-05 |
