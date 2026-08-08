@@ -312,6 +312,11 @@ Not tied to a single ID. Each needs a home.
 | F-6 | **Vext is not a usable switched rail** (~1.44 V residual). Any doc or code that assumes Vext gates the sensor is wrong; a discrete P-FET load switch is required. | `HARDWARE_BUILD_PLAN.md` §4, firmware |
 | F-7 | **Gateway node shares the board but not the constraints.** Mains/USB powered — no sleep budget, no battery BOM, no LVC. Ensure the BOM does not inherit node-only line items. | `HARDWARE_BUILD_PLAN.md` §4 |
 | F-8 | **A02YYUW at 3.3 V is unverified.** Reseller guidance recommends 5 V. If it proves flaky, a boost converter enters the BOM and the power budget is re-derived. | `[verify]` in `HARDWARE_BUILD_PLAN.md` §6 |
+| F-9 | **The Stick Lite V3's advertised "≤800 µA deep sleep" is a stale V2-era figure.** Heltec's own `HTIT-WS_V3` datasheet carries a V2-vs-V3 comparison table listing deep sleep as **800 µA (V2, ESP32-D0/SX1276/Micro-USB) vs <10 µA (V3, ESP32-S3/SX1262/Type-C)**. The hardware update log attributes the 800 µA line to the 2019 V2 revision. The product page never updated it. **Do not budget against 800 µA.** | `SPEC.md` §4, `HARDWARE_BUILD_PLAN.md` §6 |
+| F-10 | **Forum "high sleep current" reports on this board are almost all LIGHT sleep, not deep sleep.** The one WSL V3 thread with an actual PPK2 trace states deep sleep base is "a few µA" and "close to zero"; its 7.5 mA and 2.0 mA figures are light-sleep baselines. Anyone quoting mA figures for this board should be checked for which sleep mode they measured. | `SPEC.md` §4 |
+| F-11 | **⚠ The Stick Lite V3 has TWO U.FL/IPEX sockets** — E2 (LoRa, behind the UPG2179 RF switch) and E3 (2.4 GHz Wi-Fi/BT, alongside the E1 spring antenna). The WiFi LoRa 32 V3 has only one. **Plugging the 915 MHz antenna into the 2.4 GHz socket transmits into an unmatched load.** Physically label the correct socket at build time; this is a silent, hard-to-diagnose failure. | `HARDWARE_BUILD_PLAN.md` §5, build checklist |
+| F-12 | **Board footprint and packing list both changed.** 58.08 × 22.6 × 8.2 mm (vs 50.2 × 25.5 × 10.2) — longer, narrower, thinner. Headers are **2×20** (vs 2×18). Packing list is board + LoRa antenna + SH1.25×2 connector + pin-map sticker — **no header pins included**, unlike the WiFi LoRa 32. Order headers separately if anything gets breadboarded. | `HARDWARE_BUILD_PLAN.md` §4 BOM, §5 enclosure sizing |
+| F-13 | **Vext outputs 3.3 V, so it cannot solve HW-13.** If the A02YYUW proves unreliable at 3.3 V, Vext is not a route to 5 V. A zero-cost intermediate exists: gate the sensor from **VBAT (3.4–4.2 V)** with a discrete switch rather than the 3.3 V rail — more headroom, no new part, no boost. Only viable if HW-11's switch is built; Vext cannot do it. | `HARDWARE_BUILD_PLAN.md` §4, `docs/DECISIONS.md` |
 
 ---
 
@@ -395,18 +400,189 @@ factor, and the P-FET load-switch part choice. See §3.4.
 
 ---
 
-## 3.4 Round 2 — open
+## 3.4 Round 2 — promoted 2026-08-08
+
+**Headline: the board change is cheaper than feared.** The Stick Lite V3 is the
+same design with the OLED block deleted — the schematic still carries an orphan
+`OLED Display` section label with nothing under it. Every load-bearing part is
+identical. Two Round 1 answers get *better*, one gets a correction, and three new
+IDs came out of the research.
 
 | ID | Question | Why it matters | Status | Answer | Date |
 |----|----------|----------------|--------|--------|------|
-| HW-11 | What P-FET load switch (or integrated load-switch IC) suits gating a ~8 mA, 3.3 V sensor rail from an ESP32 GPIO — part number, and does it need a pull-up plus a gate resistor? | F-6 killed Vext as the switched rail; this replaces it. Blocks the BOM. | `open` | | |
-| HW-12 | What DS18B20 form factor for tank headspace air — bare TO-92, or a waterproof stainless probe? The headspace is condensing but the sensor is not submerged. | Condensation on a bare sensor is a corrosion and accuracy risk | `open` | | |
-| HW-13 | Does the A02YYUW actually work reliably on a 3.3 V rail? (F-8 — resellers recommend 5 V.) If not, what boost converter, and what does it cost in quiescent draw? | If it needs 5 V the power budget is re-derived and a converter enters the BOM | `blocked` | Bench test at build step 5 | |
-| HW-14 | Confirm GPIO36 = Vext (active LOW) and GPIO37 = ADC_Ctrl on the actual board revision received. (C-5) | Firmware correctness; cheap to check with a meter | `blocked` | Verify on receipt | |
-| HW-15 | **Heltec Wireless Stick Lite V3** — does it share the WiFi LoRa 32 V3's pinout for the load-bearing pins (Vext control, ADC_Ctrl + battery-sense divider, SX1262 SPI)? Same U.FL connector? Same JST 1.25 battery connector? Same USB-serial bridge chip? | **Both** boards are now Stick Lites (§3). If the pinout differs, HW-02's disable list and HW-05/HW-14's answers **do not transfer** and Round 1 gets partly re-run. | `open` | | |
-| HW-18 | Does the Stick Lite V3 have a **Vext rail at all**, and if so does it still show the ~1.44 V residual with no OLED to pull it up? | If Vext works cleanly here, **HW-11's P-FET load switch may be unnecessary** — one BOM line and a chunk of firmware removed | `open` | | |
-| HW-16 | Stick Lite V3 — same **TP4054** charge IC, same absence of discharge-side protection? | **DEC-006 rests on the TP4054.** If this board has real discharge protection, the protected-cells-plus-firmware-cutoff decision needs revisiting. | `open` | | |
-| HW-17 | Stick Lite V3 — achievable deep-sleep current. Is it **below** the V3's cited 16 µA, given there is no OLED to disable and no OLED pull-up on Vext? | Would improve the power budget and remove three of the five items from HW-02's disable list | `open` | | |
+| HW-15 | **Heltec Wireless Stick Lite V3** — does it share the WiFi LoRa 32 V3's pinout for the load-bearing pins (Vext control, ADC_Ctrl + battery-sense divider, SX1262 SPI)? Same U.FL connector? Same JST 1.25 battery connector? Same USB-serial bridge chip? | **Both** boards are now Stick Lites (§3). If the pinout differs, HW-02's disable list and HW-05/HW-14's answers **do not transfer** and Round 1 gets partly re-run. | `promoted` | **Effectively all of it transfers.** Compared the [WSL V3 schematic](https://resource.heltec.cn/download/Wireless_Stick_Lite_V3/HTIT-WSL_V3_Schematic_Diagram.pdf) net-by-net against the [WiFi LoRa 32 V3.1 schematic](https://resource.heltec.cn/download/WiFi_LoRa_32_V3/HTIT-WB32LA(F)_V3.1_Schematic_Diagram.pdf). **Identical:** U1 CP2102 USB-serial; U2 CE6260B33M LDO; U3 TP4054; Q2 AO3401 + D2 1N5819 USB/battery switchover; F1 6 V 500 mA fuse; JP1 `1.25X2P-LiPo`; R14 390K/1% + R17 100K/1% divider gated by R7 2N7002BKS on ADC_Ctrl; U9 SX1262 on the same `LoRa_NSS/MISO/MOSI/SCK/RST/BUSY/DIO1` nets. **Pins confirmed by the [WSL V3 Rev1.1 datasheet](https://resource.heltec.cn/download/Wireless_Stick_Lite_V3/HTIT-WSL_V3(Rev1.1).pdf): GPIO36 = Vext Ctrl, GPIO37 = ADC Ctrl, GPIO1 = Read VBAT Voltage, GPIO35 = LED Write Ctrl, GPIO43/44 = CP2102.** Same as the V3. **Differences:** headers 2×20 (was 2×18); **two IPEX sockets, not one** (see F-11); Vext switched by discrete AO3401s rather than the V3's AO7801 dual; RF switch part numbers now visible (U8 UPG2179, Q6 2SC3356). **HW-05 transfers verbatim** — same connector, same `VBAT`/`GND` nets on JP1, same meter-check procedure. See §3.5. | 2026-08-08 |
+| HW-18 | Does the Stick Lite V3 have a **Vext rail at all**, and if so does it still show the ~1.44 V residual with no OLED to pull it up? | If Vext works cleanly here, **HW-11's P-FET load switch may be unnecessary** — one BOM line and a chunk of firmware removed | `promoted` | **Yes, Vext exists** — GPIO36, active LOW, datasheet describes it as "Output 3.3V, power supply for external sensor." Topology is a textbook P-FET high-side switch: AO3401, R11 10K gate pull-up to VDD_3V3 (holds OFF), R12 1K series gate drive from Vext_Ctrl. **The residual is very likely gone, but this is inference, not measurement — mark `[verify]`.** ⚠ **Correction to HW-02:** Round 1 attributed the 1.44 V residual to "R12 10K pull to VDD_3V3." **That attribution was wrong.** On both boards the 10K is a *gate* pull-up to the FET's source — standard, and present here too. The residual is almost certainly **back-powering through the SSD1306's I²C pins**, whose pull-ups sit on VDD_3V3 and feed the OLED through its ESD diodes when Vext is low. Consistent with 1.44 V (≈2 diode drops) and with the Meshtastic report conditioning it on *"if an OLED screen is present."* **No OLED ⇒ no back-power path.** **Meter it before trusting it:** GPIO36 HIGH, measure Vext to GND. If <50 mV, **HW-11 is moot and F-6 is retired.** | 2026-08-08 |
+| HW-16 | Stick Lite V3 — same **TP4054** charge IC, same absence of discharge-side protection? | **DEC-006 rests on the TP4054.** If this board has real discharge protection, the protected-cells-plus-firmware-cutoff decision needs revisiting. | `promoted` | **Same TP4054, same absence. DEC-006 stands unchanged — no revisit needed.** WSL V3 schematic: `U3 TP4054` with pins CHRG / GND / BAT / VCC / PROG, identical to the V3.1 schematic. Charge management only: no discharge-side FET, no low-voltage cutoff, no load disconnect. ⚠ **Same vendor-claim conflict carries over verbatim** — the Stick Lite product page also advertises "charge and discharge management, overcharge protection." The schematic supports charge management and charge-side protection only. Protected cells + 3.2 V/cell firmware cutoff remains the right answer, for the reason recorded in DEC-006 (the risk is stuck-*awake*, not stuck-*asleep*). | 2026-08-08 |
+| HW-17 | Stick Lite V3 — achievable deep-sleep current. Is it **below** the V3's cited 16 µA, given there is no OLED to disable and no OLED pull-up on Vext? | Would improve the power budget and remove three of the five items from HW-02's disable list | `promoted` | **Likely comparable or slightly better — call it ≤16 µA and do not change the budget. ⚠ But the headline vendor number is a trap in the other direction.** The product page advertises "**basic low-power design (sleep current ≤800uA)**" — that is a **stale V2-era spec** (F-9). Heltec's own `HTIT-WS_V3` datasheet carries a V2-vs-V3 table: **800 µA (V2) vs <10 µA (V3)**, and the [hardware update log](https://docs.heltec.cn/en/node/esp32/hardware_update_log.html) attributes the 800 µA line to the 2019 V2 revision (which used GPIO21 for Vext and GPIO13 for battery sense — *not* V3 pins). **Independent measured support:** a WSL V3 user with a Nordic PPK2 reports deep sleep base is "a few µA" and "close to zero" ([thread](http://community.heltec.cn/t/what-is-using-so-much-power-in-light-sleep-mode-wsl-v3/11866)). **Disable list shrinks from 5 items to 3**, but gains a new one — see HW-20 and §3.5. **Recommendation: leave `SPEC.md` §4 at 20–30 µA.** The 1.8× margin does not depend on winning here, and the measured number stays 16 µA until metered on the actual board. | 2026-08-08 |
+| HW-11 | What P-FET load switch (or integrated load-switch IC) suits gating a ~8 mA, 3.3 V sensor rail from an ESP32 GPIO — part number, and does it need a pull-up plus a gate resistor? | F-6 killed Vext as the switched rail; this replaces it. Blocks the BOM. | `promoted` | **Probably moot — resolve HW-18 with a meter first.** If a switch is still needed, two options. **(a) Copy Heltec's own circuit**, which is proven on this exact board: **AO3401** P-FET (SOT-23), source to VDD_3V3, drain to sensor, **10K gate pull-up to source** (holds OFF at boot and through sleep), **1K series gate resistor** from the GPIO. Active LOW. This is literally the Vext circuit — R11/R12/AO3401 on the WSL schematic. **(b) Integrated:** **TI TPS22860** ([datasheet](https://www.ti.com/lit/gpn/TPS22860)) — ultra-low-leakage load switch, 1.65–5.5 V, 200 mA, **positive** logic ON, SOT-23-6 or SC70-6, 1 µF at VIN. One part, no discrete network, ~10 nA leakage class. Breakout available if hand-soldering SOT-23-6 is unappealing. **Either way:** hold the control GPIO through sleep with `rtc_gpio_hold_en()` or the rail glitches on wake. ⚠ Both are SMD — no sane through-hole option at this current and leakage. | 2026-08-08 |
+| HW-12 | What DS18B20 form factor for tank headspace air — bare TO-92, or a waterproof stainless probe? The headspace is condensing but the sensor is not submerged. | Condensation on a bare sensor is a corrosion and accuracy risk | `promoted` | **Waterproof stainless probe, ~3 m lead. Not the bare TO-92.** In a condensing headspace, water bridging DQ↔GND on a bare part corrupts readings (the DS18B20's parasitic-power path makes it leakage-sensitive) and the leads corrode over a multi-year deployment. The stainless sheath's added thermal mass is a *benefit* here — headspace air is a slow thermal environment and averaging transients is desirable. **Accuracy grade does not matter much, and that is worth knowing before overspending:** at a 2 m path, **1 °C of probe error = 0.176 % = 3.5 mm.** Even a ±2 °C counterfeit clone yields ~7 mm against the **14 cm** error being corrected — the correction captures >95 % of the benefit with the cheapest probe on the shelf. ⚠ **The real error is placement, not the part — see HW-19.** Buy two (one spare); they are ~$8. Sheath is stainless, so no galvanic concern in an air gap. | 2026-08-08 |
+| HW-13 | Does the A02YYUW actually work reliably on a 3.3 V rail? (F-8 — resellers recommend 5 V.) If not, what boost converter, and what does it cost in quiescent draw? | If it needs 5 V the power budget is re-derived and a converter enters the BOM | `blocked` | **Still a bench test at build step 5.** Contingency answered so the BOM has a path: **try VBAT before a boost.** The sensor is spec'd 3.3–5 V; gating it from **VBAT (3.4–4.2 V)** instead of the 3.3 V rail costs nothing and adds no part, and is strictly more headroom (F-13). ⚠ Vext cannot do this — it outputs 3.3 V. Requires HW-11's discrete switch sourced from VBAT. **If a boost is genuinely needed: put it downstream of the load switch and its quiescent draw stops mattering.** Off-budget entirely between wakes; during the ~800 ms window even 1 mA of Iq is 0.8 mA·s against the sensor's 6.4 mA·s. Boost losses are the larger term: 8 mA at 5 V from 3.3 V at ~80 % ≈ 15 mA in ≈ 12 mA·s — roughly doubles the sensor cost and remains negligible beside the MCU's ~32 mA·s. **Conclusion: HW-13 cannot break the power budget either way.** Downgrade F-8's severity. | — |
+| HW-14 | Confirm GPIO36 = Vext (active LOW) and GPIO37 = ADC_Ctrl on the actual board revision received. (C-5) | Firmware correctness; cheap to check with a meter | `blocked` | **Still a meter check on receipt — C-5 is right and the board change makes it more so, not less.** Documentary support is now stronger and board-specific: the **WSL V3 Rev1.1 datasheet** lists GPIO36 = Vext Ctrl and GPIO37 = ADC Ctrl for *this* board, and the WSL schematic shows the matching `Vext_Ctrl` / `ADC_Ctrl` nets. ⚠ **Concrete precedent for why C-5 exists:** the V2-era hardware update log documents Vext on **GPIO21** and battery sense on **GPIO13** — Heltec has moved these exact pins across revisions before. **Fold HW-18's Vext-to-GND measurement into the same bench session.** | — |
+| HW-19 | *(new — raised by chat)* Does a single DS18B20 at the tank lid actually measure the air the sound travels through? | The correction assumes one temperature for the whole 2 m path. If the headspace stratifies, the probe reads the hottest air and over-corrects. | `promoted` | **⚠ No, and this is a bigger error than anything in HW-12.** The speed-of-sound correction integrates over the *whole* path, but the headspace is not isothermal — a sun-loaded lid can sit 15–20 °C above the air just over the water, and the gradient is worst exactly when the headspace is tallest (empty tank, longest path, biggest error). A lid-mounted probe reads the top of the gradient and **over-corrects**, and the bias is signed and seasonal, not noise the median can remove. **Mitigations, in order of cost:** (1) thermally isolate the probe from the lid — standoff, not bolted to sun-warmed plastic; (2) hang it partway into the headspace on its own lead rather than flush at the top; (3) exploit **C-2** — because raw counts go on the wire and derivation is gateway-side, the gradient model can be **fitted empirically later against manual dip readings and re-derived over stored history without opening a tank**. ⚠ This makes C-2 load-bearing rather than merely tidy. **Recommend: build option (1)+(2), log raw, calibrate in the first season.** | 2026-08-08 |
+| HW-20 | *(new — raised by chat)* Is HW-02's deep-sleep disable list complete for the Stick Lite? | HW-02 is `promoted`. If the list is wrong for this board, firmware is written against a stale answer. | `promoted` | **No — it loses three items and gains one, and the one it gains is the expensive one.** **Remove** (no OLED on this board): `displayOff()`; `SDA_OLED`/`SCL_OLED`/`RST_OLED` to input; the OLED-related half of the Vext step. **Add — ⚠ new and worth ~3 mA:** **`pinMode(43, ANALOG)` on U0TXD.** Documented on the WSL V3 by a PPK2 user: *"It is also important to stop leakage on TXD, saving 3mA (!)"* ([thread](http://community.heltec.cn/t/what-is-using-so-much-power-in-light-sleep-mode-wsl-v3/11866)). Do GPIO44 (U0RXD) as well. ⚠ **Also a correction to HW-02's wording:** it says set the LoRa SPI pins to `INPUT`. Heltec's own engineer, in the same thread, uses **`ANALOG`** — which disconnects the digital input buffer rather than just leaving it high-impedance, and is the lower-leakage choice. **Use `ANALOG`, not `INPUT`.** This does not invalidate HW-02's 16 µA figure (measured on a board with no serial attached) but it matters on a node with a live UART to the sensor. | 2026-08-08 |
+| HW-21 | *(new — raised by chat)* Does anything about the board change affect the **gateway** end? | F-7 says the gateway shares the board but not the constraints. The board changed for both. | `promoted` | **One thing, and it is a footgun: F-11, the second U.FL socket.** The gateway is the board most likely to be antenna-swapped during range testing, and both sockets are the same connector. **Label E2 (LoRa) with a paint pen before the first antenna goes on.** Otherwise: gateway is USB-powered from the Beelink, so HW-16/17/20 and the whole sleep discussion do not apply to it, exactly as F-7 says. ✅ **A small bonus:** the Stick Lite's dedicated 2.4 GHz IPEX (E3) means the gateway *could* take an external Wi-Fi/BLE antenna if BLE range to a phone ever matters — not needed, since it is wired to the server, but it removes a future constraint the WiFi LoRa 32 V3 imposed (spring antenna only, and Heltec's FAQ says it cannot be replaced). Not scope. Noted only so it is not rediscovered. | 2026-08-08 |
+
+---
+
+## 3.5 Round 2 detail
+
+### The board change is a near-non-event — here is why
+
+The WSL V3 schematic is the WiFi LoRa 32 V3 schematic with the OLED block
+deleted. The strongest evidence is an artefact: the WSL schematic **still carries
+the section label `OLED Display` with nothing under it**, and still carries the
+same misspelled `LiPo electtricity&Vext Ctrl` label. Same power tree, same charge
+IC, same fuse, same battery divider, same radio nets, same USB bridge.
+
+Practically: **HW-05 and HW-06 transfer verbatim. HW-01 transfers with one added
+warning (F-11). HW-02 needs the amendment in HW-20. Nothing from Round 1 has to
+be re-run.**
+
+### Two vendor numbers point in opposite directions
+
+Worth naming explicitly, because they are the two ways this board gets
+mis-specified:
+
+- **≤800 µA (product page) — too pessimistic, by ~80×.** Stale V2 figure (F-9).
+  Budgeting against it would have killed the design outright: 800 µA × 17,520 h ≈
+  **14,000 mAh**, against a ~4,500 mAh cold-derated pack.
+- **<10 µA (datasheet comparison table) — too optimistic to bank on.** It is a
+  best-case figure, and every forum report of a *worse* number turns out to be
+  light sleep or an un-parked pin.
+
+**Neither is a design input.** The number to build against remains the
+independently measured **16 µA**, which is conservative for this board and
+already what `SPEC.md` §4 brackets.
+
+### Reading forum sleep-current reports on this board
+
+Nearly every alarming number in the WSL V3 threads is **light sleep**, where the
+ESP32-S3 baseline sits at 2–7.5 mA. The one thread with a real PPK2 trace is
+explicit that deep sleep is separate and fine. When a figure appears without the
+sleep mode named, assume light sleep. (F-10.)
+
+### The 1.44 V Vext residual — Round 1 got the mechanism wrong
+
+Round 1 blamed "R12 10K pull to VDD_3V3." That resistor exists on **both**
+boards and is the P-FET's **gate** pull-up to its own source — the thing that
+holds the switch *off*. It cannot hold the drain at 1.44 V.
+
+The mechanism is almost certainly **back-powering through the SSD1306's I²C
+pins**: SDA/SCL pull-ups sit on the always-on VDD_3V3 rail, and with Vext low the
+OLED's ESD clamp diodes conduct into the dead rail. 1.44 V is about two diode
+drops. It also explains why the Meshtastic report conditions the behaviour on
+*"if an OLED screen is present."*
+
+**Consequence:** the conclusion for the Stick Lite is favourable — no OLED, no
+back-power path, Vext should reach 0 V. But it is **inference from a corrected
+mechanism, not a measurement**, and the previous mechanism was confidently stated
+and wrong. Meter it before retiring F-6.
+
+### Bench session on receipt — one sitting, four answers
+
+Everything still `blocked` or `[verify]` collapses into one session with a DMM:
+
+1. **HW-14** — GPIO36 HIGH/LOW, watch Vext. Confirms pin *and* active-LOW sense.
+2. **HW-18** — same probe, GPIO36 HIGH: is Vext <50 mV? If yes, **HW-11 is moot,
+   F-6 retires, one BOM line and its firmware disappear.**
+3. **HW-13** — sensor on 3.3 V, checksum-valid frame rate over a few minutes.
+4. **HW-05** — JP1 polarity, USB in, no battery, before any cell is connected.
+
+⚠ Do (4) first. It is the only one that is destructive if skipped.
+
+### Reinforcing C-3, which was right
+
+C-3 argued for skipping the PPK2 but keeping a plain multimeter check, because
+the failure modes worth catching are **milliamp-scale**. This round is direct
+evidence: the TXD leak in HW-20 is **3 mA**, and the light-sleep baselines are
+2–7.5 mA. **A DMM in series reads every one of those perfectly.** Nothing found
+this round would have required µA resolution to catch.
+
+### Power budget — unchanged
+
+No term moves. Sleep stays bracketed at 20–30 µA; HW-13 cannot break it
+(see that row); HW-20's TXD leak is a *bug class*, not a budget line, and the DMM
+check catches it. **~1.8× margin at 15 minutes stands.**
+
+---
+
+## 3.6 CC review of Round 2 (2026-08-08)
+
+**Chat caught an error I promoted.** That is the headline, and it is worth
+recording plainly.
+
+### C-6 — Round 1's Vext mechanism was wrong, and §3.3 didn't catch it
+
+HW-02 attributed the 1.44 V Vext residual to "R12 10K pull to VDD_3V3." I
+promoted that into `HARDWARE_BUILD_PLAN.md` §6 and into F-6 without auditing it.
+HW-18 shows it cannot be right: that 10K is the P-FET's **gate** pull-up to its
+own source — present on *both* boards, and the thing that holds the switch off.
+It cannot hold the drain at 1.44 V.
+
+The real mechanism is almost certainly back-powering through the OLED's I²C
+pull-ups via its ESD clamps — consistent with ~2 diode drops, and with the
+Meshtastic report conditioning the symptom on *"if an OLED screen is present."*
+
+My §3.3 review re-derived every **number** in Round 1 and confirmed them, then
+took the **mechanism** on faith. Numbers are easy to check and mechanisms are
+not, which is exactly why the mechanism was the thing that was wrong. Worth doing
+differently next round.
+
+Practical effect is favourable — no OLED, no back-power path — but it is
+inference twice over now. **Meter it before retiring F-6.**
+
+### C-7 — HW-19 is a real correction to DEC-007, and it is right
+
+DEC-007 recorded the single-sensor stratification limit as a "residual
+limitation, accepted," framing it as *approximate*. HW-19 sharpens that
+correctly: the bias is **signed and seasonal**, not noise — a sun-loaded lid
+reads the top of the gradient and **over-corrects** — and it is worst exactly
+when the headspace is tallest, which is the empty-tank case the sensor exists to
+protect. "Approximate" undersold it. DEC-007 amended.
+
+It also promotes **C-2** from tidy to load-bearing: because raw counts go on the
+wire and derivation is gateway-side, the gradient model can be fitted empirically
+against manual dip readings and **re-derived over stored history without opening
+a tank**. That is now the mitigation, not just good hygiene.
+
+### C-8 — HW-20's TXD leak is direct evidence for C-3
+
+C-3 argued for skipping the PPK2 but keeping a multimeter, because the failure
+modes worth catching are milliamp-scale. Round 2 found one: **3 mA leaking on
+U0TXD** — roughly 150× the sleep budget, and trivially visible on a DMM. Nothing
+in this round would have needed µA resolution to catch.
+
+Also promoted from HW-20: use **`ANALOG`, not `INPUT`**, when parking pins.
+Round 1 said `INPUT`; `ANALOG` disconnects the digital input buffer and is the
+lower-leakage choice. HW-02's 16 µA figure stands (measured with no serial
+attached) but the wording was wrong for a node with a live UART to the sensor.
+
+### The vendor number that would have killed the design
+
+F-9 deserves its own line. The Stick Lite product page advertises **≤800 µA**
+sleep. Budgeted against, that is 800 µA × 17,520 h ≈ **14,000 mAh** over two
+years, against a ~4,500 mAh cold-derated pack — a ~3× deficit that would have
+made the whole no-solar design look impossible. It is a stale V2-era figure that
+the product page never updated. **Neither vendor number is a design input**; the
+budget stays on the independently measured 16 µA, bracketed at 20–30 µA in
+`SPEC.md` §4.
+
+### What this round changed about the order
+
+**F-12 is the order-relevant finding**, and it is easy to miss inside a
+cross-cutting table: the packing list is board + LoRa antenna + SH1.25×2
+connector + pin-map sticker — **no header pins**, unlike the WiFi LoRa 32. Build
+step 5 breadboards the sensor, so **2×20 headers are a gap**. The separately
+ordered antennas are *not* redundant despite a LoRa antenna being in the box: the
+bundled one mates directly to U.FL, and enclosure mounting needs the U.FL→SMA
+bulkhead run (HW-01).
+
+### Nothing this round moved the power budget
+
+Confirmed independently: HW-13 cannot break it either way (a boost sits
+downstream of the load switch, and its worst case is ~12 mA·s against the MCU's
+~32 mA·s); HW-20's TXD leak is a bug class, not a budget line. **~1.8× at 15
+minutes stands.**
 
 ---
 

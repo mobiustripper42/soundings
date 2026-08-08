@@ -204,6 +204,8 @@ beat the global registry.
 
 **Rejected:** the SPEC's LVC board (redundant against protected cells, and blind to the stuck-awake case); the PPK2 (precision the margin doesn't need); and doing neither (the TP4054 leaves a real gap).
 
+**Confirmed 2026-08-08 against the board actually being bought (HW-16).** The Wireless Stick Lite V3 carries the same `U3 TP4054` with the same pins and the same absence of a discharge-side FET, and its product page repeats the same "charge and discharge management" claim the schematic does not support. **This decision stands unchanged.** Round 2 also supplied direct evidence for the multimeter-over-PPK2 half of it: HW-20 found a **3 mA** leak on a floating U0TXD — roughly 150× the sleep budget, and trivially visible on a DMM. Nothing found in either round needed µA resolution to catch.
+
 **Revisit:** If Soundings grows to three or more distinct node designs, a PPK2 starts to amortise and the sleep-current question gets asked once per design instead of once ever. Also revisit if bench measurement shows sleep current an order of magnitude off the cited 16 µA — that would mean the budget, not just the instrument, needs rework.
 
 ---
@@ -222,7 +224,9 @@ beat the global registry.
 
 **Rejected:** no compensation (a 14 cm error dwarfs every other term); on-node correction (forfeits re-revisability, contra DEC-003/DEC-004); a new channel bit (spends scarce registry space to fix a name).
 
-**Revisit:** If the residual stratification error shows up in deployed data, add a second headspace sensor and interpolate. If humidity turns out to matter at this precision, it re-derives from stored raw — no hardware change.
+**Amended 2026-08-08 (HW-19).** The tradeoff above called the stratification residual "approximate." That undersold it: the bias is **signed and seasonal, not noise** — a sun-loaded lid sits 15–20 °C above the air over the water, so a lid-mounted probe reads the top of the gradient and **over-corrects**, and a median across samples cannot remove it. It is worst precisely when the headspace is tallest, which is the empty-tank case this sensor exists to protect. Mitigation is placement (thermally isolate from the lid; hang the probe partway down) plus an empirically fitted gradient model — which, because derivation is gateway-side, can be calibrated against manual dip readings and re-derived over stored history **without opening a tank**. That promotes the gateway-side choice from tidy to load-bearing. Probe *accuracy* is nearly irrelevant by comparison: 1 °C of probe error is 3.5 mm at a 2 m path.
+
+**Revisit:** If the fitted gradient model still leaves visible bias, add a second headspace sensor and interpolate. If humidity turns out to matter at this precision, it re-derives from stored raw — no hardware change.
 
 ---
 

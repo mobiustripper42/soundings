@@ -136,8 +136,15 @@ Deep sleep ~20–30 µA; active cycle ~3–5 s every 15 min; average ~0.15–0.2
 > ~1.3×, and tank level does not need that resolution. Full budget in
 > `docs/HARDWARE_BUILD_PLAN.md` §6.
 >
-> ⚠ **Vext cannot be used as a switched sensor rail** — ~1.44 V residual. Use a
-> discrete P-FET load switch.
+> ⚠ **The Stick Lite product page's "≤800 µA sleep" is a stale V2-era figure.**
+> Heltec's own datasheet comparison table lists 800 µA as V2 and <10 µA as V3.
+> Budgeting against 800 µA would put two years at ~14,000 mAh against a ~4,500 mAh
+> cold-derated pack — i.e. it would make this design look impossible. Build against
+> the measured 16 µA that the 20–30 µA bracket above already covers.
+>
+> ⚠ **The Vext residual is an OLED artefact, not a board property.** Round 1
+> attributed it to the wrong component; with no OLED it should switch clean.
+> Confirm with a meter before relying on it (`HARDWARE_BUILD_PLAN.md` §6).
 
 - 2× 18650 parallel ≈ 3.4 yr theoretical; derated for cold ≈ **~2 yr real-world**.
 - **Solar deliberately rejected for V1** — power needs are tiny, and solar adds a

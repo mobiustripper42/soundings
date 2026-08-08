@@ -121,20 +121,24 @@ Consequences, in order of how much they matter:
 
 ## Node
 
-Standard Soundings node, with three deviations from the mesh spec that Round-1
-research forced:
+Standard Soundings node, with deviations from the mesh spec that the hardware
+research rounds forced:
 
-- Heltec WiFi LoRa 32 V3
+- **Heltec Wireless Stick Lite V3** — no OLED. Same ESP32-S3 + SX1262 and the same
+  pinout as the WiFi LoRa 32 V3 (HW-15). ⚠ **Two U.FL sockets: E2 is LoRa, E3 is
+  2.4 GHz. Label E2** — the wrong one transmits into an unmatched load, silently.
 - 2× 18650 parallel, no solar. **Protected cells + a 3.2 V/cell firmware cutoff
   instead of the SPEC's LVC board** (DEC-006).
 - Light-colored IP65 enclosure, mounted shaded
 - Sensors wired through a PG7 gland to the internal Wago terminal block
 - WiFi disabled, deep sleep, **15 min** cadence, ±30 s wake jitter
-- **A DS18B20 in the tank headspace** — required for temperature compensation, see
-  below.
-- **The sensor rail is switched by a discrete P-FET, not Vext.** Vext does not
-  reach 0 V on the V3 (~1.44 V residual, [meshtastic/firmware#2591](https://github.com/meshtastic/firmware/issues/2591)),
-  so it cannot gate a sensor.
+- **A DS18B20 in the tank headspace** — required for temperature compensation.
+  Waterproof stainless probe, ~3 m lead; placement matters far more than accuracy
+  grade (see below).
+- **The sensor rail is switched.** Vext is the likely switch on this board — the
+  ~1.44 V residual seen on the WiFi LoRa 32 V3 is an **OLED back-power artefact**,
+  not a board property, and there is no OLED here. ⚠ Meter it before relying on
+  it; a discrete P-FET is the fallback (`HARDWARE_BUILD_PLAN.md` §6).
 
 Lives at the tank cluster as its own dedicated node.
 
@@ -198,13 +202,40 @@ Doing it gateway-side means it can be refined later — humidity has a smaller b
 real effect on the speed of sound — and **re-derived against years of stored raw
 without touching the hardware.** Same argument that put the volume curve there.
 
-### Residual limitation, accepted
+### ⚠ Stratification — the residual is a signed bias, not noise (HW-19)
 
-A single sensor measures one point in an air column that stratifies. When the
-tank is near-empty the headspace is tall and the gradient is real, so the
-correction is approximate. It is nonetheless the difference between a ~14 cm
-error and a low-single-digit-cm one, and a second headspace sensor is a cheap
-future refinement if the residual ever shows up in the data.
+**Sharpened 2026-08-08.** An earlier draft called this "approximate," which
+undersold it.
+
+The correction integrates over the *whole* sound path, but the headspace is not
+isothermal. A sun-loaded lid can sit **15–20 °C above** the air just over the
+water, so a lid-mounted probe reads the top of the gradient and **over-corrects**.
+
+Two things make that worse than a tolerance:
+
+- **The bias is signed and seasonal.** A median across samples cannot remove it —
+  every sample is wrong in the same direction at the same time of day.
+- **It is worst exactly when it matters most.** The gradient is largest when the
+  headspace is tallest — empty tank, longest path, biggest correction. That is
+  the low-level regime the sensor exists to protect against pump-dry.
+
+**Mitigations, cheapest first:**
+
+1. **Thermally isolate the probe from the lid** — standoff, not bolted flat
+   against sun-warmed plastic.
+2. **Hang it partway into the headspace** on its own lead rather than flush at the
+   top. (This is why the BOM specifies a ~3 m probe lead.)
+3. **Fit the gradient empirically, later.** Because raw counts go on the wire and
+   derivation is gateway-side, the model can be calibrated against manual dip
+   readings and **re-derived over stored history without opening a tank.**
+
+Build 1 + 2, log raw, calibrate in the first season. Mitigation 3 is what makes
+gateway-side derivation load-bearing rather than merely tidy — this is the second
+time that call has paid for itself.
+
+**Probe accuracy barely matters, which is worth knowing before overspending.** At
+a 2 m path, **1 °C of probe error is 3.5 mm** — against the 14 cm being corrected,
+even a sloppy ±2 °C part captures most of the benefit. Placement dominates.
 
 ---
 
