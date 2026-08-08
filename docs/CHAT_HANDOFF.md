@@ -276,10 +276,12 @@ carry the missing context.
   a shared one on the first hardware build the farm has ever deployed, and a
   fouling/service story for a sensor hanging in irrigation water. The *uses* chat
   lists are real (freeze alerting for the pump and Dosatron especially). The cost
-  framing is not. **Parked** to `docs/FUTURE_IDEAS.md` rather than added to V1 —
-  `SPEC.md` §3 scopes the tank node to level only, and this is cleanly un-parkable
-  once the dry build is trusted. Headspace air is a different matter: it is not new
-  scope, it is an accuracy fix to a measurement already committed to. **Taken.**
+  framing is not. **Parked** to `docs/FUTURE_IDEAS.md` as **FI-1**.
+  **Owner's decision 2026-08-08:** parked on **physical placement difficulty and
+  added complexity**, not on scope timing — which is the sturdier objection, since
+  it doesn't decay as the project matures. Headspace air is a different matter: it
+  is not new scope, it is an accuracy fix to a measurement already committed to.
+  **Taken.**
 
 - **C-5 — pin assignments are bench-confirm, not gospel.** GPIO36 (Vext, active
   LOW) and GPIO37 (ADC_Ctrl) are cited from a V3.1 schematic. Board revisions move
