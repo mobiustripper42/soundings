@@ -97,6 +97,47 @@ inside its (eventual) enclosure, which both cost signal.
 
 ## 3. Gateway architecture — recommendation
 
+### Board choice: a mixed pair **[proposed]**
+
+> **Raised 2026-08-08.** The **Heltec Wireless Stick Lite V3** is the same
+> ESP32-S3 + SX1262, without the OLED, ~$10 cheaper. Proposed for the node.
+
+The money is the least interesting argument for it. **The OLED is dead weight in
+a sealed outdoor node, and it is an active source of the problems Round 1 found:**
+
+- Three of the five items on HW-02's deep-sleep disable list exist only because of
+  the OLED (pins to `INPUT`, `displayOff()`, Vext off).
+- **F-6 — Vext's ~1.44 V residual is caused by the OLED's pull-up** (the V3.1
+  schematic's 10K to VDD_3V3). No OLED plausibly means no residual, which is the
+  reason a discrete P-FET load switch entered the BOM at all.
+- One less component to fail in a condensing headspace, and a smaller board to
+  seal into an enclosure.
+
+**But the OLED is genuinely useful at exactly one moment: the range test**, where
+it's the only way to read return-path RSSI without dragging a laptop around the
+farm.
+
+Hence a **mixed pair**:
+
+| Role | Board | Why |
+|---|---|---|
+| **Node** (tank, sealed, battery) | **Wireless Stick Lite V3** | No OLED to disable, no Vext pull-up, smaller, cheaper |
+| **Gateway** (server, mains, bench) | **WiFi LoRa 32 V3** | OLED is a free debug readout where it costs nothing; also the range-test display |
+
+**What this costs.** Board interchangeability — the original argument for two
+identical boards was a swappable spare while debugging. In exchange the enclosure
+gets the board with fewer failure modes. The firmware cost is close to nil: node
+and gateway run different programs and would need separate `[env:]` blocks
+regardless, so the second board definition adds one entry, not a second codebase.
+
+**What this risks.** HW-02's disable list, HW-05's connector, and HW-14's pin
+numbers were all researched against the **WiFi LoRa 32 V3**. If the Stick Lite's
+pinout differs, part of Round 1 gets re-run — see **HW-15…HW-17**, now open.
+
+**This does not block the order or the range test.** A range test needs two boards
+with matching radios and nothing else; the pin questions only bite at build steps
+5–6. Order now, resolve HW-15…HW-17 before firmware.
+
 ### Recommended: second Heltec V3 as a dumb serial radio **[proposed]**
 
 The gateway radio is a second Heltec V3, tethered by USB to the existing
@@ -153,7 +194,8 @@ Per `SPEC.md` §4, minus the perfboard (no excitation circuit on a tank node).
 
 | Item | Qty | Status | Notes |
 |---|---|---|---|
-| Heltec WiFi LoRa 32 V3 | 2 | [settled] | One node, one gateway radio. Buy both now for the range test. |
+| **Heltec Wireless Stick Lite V3** — the **node** | 1 | [proposed] | §3 mixed pair. No OLED: removes 3 of 5 sleep-disable steps and probably the Vext residual (F-6). ⚠ Pinout transfer is **HW-15…HW-17**. |
+| **Heltec WiFi LoRa 32 V3** — the **gateway** | 1 | [settled] | Mains/USB powered, where the OLED is a free debug readout — and the range-test display. |
 | A02YYUW ultrasonic sensor | 1 | [settled] | UART, free-running, 9600 8N1. `docs/tank-level-sensor.md` |
 | **DS18B20, headspace air** | **1** | **[settled]** | **New — DEC-007.** Required for temperature compensation, not optional. 1-Wire, one GPIO. Form factor is **HW-12**. |
 | 18650 cells, **protected** | 2 | [settled] | Parallel, ~6000 mAh combined. **Protected** per DEC-006 (~$2/cell premium). ⚠ Match capacity and internal resistance, and **equalise state of charge before joining** — cells at different SoC dump unlimited current into each other. |
@@ -460,10 +502,13 @@ next physical step.
 
 | ID | Question | Blocks |
 |----|----------|--------|
-| HW-11 | P-FET load switch part choice for the sensor rail | BOM — Vext can't do it (F-6) |
+| HW-11 | P-FET load switch part choice for the sensor rail | BOM — Vext can't do it (F-6). ⚠ May be **moot** if the Stick Lite has no Vext pull-up (HW-15). |
 | HW-12 | DS18B20 form factor for a condensing headspace — bare TO-92 or stainless probe | BOM |
 | HW-13 | Does the A02YYUW work reliably at 3.3 V? Resellers recommend 5 V (F-8) | If not: a boost converter enters the BOM and §6 is re-derived. **Bench-test at step 5.** |
 | HW-14 | Confirm GPIO36 = Vext, GPIO37 = ADC_Ctrl on the board revision received | Firmware correctness. **Verify on receipt.** |
+| HW-15 | Stick Lite V3 pinout, U.FL, and battery connector vs the WiFi LoRa 32 V3 | Whether HW-02/05/14 transfer or get re-run. Firmware, not the order. |
+| HW-16 | Stick Lite V3 charge IC — still TP4054, still no discharge protection? | **DEC-006 rests on this** |
+| HW-17 | Stick Lite V3 deep-sleep current — below the V3's 16 µA with no OLED? | Power budget §6; possibly shortens the disable list |
 
 ---
 
