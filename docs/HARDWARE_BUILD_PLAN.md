@@ -110,26 +110,48 @@ implementation of the parser is a second thing that can drift from the contract.
 
 Per `SPEC.md` §4, minus the perfboard (no excitation circuit on a tank node).
 
+> **Round 1 resolved (2026-08-08).** Eight `[verify]` tags cleared, two parts
+> added, two removed. Full answers and sources in `docs/CHAT_HANDOFF.md` §3;
+> CC's review of them in §3.3.
+
 | Item | Qty | Status | Notes |
 |---|---|---|---|
 | Heltec WiFi LoRa 32 V3 | 2 | [settled] | One node, one gateway radio. Buy both now for the range test. |
-| A02YYUW ultrasonic sensor | 1 | [settled] | UART. `docs/tank-level-sensor.md` |
-| 18650 cells | 2 | [settled] | Parallel, ~6000 mAh combined |
-| 18650 holder, 2-cell parallel | 1 | [verify] | **HW-05** — connector must match the Heltec battery input |
-| Low-voltage-cutoff board | 1 | [verify] | **HW-06** — needed only if the Heltec's own protection is inadequate |
+| A02YYUW ultrasonic sensor | 1 | [settled] | UART, free-running, 9600 8N1. `docs/tank-level-sensor.md` |
+| **DS18B20, headspace air** | **1** | **[settled]** | **New — DEC-007.** Required for temperature compensation, not optional. 1-Wire, one GPIO. Form factor is **HW-12**. |
+| 18650 cells, **protected** | 2 | [settled] | Parallel, ~6000 mAh combined. **Protected** per DEC-006 (~$2/cell premium). ⚠ Match capacity and internal resistance, and **equalise state of charge before joining** — cells at different SoC dump unlimited current into each other. |
+| 18650 holder, 2-cell **parallel** | 1 | [settled] | ⚠ **Confirm PARALLEL, not series.** Most 2×18650 lead holders are series (7.4 V) and **will destroy the board.** |
+| Battery pigtail, **JST 1.25 2-pin** | 1 | [settled] | HW-05. Heltec calls it "SH1.25-2" — the name is wrong (real JST SH is 1.0 mm pitch). Order parts listed as *"JST 1.25 2-pin for Heltec/LilyGo."* ⚠ **Verify polarity with a meter**, not wire colours: USB in, **no battery**, probe each JP1 pin to a GND header pin; the one near 4.2 V is +. |
+| ~~Low-voltage-cutoff board~~ | — | **removed** | **DEC-006.** The V3's TP4054 is a charger with no discharge-side protection, but protected cells + a 3.2 V/cell firmware cutoff cover it better. |
+| **P-FET load switch** (+ gate resistor, pull-up) | 1 | [verify] | **New — HW-11.** Switches the sensor rail from VDD_3V3. ⚠ **Vext cannot do this job** — it holds ~1.44 V residual (F-6). |
 | IP65 enclosure, light-colored, ~4×4×2" | 1 | [proposed] | Hinged lid preferred. Mounted **low and shaded** (`SPEC.md` §4 heat spec) |
 | PG7 cable glands | 2 | [proposed] | Sensor cable + spare. Pointing **down**, siliconed both sides |
-| SMA bulkhead + 3 dBi whip antenna | 2 | [verify] | **HW-01** — depends on the V3's onboard connector type |
+| **U.FL → SMA-female pigtail**, 100–150 mm | 2 | [settled] | HW-01. The V3 has **U.FL/IPEX only, no SMA on the PCB**. ⚠ Keep it **as short as it ships** — U.FL pigtail is ~1–1.5 dB/m at 900 MHz; a long run throws away more than the antenna gain provides. |
+| SMA bulkhead | 2 | [settled] | Through the enclosure wall, antenna direct on the outside. ⚠ **Not weatherproof by default** — self-amalgamating tape on the outside joint. |
+| **915 MHz antenna, 3–5 dBi omni, SMA male** | 2 | [settled] | HW-01. Vertical. ⚠ **Skip 8–10 dBi fiberglass sticks** — the gain comes from flattening the vertical pattern, so if gateway and tank sit at different heights you shoot over or under. |
 | Wago lever-nut terminal block | 1 | [settled] | Serviceable internal connections |
 | Silica gel desiccant | 1 | [settled] | Replaced annually |
-| Sensor cable extension | 1 | [verify] | **HW-04** — stock cable almost certainly won't reach. See §5. |
+| **Outdoor/direct-burial Cat5e**, ~tank height + slack | 1 | [settled] | HW-04. Stock A02YYUW lead length is unpublished; assume short and plan to extend. **Shielding not required.** Extension to several metres is fine — 9600 8N1 is 104 µs/bit, nowhere near a timing limit. |
+| 100 nF + 10 µF capacitors | 1 ea | [settled] | At the **sensor end** of the run |
+
+**Wiring the sensor run (HW-04).** Three conductors suffice: **V+, GND, TX**. RX
+is a mode-select strap — hardwire it low at the sensor for real-time mode. V+ with
+its own GND in one twisted pair, TX with a second GND in another; parallel the
+spare conductors onto V+/GND. If shielded cable gets used anyway, **ground the
+shield at the node end only** — both ends in a wet outdoor run invites a ground
+loop. ⚠ **Keep out of any conduit shared with the Grundfos pump wiring** — a far
+bigger noise source than cable length. Beyond ~10 m or on persistent checksum
+failures, move the ESP32 to the lid and run RS-485 instead.
+
+⚠ **U.FL is rated ~30 mating cycles and the latch is fragile.** Assume it gets
+mated twice, ever: RTV dab plus a zip-tie strain relief once seated.
 
 ### Mount — at the tank lid
 
 | Item | Qty | Status | Notes |
 |---|---|---|---|
-| PVC pipe for the standoff tube | 1 | [verify] | **HW-03** — ID and length are a beam-cone calculation, see §5 |
-| Hole saw | 1 | [verify] | Sized to the standoff OD, once HW-03 lands |
+| **PVC pipe, 4" or 6" Sch40** | 1 | [settled] | HW-03. Cut to **50–75 mm**, sensor face flush with the top of the collar. A shallow wide *hood*, not a deep narrow tube. |
+| **Hole saw, 4" or 6"** | 1 | [settled] | Matched to the collar OD |
 | Silicone sealant, UV-stable | 1 | [proposed] | Lid penetration + gland seals |
 | Enclosure mounting hardware | — | [proposed] | Depends on what the node straps to at the tank cluster |
 
@@ -139,44 +161,78 @@ Per `SPEC.md` §4, minus the perfboard (no excitation circuit on a tank node).
 |---|---|---|---|
 | Heltec WiFi LoRa 32 V3 | — | [settled] | The second board above |
 | USB-C cable, long | 1 | [proposed] | Length depends on where the radio ends up relative to the box |
-| Antenna | — | [verify] | Second antenna from the node row (**HW-01**) |
+| U.FL→SMA pigtail + bulkhead + antenna | — | [settled] | Second set from the node rows above |
+
+> ⚠ **F-7 — the gateway shares the board but not the constraints.** It is
+> mains/USB powered. **HW-01 (antenna) applies to it; the battery, holder,
+> protected cells, load switch, and sleep budget do not.** Do not let the BOM
+> merge the two roles.
 
 ### Bench and validation tools
 
 | Item | Status | Why |
 |---|---|---|
-| µA-capable current measurement | [verify] | **HW-07** — **you cannot validate the 2-year battery claim without this.** See §6. |
-| Multimeter | [proposed] | Assumed on hand |
+| Multimeter | [settled] | **The only current instrument this build needs.** DEC-006 — the design errors worth catching (SX1262 not slept, OLED left on) are 1–40 mA and a multimeter in series reads them fine. |
+| ~~Nordic PPK2 (~$90–110)~~ | **not purchased** | DEC-006. Buys resolution *within* the µA band that the ~1.8× margin doesn't need. Revisit at 3+ distinct node designs. |
 | Tape measure | [settled] | Calibration, §7 |
 
 ---
 
 ## 5. Mounting design
 
-### The standoff tube is doing two jobs
+### What the standoff is for
 
-`docs/tank-level-sensor.md:41` specifies recessing the transducer in a short PVC
-standoff through the lid, to fight condensation dropout in the humid headspace.
-It has a second effect worth making explicit:
+`docs/tank-level-sensor.md` specifies recessing the transducer in a PVC collar
+through the lid, to fight condensation dropout in the humid headspace. It has a
+second effect: a recessed transducer sits higher, so every reading is longer by
+the collar length, pushing the tank's full line further from the blind zone.
 
-**A recessed transducer sits higher, so every reading is longer by the standoff
-length.** That pushes the tank's full line *further* from the sensor's blind
-zone — the standoff buys back dead-zone headroom at the top of the tank, which
-is the exact thing `docs/tank-level-sensor.md:45-49` accepts as a loss.
+**That second effect turned out to be nearly free**, because HW-09 found the blind
+zone is **3 cm**, not the 20–25 cm this doc originally assumed (that figure is the
+JSN-SR04T's). A 50–75 mm collar already exceeds it, so the practical top-of-tank
+dead zone is **effectively zero** and the earlier "top clamps to full" caveat is
+gone. The collar's remaining job is condensation.
 
-### The constraint that limits it
+### The constraint that limits it — resolved (HW-03)
 
-You cannot simply make the tube long. The ultrasonic beam leaves the transducer
-as a cone; if the tube is too narrow or too long, the cone strikes the tube wall
-and returns garbage instead of the water surface.
+You cannot simply make the tube long. The beam leaves the transducer as a **60°
+full cone (30° half-angle**, DFRobot spec table; some resellers claim 15° and
+contradict the manufacturer). If the tube is too narrow or too long, the cone
+strikes the wall and returns garbage that looks plausible.
 
 ```
-tube ID  ≥  2 × (standoff length + lid thickness) × tan(beam half-angle)
+L_max  ≈  1.73 × r_inner
 ```
 
-plus clearance. **This needs the A02YYUW's beam angle** — routed as **HW-03**.
-Until that number lands, neither the pipe size nor the hole-saw size is known,
-which is why both are [verify] in the BOM.
+| Pipe | Inner radius | Max standoff |
+|---|---|---|
+| 3" Sch40 | 39 mm | 67 mm |
+| **4" Sch40** | 51 mm | **89 mm** |
+| **6" Sch40** | 77 mm | **133 mm** |
+
+**Use 4" or 6" Sch40, cut to 50–75 mm, sensor face flush with the top of the
+collar.** A shallow wide hood, not a deep narrow tube — "short standoff tube" in
+the original sensor doc is both shorter and much wider than the phrase implies.
+
+### The bigger finding: the cone reaches the sidewall (F-3)
+
+The cone keeps expanding past the collar. For an 1100-gal vertical cylinder
+(≈1.4–1.6 m diameter depending on height), **it touches the tank wall
+~1.24–1.41 m below the sensor** — well before it reaches the bottom of an empty
+tank.
+
+This does not break the measurement: a specular return off a flat water surface
+directly below is normally the first and strongest echo. But it sets up
+**occasional short-reading outliers at low level**, with internal ribs and a
+centre draw pipe as candidate false targets. Three mitigations, all cheap:
+
+- **Mount dead centre**, cone clear of the fill inlet stream.
+- **Median of 5–7 frames**, not mean (HW-08) — these failures are outliers, and a
+  median ignores what a mean chases.
+- **Gateway band-check** — reject anything outside 3 cm–tank height before it
+  reaches the volume curve.
+
+Survey the chosen cylinder's interior for ribs and a draw pipe before cutting.
 
 ### The cable run is a real constraint
 
@@ -196,43 +252,91 @@ and baffles. Confirm the chosen cylinder's lid geometry before cutting.
 
 ---
 
-## 6. Power budget — the number that must be measured
+## 6. Power budget
 
-`SPEC.md` §4 asserts ~20–30 µA deep sleep, ~0.15–0.25 mA average, and ~2 years
-real-world on 2× 18650. **Every one of those figures is [proposed], not
-measured**, and the Heltec V3's onboard peripherals (OLED, LDO, Vext rail) are a
-known place where a bare-ESP32-S3 sleep figure fails to hold. Treat the 2-year
-target as unvalidated until it is measured on the bench.
+**Round 1 changed the shape of this section.** `SPEC.md` §4's ~20–30 µA sleep
+figure is **confirmed conservative** — a cited PPK2 measurement on a bare V3 puts
+it at **~16 µA** (HW-02). But the same round found that **sleep was never the
+problem**: wake energy dominates by 5:1.
 
-```
-I_avg  =  I_sleep  +  I_active × (t_active / (T_cycle × 60))
-life   =  C / I_avg  ×  derate
-```
+### Budget at a 15-minute interval
 
-| Term | Source |
+| Term | Over 2 years |
 |---|---|
-| `C` — capacity | ~6000 mAh, 2× 18650 parallel (`SPEC.md` §4) |
-| `T_cycle` | 10–15 min **[settled]** |
-| `I_sleep` | **[verify] — measure. HW-02.** The dominant term. |
-| `I_active`, `t_active` | **[verify] — measure.** See the sensor-warmup note below. |
-| `derate` | `SPEC.md` §4 uses ~0.6 (cold + self-discharge) to get 3.4 yr → ~2 yr |
+| Sleep @ 20 µA | 350 mAh |
+| Wakes @ ~2 s, ~45 mA avg (96/day) | ~1,750 mAh |
+| Self-discharge ~3 %/yr | ~360 mAh |
+| **Total** | **~2,460 mAh** |
 
-### Switch the sensor's power rail
+Against 6000 mAh nominal, **derated to ~4,500 mAh effective for cold** (Li-ion
+delivers ~70 % of rated near −10 °C; no charging, so no plating risk — just
+capacity). **~1.8× margin.**
 
-The A02YYUW free-runs — powered, it transmits continuously. Left on the always-on
-rail it would swamp the budget entirely. **Power it from a switched rail** (the
-Heltec's Vext, or a MOSFET) so it draws only during the active window.
+**Cadence: 15 minutes, not 10.** At a 10-minute interval the margin drops to
+~1.3×, which is thin. `SPEC.md` §3 settled the range at 10–15 min; this picks the
+top of it on evidence rather than taste. Tank level moves on rain events and
+irrigation runs — it does not need 10-minute resolution.
 
-That makes `t_active` a firmware-visible cost: the sensor needs some settling
-time after power-up before a reading can be trusted, and that settling time lands
-directly in the battery equation. How long, and how many readings to take and
-median, is **HW-08**.
+**All of the margin lives in `t_active ≈ 2 s`.** That is the number to watch.
 
-### The tank node is the fleet's power testbed
+### Getting to 16 µA — the disable list (HW-02)
+
+Ordered by how often each is missed:
+
+1. **SX1262 explicitly to sleep** before `esp_deep_sleep_start()`. The radio does
+   not sleep just because the MCU does.
+2. **All LoRa SPI + OLED pins to `INPUT`** — NSS, MISO, MOSI, SCK, RST, BUSY,
+   SDA_OLED, SCL_OLED, RST_OLED. This is the step that got the cited measurement
+   from ~130 µA to 16 µA.
+3. **OLED off** — both `displayOff()` and Vext.
+4. **GPIO37 / ADC_Ctrl off.** It gates the 390K/100K battery-sense divider; left
+   on it bleeds through 490K continuously. ⚠ But it must be switched **on**
+   briefly each wake to read `battery_mv` — which DEC-006 makes the long-run
+   validation path.
+5. `gpio_deep_sleep_hold_en()` / `rtc_gpio_hold_en()` on anything that must hold
+   state, or pins float on the way into sleep.
+
+The LDO's (CE6260B33M) enable is not broken out — its quiescent current is the
+floor. CP2102 runs off VBUS and costs nothing on battery. ⚠ **Pin numbers
+(GPIO36 Vext, GPIO37 ADC_Ctrl) are cited from a V3.1 schematic — confirm on the
+board actually received** (HW-14). Board revisions move pins.
+
+### ⚠ Vext cannot switch the sensor rail (F-6)
+
+The A02YYUW free-runs: powered, it streams frames continuously. It must sit on a
+switched rail or it swamps the budget. **Vext is not that rail** — it holds
+**~1.44 V residual** with the OLED present ([meshtastic/firmware#2591](https://github.com/meshtastic/firmware/issues/2591);
+the V3.1 schematic shows a 10K pull to VDD_3V3).
+
+Use a **discrete P-FET load switch from VDD_3V3**, GPIO held across sleep with
+`rtc_gpio_hold_en()`. Part choice is **HW-11**. Any doc or code assuming Vext
+gates the sensor is wrong.
+
+### Sensor cost, in context (HW-08)
+
+~800 ms rail-on at ~8 mA ≈ **6.4 mA·s ≈ 0.0018 mAh/wake**. The ESP32-S3 awake
+beside it at ~40 mA burns ~32 mA·s over the same window — **5× the sensor.**
+Optimise total awake time; do not contort the read strategy to save sensor
+milliseconds.
+
+### How this gets validated (DEC-006)
+
+- **On the bench, with a multimeter:** confirm sleep current is **microamps, not
+  milliamps.** That is the whole check. The design errors that matter (radio not
+  slept, OLED on, SPI floating) are 1–40 mA and a multimeter in series reads them
+  fine. A PPK2 buys resolution inside the µA band that the 1.8× margin has no use
+  for — see DEC-006 for why it isn't being bought.
+- **In the field, from telemetry:** `battery_mv` is already a fixed header field
+  in every packet (`contracts/packet-v1.md:45`) — no schema change needed. A
+  server-side alert at 3.4 V/cell (Phase 5.2) turns the deployed node's own
+  discharge curve into the long-run evidence, measured in the real thermal
+  environment rather than on a bench.
+
+### The tank node is still the fleet's power testbed
 
 One cheap sensor on a switched rail puts this node near the floor of what any
-Soundings node draws. Measure it properly and you have calibrated the battery
-model for every node type that follows — which is precisely what open issue
+Soundings node draws. Characterise it and the battery model is calibrated for
+every node type that follows — which is what open issue
 [#36](https://github.com/mobiustripper42/soundings/issues/36) asks for.
 
 ---
@@ -283,17 +387,20 @@ how good M2 can get.
 
 | # | Step | Gate to pass |
 |---|---|---|
-| 1 | Resolve the [verify] set via `CHAT_HANDOFF.md` | No BOM line still carries a part-changing [verify] |
-| 2 | Order 2× Heltec V3 + 2 antennas | — |
+| 1 | ~~Resolve the `[verify]` set~~ | ✅ **Done 2026-08-08** — Round 1 closed, 10 answers promoted |
+| 2 | Order 2× Heltec V3, 2 antennas, 2 pigtails + bulkheads | Round 2 does **not** gate this |
 | 3 | **Range test** (§2) | RSSI and loss recorded tank ↔ server. **D3 + D4 resolved.** |
-| 4 | Order the rest of the BOM | Branch chosen: §3 recommended vs fallback |
-| 5 | Bench: A02YYUW on a breadboard, USB power | A plausible distance in cm on the serial monitor |
+| 4 | Order the rest of the BOM | Branch chosen (§3); HW-11/HW-12 answered |
+| 5 | Bench: A02YYUW on a breadboard — **at 3.3 V** | A plausible distance in cm. **Resolves HW-13**; if flaky, a boost converter enters the BOM and §6 is re-derived. Confirm HW-14 pins with a meter here too. |
 | 6 | Bench: node firmware + gateway radio, end to end on the desk | A real packet decoded by the Python daemon |
-| 7 | Measure sleep and active current (§6) | A real battery-life number replacing `SPEC.md`'s estimate |
+| 7 | Multimeter check: sleep current is **µA, not mA** (§6) | Confirms the disable list actually took |
 | 8 | Measure the tanks, compute the analytic curve (§7) | A seed curve in gateway config |
-| 9 | Build the enclosure and the lid mount (§5) | Sealed, glands down, node low and shaded |
+| 9 | Build the enclosure and the lid mount (§5) | Sealed, glands down, node low and shaded, collar dead-centre |
 | 10 | Deploy and watch | **M1 — first light** |
 | 11 | Log fills as they happen | **M2 — calibrated gallons** |
+
+**Steps 2–3 are unblocked right now.** Round 2 (HW-11…HW-14) only gates step 4
+and beyond, and two of its four items are answered *by* the bench at step 5.
 
 Steps 5–6 need node firmware, which is the software half of Phase 3 and can be
 built in parallel with steps 1–4 against the existing fakes.
@@ -305,16 +412,19 @@ built in parallel with steps 1–4 against the existing fakes.
 Live in `CHAT_HANDOFF.md` as `HW-01`…`HW-08`. Summarized here so this doc reads
 standalone:
 
+**Round 1 (HW-01…HW-10) is closed** — all promoted 2026-08-08. It yielded DEC-006
+(battery protection), DEC-007 (temperature compensation), and the corrections now
+folded into §4, §5 and §6.
+
+**Round 2 is open.** None of these block the range test (§2), which remains the
+next physical step.
+
 | ID | Question | Blocks |
 |----|----------|--------|
-| HW-01 | V3 antenna connector type and a suitable 900 MHz antenna | Ordering antennas |
-| HW-02 | Achievable V3 deep-sleep current, and what must be disabled to get it | The 2-year claim |
-| HW-03 | A02YYUW beam angle | Standoff tube ID/length, hole-saw size |
-| HW-04 | A02YYUW stock cable length and whether UART can be extended to tank height | Cable BOM, mount feasibility |
-| HW-05 | 18650 holder connector matching the Heltec battery input | Holder choice |
-| HW-06 | Is the V3's onboard battery protection sufficient, or is a separate LVC board needed | LVC line item |
-| HW-07 | A µA-capable current measurement option | Validating HW-02 at all |
-| HW-08 | A02YYUW warm-up/settling time and read strategy | `t_active`, therefore battery life |
+| HW-11 | P-FET load switch part choice for the sensor rail | BOM — Vext can't do it (F-6) |
+| HW-12 | DS18B20 form factor for a condensing headspace — bare TO-92 or stainless probe | BOM |
+| HW-13 | Does the A02YYUW work reliably at 3.3 V? Resellers recommend 5 V (F-8) | If not: a boost converter enters the BOM and §6 is re-derived. **Bench-test at step 5.** |
+| HW-14 | Confirm GPIO36 = Vext, GPIO37 = ADC_Ctrl on the board revision received | Firmware correctness. **Verify on receipt.** |
 
 ---
 
@@ -323,10 +433,15 @@ standalone:
 | Risk | Impact | Mitigation |
 |---|---|---|
 | **Link won't close** tank → server | Forces the fallback architecture (§3) | Range test is step 3, before any other spend |
-| **Deep sleep worse than 20–30 µA** | The 2-year target is wrong; service interval shrinks | Measure early (step 7), before building the enclosure around it |
-| **Condensation dropouts** in the headspace | Intermittent bad readings | Standoff tube (§5); publish raw distance so dropouts are visible, not smoothed away |
-| **Beam clipped** by a too-narrow standoff | Garbage readings that look plausible | HW-03 before cutting anything |
-| **Cable can't reach** low-and-shaded enclosure | Node mounted hot, battery degrades | HW-04 before ordering; worst case accept a compromise mounting height and note it |
+| **A02YYUW unreliable at 3.3 V** (F-8/HW-13) | A boost converter enters the BOM and §6 is re-derived | **Bench-test at step 5**, before the enclosure is built around it |
+| **`t_active` exceeds ~2 s** | The entire 1.8× margin lives here; overrun eats it directly | Measure awake time at step 6–7; 15-min cadence already banked the cheap margin |
+| **Series holder wired by mistake** | 7.4 V destroys the board | Confirm parallel at unboxing; verify JP1 polarity with a meter before first connection |
+| **Sidewall / rib false echoes** at low level (F-3) | Short-reading outliers exactly where the pump-dry risk lives | Dead-centre mount, median-of-5–7, gateway band-check (§5) |
+| **Headspace stratification** defeats a single temp sensor | Residual error after correction | Accepted (DEC-007) — turns ~14 cm into low-single-digit cm; second sensor is a cheap later fix |
+| **Deep sleep worse than cited 16 µA** | Service interval shrinks | Multimeter check at step 7 confirms µA vs mA — the distinction that matters |
+| **Condensation dropouts** in the headspace | Intermittent bad readings | Wide shallow collar (§5); publish raw distance so dropouts stay visible, not smoothed away |
+| **Cable can't reach** low-and-shaded enclosure | Node mounted hot, battery degrades | Cat5e extension is settled (HW-04); beyond ~10 m, move the ESP32 to the lid and run RS-485 |
+| **U.FL connector damaged** by re-mating | Dead antenna path, board rework | Rated ~30 cycles, fragile latch — RTV + zip-tie once seated, assume two matings ever |
 | **No volume reference** for M2 | Calibration stays approximate | Analytic seed curve (§7) makes M1 independent of this |
 
 ---

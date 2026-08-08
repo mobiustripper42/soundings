@@ -111,8 +111,8 @@ Heltec.
 | Component | Notes |
 |---|---|
 | Heltec WiFi LoRa 32 V3 | ESP32-S3 + SX1262 LoRa radio, one board, USB-C flashing |
-| 2× 18650 cells, parallel | ~6000 mAh combined |
-| Low-voltage-cutoff protection board | ~$3, protects cells from over-discharge |
+| 2× 18650 cells, parallel, **protected** | ~6000 mAh combined. ⚠ Confirm the holder is **parallel, not series** — 7.4 V destroys the board. |
+| ~~Low-voltage-cutoff protection board~~ | **Dropped 2026-08-08 — DEC-006.** The V3's TP4054 is a charger with no discharge-side protection, so *something* is needed; **protected cells + a 3.2 V/cell firmware cutoff** cover it better. The real failure mode is a node stuck *awake*, which firmware catches early and a hardware LVC doesn't catch at all. |
 | IP65 enclosure | Light-colored, ~4×4×2", hinged lid preferred |
 | Wago lever-nut terminal block | Internal, serviceable sensor connections |
 | PG7 cable glands | One per sensor cable entry, pointing down |
@@ -123,6 +123,21 @@ Heltec.
 ### Power — no solar **[settled]**
 
 Deep sleep ~20–30 µA; active cycle ~3–5 s every 15 min; average ~0.15–0.25 mA.
+
+> **Updated 2026-08-08 from Round-1 research** (`docs/CHAT_HANDOFF.md` HW-02).
+> The 20–30 µA figure is **confirmed conservative** — a cited PPK2 measurement on
+> a bare V3 puts it at **~16 µA**, contingent on a specific disable list (radio
+> explicitly slept, SPI/OLED pins to `INPUT`, OLED and Vext off, ADC_Ctrl off).
+> But **sleep was never the constraint**: at a 15-min cadence, wake energy
+> outweighs it ~5:1 (~1,750 mAh vs 350 mAh over two years). The margin is ~1.8×
+> after cold derating, and all of it rests on `t_active ≈ 2 s`.
+>
+> **Cadence settles at 15 min, not 10** — a 10-min interval drops the margin to
+> ~1.3×, and tank level does not need that resolution. Full budget in
+> `docs/HARDWARE_BUILD_PLAN.md` §6.
+>
+> ⚠ **Vext cannot be used as a switched sensor rail** — ~1.44 V residual. Use a
+> discrete P-FET load switch.
 
 - 2× 18650 parallel ≈ 3.4 yr theoretical; derated for cold ≈ **~2 yr real-world**.
 - **Solar deliberately rejected for V1** — power needs are tiny, and solar adds a
@@ -206,10 +221,18 @@ cylinders + 1× 330-gal IBC, 2530 gal total). The tanks share a level
 (communicating vessels), so one sensor covers all three.
 
 - Non-contact (nothing touches the irrigation water); cleaner UART output than
-  the cheaper JSN-SR04T; mounted in the lid of the tallest cylinder, recessed in
-  a short PVC standoff to fight condensation dropout.
-- ~20–25 cm dead zone clamps the very top to "full" — acceptable; the load-
-  bearing range is the bottom, where running a pump dry is the real risk.
+  the cheaper JSN-SR04T; mounted dead-centre in the lid of the tallest cylinder,
+  in a shallow wide PVC collar (4–6", 50–75 mm) to fight condensation dropout.
+- **A DS18B20 in the headspace is required, not optional (DEC-007)** — the speed
+  of sound moves ~0.176 %/°C, which is **14 cm of apparent level change** across
+  0–40 °C over a 2 m headspace, on a sensor specified to ±1 cm. The correction is
+  applied gateway-side from raw distance + raw temperature.
+- **Dead zone is 3 cm, not ~20–25 cm** (corrected 2026-08-08; the larger figure
+  belongs to the JSN-SR04T). The collar already exceeds it, so the practical
+  top-of-tank clamp is gone. The load-bearing range is still the bottom, where
+  running a pump dry is the real risk.
+- 60° beam cone reaches the tank sidewall ~1.3 m down — expect occasional
+  short-reading outliers at low level; median-of-5–7 plus a gateway band-check.
 - Distance → gallons via a **two-segment empirical curve** (the IBC tops out
   around 46", so gallons-per-inch steps there). Fit empirically from a few known
   fills; no tank measurements needed. **Always publish raw distance** alongside
