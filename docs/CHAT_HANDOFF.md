@@ -320,66 +320,78 @@ factor, and the P-FET load-switch part choice. See §3.4.
 
 ---
 
-## 4. Brief to paste into chat
+## 4. Brief to paste into chat — **Round 2**
 
-> Copy everything between the rules. It's self-contained.
+> Copy everything between the rules. It's self-contained — chat sees nothing else.
+> Round 1's brief is superseded; its questions are preserved verbatim in the §3
+> ledger.
 
 ---
 
 I'm building a battery-powered wireless sensor node for a farm rain-catchment
-tank and need help sourcing parts and reading datasheets. Please answer by ID,
-cite datasheets or vendor pages where you can, and flag anything where the
-common wisdom disagrees with the vendor's claims.
+tank. A previous research round settled most of the sensor and cabling questions;
+this round is about the **board**, which has since changed, plus three loose ends.
+Please answer by ID, cite datasheets, schematics, or vendor pages where you can,
+and flag anywhere the common wisdom disagrees with the vendor's claims.
 
-**The build:** one field node measuring water level in a cluster of three
-plumbed-together rain tanks (2× 1100-gal vertical cylinders + 1× 330-gal IBC
-tote, sharing one water level). It reports over LoRa to a gateway radio tethered
-to a Linux server on the farm LAN. Read-only telemetry — it measures and
-reports, it never actuates anything.
+**The build.** One field node measuring water level in a cluster of three
+plumbed-together rain tanks. It reports over LoRa to a second identical board
+acting as a gateway radio, tethered by USB to a Linux server on the farm LAN.
+Read-only telemetry — it measures and reports, never actuates.
 
-**Hardware:**
-- MCU + radio: Heltec WiFi LoRa 32 V3 (ESP32-S3 + SX1262), one board. WiFi
-  disabled, deep sleep between readings.
-- Sensor: A02YYUW ultrasonic distance sensor (UART), mounted in the tank lid
-  pointing down at the water, recessed in a short PVC standoff tube to fight
-  condensation.
-- Power: 2× 18650 in parallel (~6000 mAh), no solar. Target ~2 years between
-  battery swaps, waking every 10–15 minutes.
-- Enclosure: IP65, light-colored, mounted low and shaded (the cells degrade
-  above ~45 °C), PG7 glands pointing down.
-- Same Heltec V3 board as the gateway radio, USB-serial to the server.
+- **Board: Heltec Wireless Stick Lite V3** (ESP32-S3 + SX1262), ×2 — one node, one
+  gateway radio. **This changed from the WiFi LoRa 32 V3**, which is what the
+  previous round researched. No OLED wanted: the node is sealed outdoors, and the
+  range test is run from a phone app.
+- **Sensor: A02YYUW ultrasonic** (UART, free-running, 9600 8N1), in the tank lid
+  pointing down, in a shallow wide PVC collar.
+- **Plus a DS18B20** in the tank headspace — required, because the speed of sound
+  moves 0.176 %/°C and that's ~14 cm of apparent level error across 0–40 °C over a
+  2 m headspace.
+- **Power:** 2× protected 18650 in parallel (~6000 mAh), no solar, deep sleep,
+  waking every 15 minutes. Target ~2 years between battery swaps.
+- **Enclosure:** IP65, light-coloured, mounted low and shaded, PG7 glands down.
 
-**Questions:**
+**Already settled — please don't re-derive these:** the A02YYUW's 60° beam cone,
+3 cm blind zone, 100 ms response and median-of-5–7 read strategy; U.FL→SMA pigtail
+plus a 3–5 dBi 915 MHz omni; 3-conductor Cat5e for the sensor run, unshielded;
+protected cells plus a 3.2 V/cell firmware cutoff instead of a hardware LVC board;
+15-minute cadence; all unit conversion done on the server, not on the node.
 
-- **HW-01** — What antenna connector does the Heltec V3 ship with (u.FL/IPEX or
-  SMA)? What 900 MHz antenna suits a fixed outdoor node, and do I need a pigtail
-  to an SMA bulkhead through the enclosure wall?
-- **HW-02** — What deep-sleep current is realistically achievable on a Heltec V3,
-  and what has to be disabled to get there (OLED, Vext rail, LDO, onboard LED)?
-  I've seen 20–30 µA claimed; I want real measured numbers and the gotchas.
-- **HW-03** — What is the A02YYUW's beam angle (cone half-angle)? I need it to
-  size the PVC standoff tube — too narrow or too long and the cone hits the tube
-  wall instead of the water.
-- **HW-04** — How long is the A02YYUW's stock cable? Can its UART be extended to
-  several metres at 9600 baud (the enclosure sits low and shaded while the sensor
-  is in the lid of a tall tank)? Does it need shielded cable?
-- **HW-05** — What 2-cell parallel 18650 holder matches the Heltec V3's onboard
-  battery connector? I need the connector type and the polarity convention — the
-  V3 is reportedly easy to get backwards.
-- **HW-06** — Does the Heltec V3's onboard battery circuitry include adequate
-  over-discharge protection for unattended 18650s, or should I add a separate
-  low-voltage-cutoff board?
-- **HW-07** — What's a reasonable way to measure µA-range sleep current on a
-  hobby budget? A regular multimeter's burden voltage makes this unreliable and I
-  can't validate a 2-year battery claim without it.
-- **HW-08** — What is the A02YYUW's power-up settling time, and what's the right
-  read strategy — how many samples, median or mean? Does it free-run
-  continuously when powered? I plan to switch its power rail so it only draws
-  during the wake window, so settling time goes straight into my battery budget.
+**Questions — the first four are the important ones, and they may make the fifth
+unnecessary, so please take them in order.**
 
-**Bonus sanity check:** my notes say the A02YYUW has a ~20–25 cm blind zone near
-the transducer. Is that right, or is the real figure smaller? It changes how much
-of the top of the tank I lose.
+- **HW-15** — Does the **Wireless Stick Lite V3** share the **WiFi LoRa 32 V3's**
+  pinout for the pins that matter: Vext control, the ADC_Ctrl gate and battery-sense
+  divider, and the SX1262 SPI lines? Same U.FL antenna connector? Same JST
+  1.25 mm battery connector and polarity convention? Same USB-serial bridge chip?
+  I researched all of that against the WiFi LoRa 32 V3 and need to know what
+  transfers.
+- **HW-16** — Does the Stick Lite V3 use the same **TP4054** charge IC, with charge
+  management only and **no discharge-side protection**? I dropped a hardware
+  low-voltage-cutoff board specifically because the WiFi LoRa 32 V3 has no
+  discharge FET and protected cells plus a firmware cutoff cover it better. If this
+  board is different, that decision needs revisiting.
+- **HW-17** — What **deep-sleep current** is realistically achievable on a Stick
+  Lite V3? Real measured figures if they exist. On the WiFi LoRa 32 V3 the cited
+  figure is ~16 µA, but three of the five things you had to disable to get there
+  were OLED-related. With no OLED, is it lower, and is the disable list shorter?
+- **HW-18** — Does the Stick Lite V3 **have a Vext switchable rail at all**? On the
+  WiFi LoRa 32 V3, Vext never reaches 0 V — about 1.44 V residual, traced to a 10K
+  pull-up associated with the OLED. **If that pull-up is gone on this board, does
+  Vext switch cleanly to 0 V?** I need to power the ultrasonic sensor only during
+  the wake window, and if Vext works I can drop the discrete load switch below.
+- **HW-11** — *(possibly moot — depends on HW-18.)* If Vext still can't be used:
+  what **P-FET load switch**, or integrated load-switch IC, suits gating a ~8 mA
+  3.3 V sensor rail from an ESP32 GPIO? Part number, and does it need a gate
+  resistor and a pull-up?
+- **HW-12** — What **DS18B20 form factor** for tank headspace *air* — bare TO-92 or
+  a waterproof stainless probe? The headspace is condensing but the sensor is not
+  submerged, and it needs to last years in there.
+- **HW-13** — The A02YYUW is spec'd 3.3–5 V but several resellers recommend 5 V "for
+  best performance." I'll bench-test at 3.3 V, but **if it proves flaky, what boost
+  converter would you suggest**, and what would its quiescent draw cost a node
+  waking every 15 minutes?
 
 ---
 
@@ -417,4 +429,4 @@ no ceremony. The three that carry the most context per line:
 | Round | Opened | Topic | Closed |
 |-------|--------|-------|--------|
 | 1 | 2026-08-07 | Tank node hardware — HW-01…HW-08, plus HW-09 (blind zone) and HW-10 (temperature) raised in chat | **2026-08-08 — all 10 `promoted`.** CC review in §3.3; math re-derived and confirmed; five corrections logged. Yielded DEC-006, DEC-007, and four new open items. |
-| 2 | 2026-08-08 | HW-11…HW-14 — load switch, DS18B20 form factor, 3.3 V operation, pin confirmation | — |
+| 2 | 2026-08-08 | **Board change to Stick Lite V3** (HW-15…HW-18) + loose ends (HW-11…HW-13). HW-14 is a meter check on receipt, not a chat question. Brief in §4. | — |
