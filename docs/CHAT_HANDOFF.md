@@ -95,9 +95,10 @@ Two rules fall out of it, and the first one is the load-bearing one:
 Neither rule survives being merely written down; they work because ordering runs
 through the BOM. That is the whole design.
 
-**Worth backporting.** This file is project-agnostic and tinkle demonstrably
-needed it — a candidate for `/push-seeds` once the pattern has proven itself here
-over a couple more rounds.
+**Worth backporting.** Nothing in this file is soundings-specific, and tinkle
+demonstrably needed it. Once the pattern has a couple more rounds proving itself
+here, it belongs in the seeds templates so every project gets it — by whatever
+mechanism seeds takes now.
 
 ---
 
