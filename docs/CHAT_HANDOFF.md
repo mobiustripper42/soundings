@@ -1,7 +1,53 @@
 # Chat ↔ Claude Code Handoff
 
 *The sync point between open-ended research in Claude chat and the repo that
-Claude Code edits. Hand-maintained — paste questions out, paste answers back in.*
+Claude Code edits. Hand-maintained — the whole file goes out, gets edited, comes
+back.*
+
+---
+
+## 0. If you are Claude chat and this file was just handed to you
+
+**Your job: answer the `open` questions in §3.4 and edit this file in place.** Then
+hand the whole file back. Everything you need is in it.
+
+**Edit freely:**
+
+- The `Answer`, `Status`, and `Date` cells of **Round 2** rows (§3.4). Set
+  `Status` to `answered`.
+- A new `## 3.5 Round 2 detail` section, mirroring §3.1 — the tables hold the
+  decision, that section holds the reasoning, gotchas, and anything that didn't
+  fit in a cell.
+- The cross-cutting findings table (§3.2) — append new `F-n` rows for anything
+  that doesn't belong to a single ID.
+- **New question IDs.** Add them. Round 1's two most valuable findings — HW-09
+  (the blind zone was wrong by 20 cm) and HW-10 (temperature compensation, a
+  14 cm error nobody had noticed) — were both raised by chat going off-script,
+  not asked by the repo. If the research surfaces something that should have been
+  asked, ask it and answer it.
+
+**Do not edit:**
+
+- **Round 1 rows (§3).** They are `promoted` — a historical record of what was
+  decided and why. Tidying them destroys the audit trail.
+- **§3.3.** That is CC's review of your previous round, including corrections.
+  Disagree with it in your Round 2 answers if you think it's wrong — don't
+  rewrite it.
+- §0–§2, §5, §6 — the workflow itself.
+
+**Conventions that make the merge work:**
+
+- **Answer by ID.** A partial reply still merges cleanly.
+- **Cite sources** — a datasheet, schematic, or vendor URL, not a bare number.
+  It's what makes an answer re-checkable in a year.
+- **Flag contradictions, don't resolve them.** If an answer conflicts with
+  something recorded here as settled, say so explicitly in the answer. CC surfaces
+  it as a decision rather than silently applying it.
+- **Say when you don't know.** An honest "not published, here's the closest
+  proxy" is worth more than a confident number that turns out to be a different
+  part. Round 1 did this well on the A02YYUW cable length.
+- Mark a row `blocked` if it genuinely needs a bench measurement or a purchase
+  before anyone can answer it.
 
 ---
 
@@ -19,26 +65,69 @@ and neither can see the other's context.
 This file is the interchange. **It is the only channel** — anything that matters
 and lives only in a chat window is lost.
 
+### This already happened once, on tinkle
+
+> **Owner, 2026-08-08:** *"shit got out of sync between when i was building tinkle
+> (irrigation controller) because chat was specing parts that didn't make it back
+> into the repo."*
+
+That is the failure this file exists to prevent, and it is not hypothetical. The
+mechanism is worth naming precisely, because it is quiet: **chat specs a part, the
+part gets ordered, the repo never hears about it.** Nothing breaks. No test fails.
+The repo simply describes a machine that no longer exists, and every later
+decision is made against a stale picture — until someone opens an enclosure and
+finds a component the docs have never heard of.
+
+Two rules fall out of it, and the first one is the load-bearing one:
+
+- **🔒 The BOM is the only purchasing authority.** If a part is not in
+  `docs/HARDWARE_BUILD_PLAN.md` §4, it does not get ordered. Not "should not" —
+  *does not*. A chat message is a **proposal**, never an order list. This inverts
+  the tinkle failure: instead of hoping research finds its way back into the repo,
+  the repo becomes the thing you buy from, so promotion has to happen first or
+  nothing ships. **If you catch yourself about to order from a chat window, stop
+  and promote it first.**
+- **An open round is a drift alarm.** §7's round log closes a round only when
+  every row is `promoted`. A round that has been open a while means research is
+  sitting somewhere unpromoted — which is exactly the tinkle state. Check the log
+  before ordering anything.
+
+Neither rule survives being merely written down; they work because ordering runs
+through the BOM. That is the whole design.
+
+**Worth backporting.** This file is project-agnostic and tinkle demonstrably
+needed it — a candidate for `/push-seeds` once the pattern has proven itself here
+over a couple more rounds.
+
 ---
 
 ## The ritual
 
-1. **Out.** Copy the brief in §4 into a chat window. It carries enough project
-   context that chat can answer without seeing the repo.
-2. **Back.** Paste chat's answers into the ledger in §3 — fill `Answer`, set
-   `Status` to `answered`, stamp `Date`. Raw and unedited is fine; don't tidy.
-3. **Promote.** Tell Claude Code *"handoff updated"*. CC reads this file, moves
-   each answer to where it actually belongs (§5), sets `Status` to `promoted`,
-   and updates the affected docs in one commit.
+**Hand chat the whole file.** Not an extract — the whole thing. §0 tells chat what
+to do with it, and the surrounding context (Round 1's answers, CC's review of
+them, the promotion rules) is what stops it re-deriving settled ground or
+contradicting decisions it can't see.
+
+1. **Out.** Give this entire file to a chat window.
+2. **Research + edit.** Chat answers the `open` rows in place, per §0.
+3. **Back.** Hand the edited file to Claude Code — paste it, or drop it in and say
+   *"handoff updated."*
+4. **Promote.** CC **diffs the returned file against the committed version**
+   first — that catches anything accidentally clobbered, and separates chat's real
+   edits from incidental reformatting. Then it moves each answer to its real home
+   (§5), sets `Status` to `promoted`, and commits.
 
 Answers live here only in transit. **A `promoted` row's real home is elsewhere**
 — this file is a log, not a source of truth.
 
-> **Shortcut when CC is in a live session:** skip step 2 entirely — paste chat's
-> answers straight into the conversation and CC writes the ledger *and* promotes
-> in one pass. The full ritual above is for when the two halves are separated in
-> time (research done today, promoted next week by a session with no memory of
-> it). Step 1 is never optional: the brief in §4 is the only thing chat can see.
+> **§4 is for the other path.** If you ever want a lighter round, §4 is a
+> self-contained brief that works without the rest of the file. When you hand over
+> the whole document it's redundant but harmless — it states the round's ask.
+
+> **Shortcut when CC is in a live session:** answers can come straight into the
+> conversation instead of via the file, and CC writes the ledger *and* promotes in
+> one pass. The file round-trip matters when research and promotion are separated
+> in time — done today, promoted next week by a session with no memory of it.
 
 ### Rules
 

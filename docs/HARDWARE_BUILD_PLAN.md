@@ -13,6 +13,13 @@ tank-level node plus the gateway radio it talks to. Phase 3 (`PROJECT_PLAN.md`).
 >
 > Nothing in the BOM gets ordered while it still carries a **[verify]** that would
 > change the part. See "Open questions" below for the live list.
+>
+> **🔒 §4 is the only purchasing authority.** If a part is not in the BOM below, it
+> does not get ordered — a chat message or a research note is a *proposal*, never
+> an order list. This is a rule with a scar behind it: on the sibling **tinkle**
+> project, chat spec'd parts that never made it back into the repo, and the docs
+> ended up describing a machine that no longer existed. Routing every order through
+> this table forces promotion to happen first. See `docs/CHAT_HANDOFF.md` §1.
 
 ---
 
