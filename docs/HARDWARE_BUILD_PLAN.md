@@ -41,6 +41,43 @@ Buy two Heltec WiFi LoRa 32 V3 boards and two antennas. Flash a trivial
 ping/RSSI sketch on both. Walk one to the tank cluster, leave the other at the
 intended gateway location, and record RSSI and packet loss.
 
+### ⚠ Attach the antennas before the first power-on
+
+Transmitting with no antenna reflects the power back into the SX1262's output
+stage and can damage it. **Pigtail and antenna on both boards before either one
+runs any TX code** — this is the single easiest way to destroy a board on day
+one. It also happens to be the moment to seat the U.FL connector for good (RTV +
+zip-tie, ~30 mating cycles, fragile latch).
+
+### Powering the two boards
+
+**No batteries for this test.** The JST 1.25 polarity is unverified (HW-05) and
+the 2-slot holder has to be confirmed parallel-not-series — neither risk is worth
+taking before the boards have proven they work.
+
+| End | Power | Notes |
+|---|---|---|
+| Gateway (stationary) | **USB-C from the server or a laptop** | Also carries the serial log |
+| Node (walking) | **USB-C from a USB power bank** | Any 5 V bank; the board peaks around 150 mA on TX |
+
+Two cautions:
+
+- **Use USB-C *data* cables, not charge-only.** The V3 flashes over a CP2102
+  bridge; a charge-only cable powers the board but won't flash it or return
+  serial. Charge-only USB-C cables are common and indistinguishable by eye.
+- **Some power banks auto-shut-off below a low-draw threshold.** A board idling
+  between pings may fall under it and the bank cuts out mid-walk. A
+  continuous-ping sketch keeps draw up; if a bank still drops, use a different one
+  rather than debugging the link.
+
+### Reading RSSI while walking
+
+Log at the **gateway** end — it has the serial connection, and receive-side RSSI
+is what the link budget actually turns on. Use the **onboard OLED** on the walking
+board to show the return-path RSSI, so both directions are visible without
+dragging a laptop around the farm. (The OLED gets disabled later for the sleep
+budget; during the range test it's the point of it.)
+
 That single afternoon resolves **both remaining hardware deferrals**:
 
 - **D3 (node↔gateway PHY pairing)** — dissolved outright if both ends are
@@ -172,6 +209,8 @@ mated twice, ever: RTV dab plus a zip-tie strain relief once seated.
 
 | Item | Status | Why |
 |---|---|---|
+| **USB-C data cables** ×2 | [settled] | ⚠ **Data, not charge-only** — the V3 flashes over a CP2102 bridge. Likely on hand. |
+| **USB power bank** | [settled] | Powers the walking board during the range test. Any 5 V bank; watch for low-draw auto-shutoff. Likely on hand. |
 | Multimeter | [settled] | **The only current instrument this build needs.** DEC-006 — the design errors worth catching (SX1262 not slept, OLED left on) are 1–40 mA and a multimeter in series reads them fine. |
 | ~~Nordic PPK2 (~$90–110)~~ | **not purchased** | DEC-006. Buys resolution *within* the µA band that the ~1.8× margin doesn't need. Revisit at 3+ distinct node designs. |
 | Tape measure | [settled] | Calibration, §7 |
