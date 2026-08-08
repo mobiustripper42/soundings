@@ -203,7 +203,7 @@ Per `SPEC.md` §4, minus the perfboard (no excitation circuit on a tank node).
 | Item | Qty | Status | Notes |
 |---|---|---|---|
 | **Heltec Wireless Stick Lite V3** | 3 | [settled] | §3. Node + gateway + **one spare**. **HW-15: the pinout transfers — everything from Round 1 holds.** GPIO36 = Vext Ctrl, GPIO37 = ADC Ctrl, GPIO1 = VBAT read, confirmed on the WSL V3 Rev1.1 datasheet. Same CP2102, LDO, TP4054, fuse, JP1, battery divider, SX1262 nets. **58.08 × 22.6 × 8.2 mm** (longer, narrower, thinner than the V3 — size the enclosure to this). |
-| **2×20 pin headers** | 3 | [settled] | ⚠ **F-12 — headers are NOT in the box** (unlike the WiFi LoRa 32). The packing list is board + LoRa antenna + SH1.25×2 connector + pin-map sticker. Build step 5 breadboards the sensor, so this is a real gap. Note the count is **2×20, not 2×18**. |
+| 2×20 pin headers | — | **not ordered** | **F-12 — headers are not in the box** (unlike the WiFi LoRa 32; note 2×20, not 2×18). **Owner has stock; not a purchase.** Plan for this build is to **solder the six sensor wires directly to the board pads** rather than breadboard — better for a sealed outdoor node anyway, since headers plus jumpers are a vibration and corrosion liability. |
 | A02YYUW ultrasonic sensor | 1 | [settled] | UART, free-running, 9600 8N1. `docs/tank-level-sensor.md` |
 | **DS18B20, headspace air — waterproof stainless probe, ~3 m lead** | 2 | [settled] | **DEC-007.** Required, not optional. **HW-12: stainless probe, not bare TO-92** — in a condensing headspace, water bridging DQ↔GND corrupts readings and bare leads corrode over years. The sheath's thermal mass is a *benefit* in slow-moving headspace air. **Buy the cheapest; accuracy grade barely matters** — at a 2 m path 1 °C of probe error is 3.5 mm, against the 14 cm error being corrected. Second one is a spare (~$8 each). ⚠ **Placement dominates the part — see §5 and HW-19.** |
 | 18650 cells, **protected** | 2 | [settled] | Parallel, ~6000 mAh combined. **Protected** per DEC-006 (~$2/cell premium). ⚠ Match capacity and internal resistance, and **equalise state of charge before joining** — cells at different SoC dump unlimited current into each other. |
@@ -563,7 +563,7 @@ how good M2 can get.
 | 2 | Order 2× Stick Lite V3, 2 antennas, 2 pigtails + bulkheads | Round 2 does **not** gate this |
 | 3 | **Range test** (§2) | RSSI and loss recorded tank ↔ server. **D3 + D4 resolved.** |
 | 4 | Order the rest of the BOM | Branch chosen (§3); HW-11/HW-12 answered |
-| 5 | **Bench session — four checks, one sitting** (see below) | Resolves HW-13, HW-14, HW-18, HW-05 |
+| 5 | **Bench session — four checks, one sitting** (see below). Sensor wires soldered direct to the pads, no breadboard. | Resolves HW-13, HW-14, HW-18, HW-05 |
 | 6 | Bench: node firmware + gateway radio, end to end on the desk | A real packet decoded by the Python daemon |
 | 7 | Multimeter check: sleep current is **µA, not mA** (§6) | Confirms the disable list actually took |
 | 8 | Measure the tanks, compute the analytic curve (§7) | A seed curve in gateway config |
