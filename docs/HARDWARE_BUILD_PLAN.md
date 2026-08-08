@@ -37,9 +37,9 @@ gateway radio. Not a fleet.
 **Do this before ordering an enclosure, cutting a tank lid, or writing node
 firmware.**
 
-Buy two Heltec WiFi LoRa 32 V3 boards and two antennas. Flash a trivial
-ping/RSSI sketch on both. Walk one to the tank cluster, leave the other at the
-intended gateway location, and record RSSI and packet loss.
+Buy two Heltec Wireless Stick Lite V3 boards and two antennas. Walk one to the
+tank cluster, leave the other at the intended gateway location, and record RSSI
+and packet loss **from the phone app** — no OLED, no laptop in the field.
 
 ### ⚠ Attach the antennas before the first power-on
 
@@ -57,26 +57,28 @@ taking before the boards have proven they work.
 
 | End | Power | Notes |
 |---|---|---|
-| Gateway (stationary) | **USB-C from the server or a laptop** | Also carries the serial log |
+| Gateway (stationary) | **USB-C from the server or a laptop** | Also carries a serial log, if convenient |
 | Node (walking) | **USB-C from a USB power bank** | Any 5 V bank; the board peaks around 150 mA on TX |
 
 Two cautions:
 
-- **Use USB-C *data* cables, not charge-only.** The V3 flashes over a CP2102
-  bridge; a charge-only cable powers the board but won't flash it or return
+- **Use USB-C *data* cables, not charge-only.** The board flashes over a
+  USB-serial bridge; a charge-only cable powers it but won't flash it or return
   serial. Charge-only USB-C cables are common and indistinguishable by eye.
 - **Some power banks auto-shut-off below a low-draw threshold.** A board idling
-  between pings may fall under it and the bank cuts out mid-walk. A
-  continuous-ping sketch keeps draw up; if a bank still drops, use a different one
-  rather than debugging the link.
+  between pings may fall under it and the bank cuts out mid-walk. Continuous
+  transmission keeps draw up; if a bank still drops out, swap banks rather than
+  debugging the link.
 
 ### Reading RSSI while walking
 
-Log at the **gateway** end — it has the serial connection, and receive-side RSSI
-is what the link budget actually turns on. Use the **onboard OLED** on the walking
-board to show the return-path RSSI, so both directions are visible without
-dragging a laptop around the farm. (The OLED gets disabled later for the sleep
-budget; during the range test it's the point of it.)
+**Run it from the phone app** — that is the measurement surface, and it is why no
+board needs an OLED (§3). The walking board needs power and nothing else: no
+laptop, no serial tether, no display.
+
+Still worth logging at the **gateway** end if a serial connection is convenient
+there, since receive-side RSSI at the fixed location is what the link budget
+ultimately turns on. But it is a convenience, not a requirement.
 
 That single afternoon resolves **both remaining hardware deferrals**:
 
@@ -87,7 +89,7 @@ That single afternoon resolves **both remaining hardware deferrals**:
 
 Everything downstream branches on the answer, and the two boards are needed
 regardless of which branch wins. There is no version of this project where
-buying two Heltec V3s is wasted.
+buying two Heltec boards is wasted.
 
 **Record:** RSSI and loss rate at the tank, at the intended server location, and
 at the two tunnels — plus the same numbers with the tank lid closed and the node
@@ -97,50 +99,45 @@ inside its (eventual) enclosure, which both cost signal.
 
 ## 3. Gateway architecture — recommendation
 
-### Board choice: a mixed pair **[proposed]**
+### Board choice: 2× Heltec Wireless Stick Lite V3 **[proposed]**
 
-> **Raised 2026-08-08.** The **Heltec Wireless Stick Lite V3** is the same
-> ESP32-S3 + SX1262, without the OLED, ~$10 cheaper. Proposed for the node.
+> **Decided 2026-08-08.** Same ESP32-S3 + SX1262 as the WiFi LoRa 32 V3, without
+> the OLED, ~$10 cheaper per board.
 
-The money is the least interesting argument for it. **The OLED is dead weight in
-a sealed outdoor node, and it is an active source of the problems Round 1 found:**
+The money is the least interesting argument. **The OLED is dead weight in a sealed
+outdoor node, and it is the direct cause of several problems Round 1 found:**
 
-- Three of the five items on HW-02's deep-sleep disable list exist only because of
-  the OLED (pins to `INPUT`, `displayOff()`, Vext off).
+- Three of the five items on HW-02's deep-sleep disable list exist **only** because
+  of the OLED (SPI/OLED pins to `INPUT`, `displayOff()`, Vext off).
 - **F-6 — Vext's ~1.44 V residual is caused by the OLED's pull-up** (the V3.1
   schematic's 10K to VDD_3V3). No OLED plausibly means no residual, which is the
-  reason a discrete P-FET load switch entered the BOM at all.
-- One less component to fail in a condensing headspace, and a smaller board to
-  seal into an enclosure.
+  entire reason a discrete P-FET load switch entered the BOM.
+- One fewer component to fail in a condensing headspace, in a smaller board that
+  is easier to seal.
 
-**But the OLED is genuinely useful at exactly one moment: the range test**, where
-it's the only way to read return-path RSSI without dragging a laptop around the
-farm.
+**The one counter-argument is gone.** The OLED's only real use was reading
+return-path RSSI during the range test without carrying a laptop — and the range
+test is run from a phone app (§2), so no board-mounted display is needed at
+either end. A briefly-considered mixed pair (Stick Lite node, OLED gateway) is
+therefore dropped: it would have cost board interchangeability to buy a readout
+that isn't used.
 
-Hence a **mixed pair**:
+Two identical boards keeps what the original plan wanted from them — one flashing
+toolchain, one antenna type, one pinout to learn, and a spare that can stand in
+for either role while debugging.
 
-| Role | Board | Why |
-|---|---|---|
-| **Node** (tank, sealed, battery) | **Wireless Stick Lite V3** | No OLED to disable, no Vext pull-up, smaller, cheaper |
-| **Gateway** (server, mains, bench) | **WiFi LoRa 32 V3** | OLED is a free debug readout where it costs nothing; also the range-test display |
+**What this risks.** HW-02's disable list, HW-05's battery connector, and HW-14's
+pin numbers were all researched against the **WiFi LoRa 32 V3**. If the Stick
+Lite's pinout differs, part of Round 1 gets re-run — **HW-15…HW-17**, open. This
+matters more now that *both* boards are Stick Lites, not less.
 
-**What this costs.** Board interchangeability — the original argument for two
-identical boards was a swappable spare while debugging. In exchange the enclosure
-gets the board with fewer failure modes. The firmware cost is close to nil: node
-and gateway run different programs and would need separate `[env:]` blocks
-regardless, so the second board definition adds one entry, not a second codebase.
+**It does not block the order or the range test.** A range test needs two boards
+with matching radios and nothing else; the pin questions bite at build steps 5–6.
+Order now, resolve HW-15…HW-17 before firmware.
 
-**What this risks.** HW-02's disable list, HW-05's connector, and HW-14's pin
-numbers were all researched against the **WiFi LoRa 32 V3**. If the Stick Lite's
-pinout differs, part of Round 1 gets re-run — see **HW-15…HW-17**, now open.
+### Recommended: the second board as a dumb serial radio **[proposed]**
 
-**This does not block the order or the range test.** A range test needs two boards
-with matching radios and nothing else; the pin questions only bite at build steps
-5–6. Order now, resolve HW-15…HW-17 before firmware.
-
-### Recommended: second Heltec V3 as a dumb serial radio **[proposed]**
-
-The gateway radio is a second Heltec V3, tethered by USB to the existing
+The gateway radio is the second Stick Lite, tethered by USB to the existing
 headless Linux box (`SPEC.md` §7). Its firmware does one thing: receive a LoRa
 frame, write the raw bytes over USB serial. It does not decode, does not run
 WiFi, does not speak MQTT.
@@ -163,7 +160,7 @@ the server, and gains one new `IPacketSource` implementation — a
 Two identical boards also means one flashing toolchain, one antenna type, and a
 board that can be swapped between node and gateway roles while debugging.
 
-### Fallback: Heltec V3 as a WiFi→MQTT bridge **[proposed]**
+### Fallback: the board as a WiFi→MQTT bridge **[proposed]**
 
 **Trigger:** the range test shows the link won't close from the tank to the
 server's physical location.
@@ -194,8 +191,7 @@ Per `SPEC.md` §4, minus the perfboard (no excitation circuit on a tank node).
 
 | Item | Qty | Status | Notes |
 |---|---|---|---|
-| **Heltec Wireless Stick Lite V3** — the **node** | 1 | [proposed] | §3 mixed pair. No OLED: removes 3 of 5 sleep-disable steps and probably the Vext residual (F-6). ⚠ Pinout transfer is **HW-15…HW-17**. |
-| **Heltec WiFi LoRa 32 V3** — the **gateway** | 1 | [settled] | Mains/USB powered, where the OLED is a free debug readout — and the range-test display. |
+| **Heltec Wireless Stick Lite V3** | 2 | [proposed] | §3. One node, one gateway radio — identical boards, so a spare covers either role. No OLED: removes 3 of 5 sleep-disable steps and probably the Vext residual (F-6). ⚠ Pinout transfer from the WiFi LoRa 32 V3 is **HW-15…HW-17**. |
 | A02YYUW ultrasonic sensor | 1 | [settled] | UART, free-running, 9600 8N1. `docs/tank-level-sensor.md` |
 | **DS18B20, headspace air** | **1** | **[settled]** | **New — DEC-007.** Required for temperature compensation, not optional. 1-Wire, one GPIO. Form factor is **HW-12**. |
 | 18650 cells, **protected** | 2 | [settled] | Parallel, ~6000 mAh combined. **Protected** per DEC-006 (~$2/cell premium). ⚠ Match capacity and internal resistance, and **equalise state of charge before joining** — cells at different SoC dump unlimited current into each other. |
@@ -238,7 +234,7 @@ mated twice, ever: RTV dab plus a zip-tie strain relief once seated.
 
 | Item | Qty | Status | Notes |
 |---|---|---|---|
-| Heltec WiFi LoRa 32 V3 | — | [settled] | The second board above |
+| Heltec Wireless Stick Lite V3 | — | [settled] | The second board above — identical to the node, so either can take either role |
 | USB-C cable, long | 1 | [proposed] | Length depends on where the radio ends up relative to the box |
 | U.FL→SMA pigtail + bulkhead + antenna | — | [settled] | Second set from the node rows above |
 
@@ -469,7 +465,7 @@ how good M2 can get.
 | # | Step | Gate to pass |
 |---|---|---|
 | 1 | ~~Resolve the `[verify]` set~~ | ✅ **Done 2026-08-08** — Round 1 closed, 10 answers promoted |
-| 2 | Order 2× Heltec V3, 2 antennas, 2 pigtails + bulkheads | Round 2 does **not** gate this |
+| 2 | Order 2× Stick Lite V3, 2 antennas, 2 pigtails + bulkheads | Round 2 does **not** gate this |
 | 3 | **Range test** (§2) | RSSI and loss recorded tank ↔ server. **D3 + D4 resolved.** |
 | 4 | Order the rest of the BOM | Branch chosen (§3); HW-11/HW-12 answered |
 | 5 | Bench: A02YYUW on a breadboard — **at 3.3 V** | A plausible distance in cm. **Resolves HW-13**; if flaky, a boost converter enters the BOM and §6 is re-derived. Confirm HW-14 pins with a meter here too. |
@@ -509,6 +505,7 @@ next physical step.
 | HW-15 | Stick Lite V3 pinout, U.FL, and battery connector vs the WiFi LoRa 32 V3 | Whether HW-02/05/14 transfer or get re-run. Firmware, not the order. |
 | HW-16 | Stick Lite V3 charge IC — still TP4054, still no discharge protection? | **DEC-006 rests on this** |
 | HW-17 | Stick Lite V3 deep-sleep current — below the V3's 16 µA with no OLED? | Power budget §6; possibly shortens the disable list |
+| HW-18 | Does the Stick Lite have a Vext rail, and does the ~1.44 V residual survive with no OLED? | **May delete HW-11 entirely** — no residual means no P-FET needed |
 
 ---
 
