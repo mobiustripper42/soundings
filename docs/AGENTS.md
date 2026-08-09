@@ -12,13 +12,14 @@ This is a `tool`-type project, so `@ui-reviewer` (webapp-only) is not used.
 
 | Agent | Model | When | Purpose |
 |-------|-------|------|---------|
-| `@architect` | Opus 4.8 | Before design decisions, new dependencies, scope creep, any DEC-TBD | Keep architecture coherent against SPEC + DECISIONS. Runs Opus; escalate to a Fable run for genuinely hard or bundled design work (DEC-S027). Output: proceed/modify/reject + reasoning, draft DEC entry. |
+| `@architect` | Opus 4.8 | Before design decisions, new dependencies, scope creep, any unresolved decision | Keep architecture coherent against SPEC + DECISIONS. Runs Opus; escalate to a Fable run for genuinely hard or bundled design work (DEC-S027). Output: proceed/modify/reject + reasoning, draft DEC entry. |
 | `@code-review` | Sonnet | After commits (wired into `/kill-this`) | Lightweight post-commit review — bugs, inconsistencies, convention drift. Output: findings ranked by severity, or clean bill. |
 | `@pm` | Sonnet | Session start/end | Tracks state — done, next, blocked. Flags timeline risk, recommends order, suggests scope cuts. |
-| `@sync-config` | Sonnet | `/push-seeds`, `/pull-seeds` | Classifies template-vs-project diffs, proposes backports, schema-version gated. |
+| `@tape-reader` | Sonnet | Via `/read-the-tape` | Reads a session transcript and writes one cited observation to seeds' `observations` branch. Modifies nothing in this repo (DEC-S040). |
+| `@doc-consistency` | Sonnet | Via `/doc-consistency-check`, ad-hoc | Cross-references factual claims across the doc set; flags mismatches and unfilled placeholders. Report-only. |
+| `@ideas` | Sonnet | Park an idea, re-rank, audit the parking lot | Curates docs/FUTURE_IDEAS.md — capture, dedupe, cross-ref. Edits only that file, and creates it on first use, which is why that path is unbackticked: it does not exist yet and the checker reads markup as a claim that it does. |
 
-`@tape-reader` and `@doc-consistency` (Sonnet) can be copied from seeds if/when
-`/read-the-tape` or `/doc-consistency-check` is used.
+**There is no sync agent.** The sync-config agent and the push-seeds and pull-seeds skills were retired (DEC-S040) — named without slashes here because either would read as a claim they still exist. Moving a file between seeds and this repo is a manual `cp`; check seeds' `.claude/routine-config.yaml` § `file-classes` first.
 
 Agent specs live in `.claude/agents/`.
 
@@ -35,7 +36,8 @@ Agent specs live in `.claude/agents/`.
 | `/its-dead` | Session end (once per window) | Stamps `ended:`, tallies points from the per-task blocks, displays wall-clock, commits + pushes the sessions branch. No time math or version bump — those moved to `/retro`. |
 | `/start-phase` | Phase boundary (start) | Reads the next phase from PROJECT_PLAN.md, creates one Issue per task with `phase:N` + `points:X` labels, writes issue numbers back. |
 | `/retro` | Phase boundary (end) | Computes phase throughput (points per calendar week from issue `closedAt` + `points:` labels, DEC-S026) + an estimate-calibration tally. Marks tasks `[x]`, writes RETROSPECTIVES.md, runs version bumps. Optionally chains into `/start-phase`. |
-| `/push-seeds` · `/pull-seeds` | Workflow sync | Backport to / pull from the seeds templates via `@sync-config`, gated on `.claude/seeds-version`. |
+| `/bump-major` | Breaking change | Manual major bump — CHANGELOG entry + tag on `main`. |
+| `/promote-production` | Ship trunk to prod | ff-merges `main` → `production`. Requires `origin/production`; not set up here yet. |
 | `/read-the-tape` | After a notable session | Audits the JSONL transcript for anti-patterns via `@tape-reader`. |
 | `/doc-consistency-check` | Before phase boundaries | Cross-references doc claims via `@doc-consistency` (report-only). |
 

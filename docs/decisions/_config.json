@@ -1,0 +1,13 @@
+{
+  "spec": "docs/SPEC.md",
+  "families": {},
+  "topics": [
+    "Process & decision discipline",
+    "Hardware — board, power & enclosure",
+    "Sensors & calibration",
+    "Firmware architecture",
+    "Radio, wire contract & gateway",
+    "Server, storage & display",
+    "Open questions"
+  ]
+}

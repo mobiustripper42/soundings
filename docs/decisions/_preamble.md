@@ -18,29 +18,3 @@ so several placeholders would collide. Consult @architect before building on one
 > operate by, and the cross-cutting software-architecture calls.
 
 ---
-
-## Index
-
-### Process & decision discipline
-- DEC-001 — Nothing gets locked until it has to be
-- DEC-005 — The tank node goes first — a hardware-first vertical slice
-
-### Hardware — board, power & enclosure
-- DEC-006 — Protected cells + a firmware cutoff, not a hardware LVC board
-
-### Sensors & calibration
-- DEC-007 — Ultrasonic temperature compensation, derived gateway-side
-
-### Firmware architecture
-- DEC-002 — One configurable firmware, declared sensor manifest
-
-### Radio, wire contract & gateway
-- DEC-003 — Packet v1 wire contract (resolves §12 D2)
-
-### Server, storage & display
-- DEC-004 — Storage and graphing belong to Poop Deck, not soundings (resolves D1 + D6)
-
-_**This file is GENERATED** by `npm run gen:decisions` —
-edit `docs/decisions/DEC-*.md`, not this file. `npm run check:decisions` fails on a stale index, a
-duplicate id, an unknown topic, an unknown relation, a forward-pointing amendment, or a
-reference to a decision that does not exist._

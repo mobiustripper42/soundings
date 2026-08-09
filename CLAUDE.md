@@ -8,31 +8,32 @@
 | File | Purpose |
 |------|-------|
 | `docs/SPEC.md` | What we're building — scope, V1 vs V2 vs V3 |
-| `docs/DECISIONS.md` | Why we made each architectural choice |
+| `docs/decisions/` | Why we made each architectural choice — **one decision, one file**, `DEC-<id>-<slug>.md` (DEC-S036) |
+| `docs/DECISIONS.md` | **Generated** topic index over `docs/decisions/`. Never edit it by hand |
 | `docs/USER_STORIES.md` | What each role does |
 | `docs/PROJECT_PLAN.md` | Phases, scope, velocity. **Phase-boundary doc** — read at planning, written at retro. Current-phase tasks live in GitHub Issues. |
 | `docs/RETROSPECTIVES.md` | Phase-end retrospectives — written by `/retro` |
 | `docs/AGENTS.md` | Agent and skill specs (canonical). |
-| `docs/BRAND.md` | Voice, visual direction, philosophy |
 | `docs/VELOCITY_AND_POKER_GUIDE.md` | Estimation methodology |
 | `docs/CHEATSHEET.md` | One-page printable skill reference |
 | `sessions/*.md` (on orphan `sessions` branch via `.sessions-worktree/`) | Per-session files — `YYYY-MM-DD-HHMM-<dev>-<slug>.md`. Atomic after `/its-dead` closes (DEC-S013); orphan branch decouples session log from any code branch (DEC-S014). |
-| `.claude/seeds-version` | Schema version this project was last installed at. Used by `/pull-seeds` to gate template syncs. |
-| `.claude/project-type` | Project type — `webapp` or `tool`. Used by `@sync-config` to gate template files that don't apply to this project's type (DEC-S011). Optional. |
+| `.claude/seeds-version` | Schema version this project was last installed at. Nothing reads it automatically (DEC-S040) — compare it against seeds' `seeds-version` by hand to see which migrations this project owes. |
+| `.claude/project-type` | Project type — `webapp` or `tool`. Says which template files this project has no use for (DEC-S011). Optional. |
 
-Project-specific docs are listed in `.claude/CLAUDE-context.md` under `## Additional Docs`.
+Project-specific docs are listed in `.claude/CLAUDE-context.md` under `## Additional Docs` — including BRAND.md, which is webapp-shaped and legitimately absent from a CLI or firmware project. The shell lists only docs every project has; a shell that names a doc a whole project type doesn't need is a dead reference in every one of them.
 
 ## Micro Workflow (every task, no exceptions)
 
 1. **Spec it** — poker estimate + acceptance criteria. Before writing code, pin what "done" looks like: enumerate the concrete set from source and confirm it with me. My live words override prior docs. **Get the whole spec down before step 4** — the model does its best work on a complete brief given in one turn, not assembled across a dozen exchanges. (Issue exists from `/start-phase`.)
 2. **Plan it** — summarize what you're going to do. Wait for explicit approval before writing code or running commands.
 3. **Cut the branch** — once approved: `git checkout -b task/X.Y-short-description`.
-4. **Build it**
-5. **Write the test** — Playwright integration test + pgTAP if RLS-touching. Test-first when behavior is changing.
+4. **Write the failing test FIRST** — when behavior is changing, the test comes before the code: write it, run it, and watch it fail *for the reason you expect*. That failure is the proof the test actually bites; a test written afterwards has never been observed failing, so it may be asserting nothing. Playwright integration test + pgTAP if RLS-touching. The test must exercise the function named in its own title — a test named for one thing that calls another is worse than no test, because it turns an unverified claim into an apparently-verified one.
+5. **Build it** — until the test passes. If you find yourself writing code first and then reconstructing the proof by deleting it to watch the test fail, you have done step 4 the long way round.
 6. **Run targeted tests** — `npx playwright test tests/foo.spec.ts --project=desktop`. `supabase test db` if RLS-touching. Do NOT run full suite — that's the user's call.
 7. **Mobile screenshot** — confirm 375px viewport passes
-8. **Ship the task** — `/kill-this` commits, pushes, opens PR with `closes #<issue>`, appends a `## Task <N>` block to the session file (on the orphan `sessions` branch). Run per task; multiple per session.
-9. **Pick up another task or close out** — start step 1 with a new branch, or run `/its-dead` once at the end of the Claude window. Merge PRs whenever — order doesn't matter.
+8. **STOP. The task is built, not shipped.** Report what changed and what passes, then **stop and wait**. Do not commit, do not push, do not open a PR, do not start the next task. This is a hard stop, and it is the point of the whole workflow: it is where I look at the work. Waiting is the correct end of a build turn — including when everything is green, the next task is obvious, and stopping feels like leaving something unfinished. It isn't. Handing back *is* the finished state.
+9. **`/kill-this` — I invoke it, you don't.** It commits, pushes, runs `@code-review`, opens the PR with `closes #<issue>`, and appends a `## Task <N>` block to the session file (on the orphan `sessions` branch). Run per task; multiple per session. **Reaching the same end state by hand is not the same thing and is never acceptable** — a hand-typed `git push` + `gh pr create` produces a PR that looks identical and has never been read by `@code-review`. That is the only automatic read of the diff before it merges, and its absence announces itself to nobody. If you believe a task is ready, say so and stop; that belief is not a trigger.
+10. **Pick up another task or close out** — start step 1 with a new branch, or run `/its-dead` once at the end of the Claude window. Merge PRs whenever — order doesn't matter.
 
 **No test, no push.**
 
@@ -51,6 +52,32 @@ The project's migration **toolchain** — CLI commands, production-write protect
 
 Project coding conventions — typing, component structure, data fetching, auth/RLS, error-handling contract, naming, UI/brand, and testing layout — live in `.claude/CLAUDE-context.md` under `## Conventions`. They're stack-specific, so they're project-owned.
 
+## Decision Record (DEC-S036)
+
+**One decision, one file.** Each lives at `docs/decisions/DEC-<id>-<slug>.md` with frontmatter carrying `id`, `title`, and `topic`. `docs/DECISIONS.md` is a **generated** topic index over them — editing it by hand is a wasted edit that `check:decisions` will reject.
+
+**Reading.** Read one decision by reading its file: `grep -rl DEC-NNN docs/decisions/` resolves any id, and `grep -rl 'topic: "Auth' docs/decisions/` pulls a whole topic. Don't load the whole record to answer one question, and **don't cite a decision you only saw in the index** — the index carries titles, not holdings, and a confident citation of a decision you didn't read is how a stale answer gets laundered into a fact.
+
+**Writing.** Edit the file, then `npm run gen:decisions`. A new id is the next one after the highest in `docs/decisions/`; a collision is no longer silent, it's a red build on whichever branch merges second.
+
+**Amendments are declared once, in frontmatter, and generated in both directions:**
+
+```yaml
+amends:
+  - id: DEC-NNN
+    relation: refines          # or supersedes / revises / reverses / retires / extends / corrects / resolves / reframes
+    scope: "the retry policy only — the transport choice stands"
+amends_spec:
+  - section: "2.4"             # a NUMBERED section of docs/SPEC.md
+    scope: "the availability rule; the surface below is unchanged"
+```
+
+The generator writes the reciprocal banner into the amended decision's own file, the annotation onto its index row, and the pointer under the amended spec section's heading. **Never hand-write any of those ends.** Declaring it once is what makes them agree — a reader arriving by `Ctrl-F`, a code comment, or another doc's citation lands in the *body*, not the index, and an index-only pointer never reaches them.
+
+**Prefer `amends` + scope over `supersedes`.** A strike-through says the whole holding is dead. In the project this pattern came from, an audit of 138 decisions found *zero* fully superseded — every struck row still had a live leg. Total supersession is rarer than it looks.
+
+**The gate.** `npm run check:decisions` fails on a stale index, a duplicate id, an unknown topic or relation, a dangling reference, a backwards-pointing amendment, and a declared spec amendment that never landed. Its siblings `check:context` and `check:docs` cover the always-loaded context files and the rest of the doc set. All three run before the slow stages of `verify` — they fail in milliseconds. Project-specific knobs live in `docs/decisions/_config.json` and `.claude/doc-check.json`; the scripts themselves are shared and identical everywhere, so don't edit them per-project.
+
 ## Session Skills
 
 | Skill | When | What |
@@ -64,14 +91,18 @@ Project coding conventions — typing, component structure, data fetching, auth/
 | `/retro` | Phase boundary (end) | Compute per-session active time (wall − breaks) from `started`/`ended` + transcript break inference. Aggregate one phase velocity (active h/pt). Mark `[x]`, write retro, patch-bump per merged PR + minor-bump at close. |
 | `/bump-major` | Breaking change | Manually bump major version. CHANGELOG.md entry + tag on the trunk (`main`). Dev projects only |
 | `/promote-production` | Ship trunk to prod | ff-merge `main` → `production` (deploy-only; tag already on the commit), push. Projects with a `production` branch only |
-| `/push-seeds` | After workflow improvements | Backport project-side improvements to the seeds templates via @sync-config |
-| `/pull-seeds` | After seeds gets new improvements | Pull template changes into this project — schema-version-gated, applied via @sync-config |
-| `/read-the-tape` | After a session worth learning from | Audit JSONL transcript, find anti-patterns, propose skill improvements |
+| `/read-the-tape` | After a session worth learning from | Audit JSONL transcript. Fixes what this project owns; records everything `logic`-class as a cited observation in seeds. Needs a resolvable seeds checkout (DEC-S039) |
 | `/doc-consistency-check` | Ad-hoc, when docs feel drifted (no scheduled trigger) | Cross-reference factual claims across `docs/*.md` + root `CLAUDE.md`; flag mismatches + unfilled placeholders. Report-only via @doc-consistency |
 
 **Dev identity:** `~/.claude/devname` (one-line file with handle, e.g. `eric`). Set once per machine.
 
 **Task model:** PROJECT_PLAN.md is read at planning, written at retro. Untouched mid-phase. Current-phase tasks live as GitHub Issues. The phase ends when its issues close.
+
+**Workflow fixes don't get made here (DEC-S039, DEC-S040).** A skill or shared agent that misbehaves in this project is **not** fixed in this project. Those files are canonical in seeds, and there is no sync in either direction any more — so a local fix does not get overwritten, it just never goes anywhere. It becomes invisible drift in a file that is meant to be identical across every project, and nothing will ever reconcile it.
+
+The route that ends somewhere: `/read-the-tape` records the failure as a cited observation on seeds' `observations` branch. `@workout` runs periodically in seeds, judges what has accumulated across every project, and promotes what earns it into the templates. Then someone copies the merged change back out, by hand.
+
+**Nothing here is exempt.** `/read-the-tape` no longer applies even the small local fixes it used to — `.claude/settings.json` permission entries included. It observes and writes one file to seeds; that is all it does. Fixing anything in this repo is your call, made deliberately, not something an audit does on its way past.
 
 ## Agents
 
@@ -81,10 +112,9 @@ Project coding conventions — typing, component structure, data fetching, auth/
 | @code-review | Sonnet | After every commit (wired into `/kill-this`) | Catch issues early |
 | @pm | Sonnet | Start/end of sessions via skills | Track progress, flag risks |
 | @ui-reviewer | Sonnet | After UI work, phase boundaries | Design quality |
-| @sync-config | Sonnet | `/push-seeds` and `/pull-seeds` | Classifies template-vs-project diffs, gates structural backports |
-| @tape-reader | Sonnet | `/read-the-tape` | Audits session JSONL for workflow anti-patterns |
+| @tape-reader | Sonnet | `/read-the-tape` | Audits session JSONL for workflow anti-patterns. **Observer** (DEC-S040) — writes one cited observation to seeds and changes nothing in this repo |
 | @doc-consistency | Sonnet | Via `/doc-consistency-check` skill, or ad-hoc | Cross-reference factual claims across project docs; flag mismatches + unfilled placeholders. Report-only |
-| @ideas | Sonnet | Park an idea, re-rank, or audit the parking lot | Curate `docs/FUTURE_IDEAS.md` — capture, dedupe, cross-ref, keep the index. Edits only that file |
+| @ideas | Sonnet | Park an idea, re-rank, or audit the parking lot | Curate docs/FUTURE_IDEAS.md — capture, dedupe, cross-ref, keep the index. Edits only that file, and creates it on first use |
 
 ## Model Selection
 
@@ -148,8 +178,14 @@ The `<VersionTag />` wiring (login + footer, and the `NEXT_PUBLIC_` gotcha that 
 - **Never rebase a task branch that already has commits on origin.** If main has advanced while a PR branch is open, leave the branch as-is — GitHub's "Update branch" button handles this at merge time. Rebasing rewrites remote history and requires a force-push. Use `git merge --ff-only` only if explicitly asked.
 - **On a surprise or mismatch, reconcile before diagnosing.** Pin the assumption and the environment first — dev vs prod, which DB, is the server even up — before chasing a theory or building. One environmental check ("can you run the suite right now? what env vars are set?") beats a multi-step debug built on an unchecked premise.
 - **JSON parsing in Bash:** Prefer `gh ... --jq '...'` (built-in jq via `gh`) or `jq` over `python3 -c "import json,sys; ..."` one-liners. The python invocations trigger per-pattern permission prompts (each unique argument list is a new allowlist entry), while `gh --jq` runs under the existing `Bash(gh ...)` allowance. For non-`gh` JSON, install/use `jq` directly. Reserve python for cases where the data shape genuinely needs control flow.
+- **A scripted edit must fail loudly when its anchor doesn't match.** `Edit` refuses to write when its target string is missing or ambiguous; a `read_text()` / `.replace()` / `write_text()` script writes the file back unchanged, prints nothing, and exits 0. Applying a mechanical change across many files with one script is a legitimate choice — reproducing the same anchor by hand ten times has its own failure mode — but only if the script asserts the match count per file and exits non-zero on zero matches. Without that, "done" means the script ran, not that the change landed, and the file it silently skipped looks reviewed.
+- **Read files with the Read tool — never `sed`, `grep`, `awk`, or `cat` to pull a section out.** Read is allowlisted and never prompts. A shell one-liner extracting a section can miss an allow-pattern match and stop a skill dead on a permission prompt mid-run, which has now happened twice on `.claude/CLAUDE-context.md` — once in `/kill-this`, once in `/promote-production` — in a session whose allowlist carries `Bash(*)` and that prompted for nothing else. Reading the whole file costs less than one interruption. `grep` to *search* across many files is fine. The banned shape is sed-ing a section range out of one file whose path you already know — the thing Read does without a prompt.
+- **Never write a bare `#N`. Always say which kind: `issue #699`, `PR #707`.** GitHub allocates issues and PRs from **one shared counter**, so the two sequences interleave and stay permanently adjacent — `#699` is an issue, `#707` is a PR, and nothing in the number tells you which. There is no way to separate them: they are drawn from the same sequence at creation, and burning numbers advances both. So the prefix is the only fix, and it costs one word. Applies everywhere the number is written — PR bodies, issue text, commit messages, decision records, session files, and chat. The one exception is `closes #N` in a PR body, which is GitHub syntax and must stay bare to work.
 - **Bug reports:** create a GitHub issue, label `bug`, add to current or next phase.
 - **Don't guess third-party API shapes** from naming or 403/404 signals — stop and ask for the official docs; never write code against a guess.
+- **Context docs carry decisions, rationale and pointers — never inventory.** `CLAUDE.md` and `.claude/CLAUDE-context.md` load into every session as ground truth, so a stale sentence in them is believed and acted on rather than checked. Rationale ("webpack, because Turbopack lacks `extensionAlias`") doesn't rot. A **snapshot of current state** ("the adapters are X and Y; Z comes later") is stale the day the code moves — and no doc-consistency audit catches it, because the claim is false against **code**, the corpus doc sweeps never read. Write a pointer instead: `ls <dir>/*-channel.ts` sends the reader to the truth rather than copying it, and it is checkable — and note the angle brackets, which mark this as an illustration rather than a claim about this repo. A worked example written as a real path is a dead reference in every project that copies the shell. `dev/claude/scripts/check-context.mjs` asserts every repo path and glob those two files cite still resolves — wire it into the project's verify chain. It cannot judge a *characterization*; "X is the live transport" is a sentence only a reader can validate.
+  - **An env-overridable number is not a fact a repo can state.** "Currently 30 days" for a value read from env is a claim about a *deployment*, unanswerable from a checkout. Cite where the constant is defined and say the deployed value lives in the host's env.
+  - **Before asserting what is built or live, check the code in the same turn** — one `ls` or `grep`. This rule exists because a session read "SMS = later swap" from a context file, filed an issue declaring a feature blocked on an adapter that had shipped weeks earlier, and explained the blockage at length. The doc was wrong; the failure was not verifying a live-state claim that took one command to check.
 
 Project-specific debugging gotchas (dev-server checks, stale-process traps, auth-redirect quirks) live in `.claude/CLAUDE-context.md` under `## Workflow Notes (project)`.
 
@@ -177,16 +213,25 @@ Occasional dry humor and sarcasm welcome. One good line beats three forced ones.
 
 ## Communication
 
-**Length isn't the metric — density is.** Give me everything relevant and cut the rest: no padding, no repetition, no jargon, no preamble, no restating my question. A long answer that's dense the whole way is fine; a short one that pads or repeats the same point is not. Lead with the answer, not a guess about what I did wrong.
+**Pick the kind of reply before writing it.** Not a label on the output — a decision about its shape. "Be concise" is a disposition and it erodes over a session; this is a discrete choice, so it doesn't.
 
-**Never lead with a false premise.** On a bug or a surprise, if you don't know the cause, ask — "is the server up? which DB?" is one line and fair. What's banned is *stating* a made-up cause as fact and then explaining at length on top of it. Questions are fine; invented premises defended in paragraphs waste my time and tokens.
+- **Lookup** — *where is that file, did the migration run, what's the current value.* The answer is a fact. Give it in a line or two and stop. **Hard cap: do not add the extra sentence even when it is true and relevant** — that sentence is always true and relevant, which is why nothing ever cuts it. If the fact took work, cite where you got it on the same line.
+- **Action** — *you did the thing; report what happened.* Result first, then only what **changes what I do next**: a blocker, a surprise, something I'm about to trip over, a thing you did differently than asked. Nothing else — no recap of work I just watched, no restatement of the task, no summary of your reasoning. Specifically: **one artifact** (a commit list, a diagram and a consequence paragraph in one reply makes me work out which is the answer), and **don't bolt on the adjacent concern** you noticed while answering — raise it after, in one line, or not at all.
+- **Judgment** — *why did this fail, which approach, what's the tradeoff.* The reasoning **is** the answer; a one-liner is useless. Explain at whatever length it takes. Do not compress a real explanation to look terse — that costs three follow-ups to reassemble. The complaint is never that you explained something; it is explaining the answer to a question I could have grepped.
+- **Session summary** — end of turn: one or two sentences, what changed and what's next. First thing I read next session. If a turn ends with a bullet list plus three paragraphs, the prose is wrong.
 
-**Cite facts; label proposals.** Any statement about the code, config, or project rules cites where you verified it — a file:line or a tool result. If you can't cite it, say it as a question, not a fact. This never applies to *ideas*: propose novel approaches freely — just label them "proposed / not in the codebase" instead of dressing them as facts. Inventing a fact is fabrication; a labeled proposal is not. The two are different acts, and only the first is banned.
+Unsure which? If one tool call and no thinking would have answered it, it's Lookup.
 
-**Session summaries.** End of turn: one or two sentences — what changed, what's next. It's the first thing I read next session, so make it dense, not voluminous. Don't recap work I just watched. If a turn ends with a bullet list plus three paragraphs of prose, the prose is wrong — delete it.
+**In all four, the first line is the answer** — not the route you took to it. Reasoning goes after the conclusion, never in front.
 
-**Narration** — switchable knob; name the level and I'll hold it (`narration: terse|normal|narrate`):
-- **Terse** (default): silence between tool calls; one sentence when you find something, change direction, or hit a blocker. No "Now I'll…", "Let me check…", no recapping what I just watched.
+**When I push back, say less — never explain.** "Trim", "again", "too many words", "this is confusing": re-answer shorter, immediately. Explaining why the confusing thing was confusing is the same failure recursing, and it reads as arguing. Asked "do you have any idea how confusing this is?", a session replied with four more paragraphs and an unprompted offer to redesign the project.
+
+**Never lead with a false premise.** If you don't know the cause, ask — "is the server up? which DB?" is one line and fair. What's banned is stating a made-up cause as fact and explaining at length on top of it.
+
+**Cite facts; label proposals.** Any claim about the code, config or project rules cites a file:line or a tool result. If you can't cite it, ask instead of asserting. This never restricts *ideas* — propose freely, just mark them "proposed / not in the codebase". Inventing a fact is fabrication; a labelled proposal is not.
+
+**Narration** — switchable; name the level and I'll hold it (`narration: terse|normal|narrate`):
+- **Terse** (default): silence between tool calls; one sentence when you find something, change direction, or hit a blocker. No "Now I'll…", no recapping what I just watched.
 - **Normal**: brief progress notes at meaningful steps.
 - **Narrate**: reasoning as you go — for teaching or a tricky change.
 
