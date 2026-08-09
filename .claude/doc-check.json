@@ -1,0 +1,37 @@
+{
+  "repo": "mobiustripper42/soundings",
+  "rosters": {
+    "CLAUDE.md": {
+      "skills": true,
+      "agents": true
+    },
+    "docs/AGENTS.md": {
+      "skills": true,
+      "agents": true
+    }
+  },
+  "historical": {
+    "docs/PROJECT_PLAN.md": "shipped task rows cite what they retired",
+    "docs/RETROSPECTIVES.md": "per-phase record of what was true at phase close",
+    "session-log.md": "legacy archive \u2014 pre-sessions-branch entries, frozen",
+    "docs/CHAT_HANDOFF.md": "a research brief frozen per round; earlier rounds cite what they superseded"
+  },
+  "knownForeign": [
+    "review",
+    "security-review",
+    "init",
+    "loop",
+    "simplify",
+    "config",
+    "mcp",
+    "help",
+    "clear",
+    "update-config",
+    "fewer-permission-prompts",
+    "keybindings-help",
+    "claude-api"
+  ],
+  "foreignDecs": {
+    "docs/tank-level-sensor.md": "cites tinkle's DEC-017 for the consumer side of the tank-level integration \u2014 another repo's record, never resolvable here and not meant to be"
+  }
+}

@@ -26,12 +26,15 @@ SEMVER  ( dev projects only — needs package.json )
                    ( needs origin/production — DEC-S022 )
   patch bumps      automatic in /its-dead on PR merge.
 
-REFLECT / SYNC
+REFLECT
   /read-the-tape   scan a session for anti-patterns.
                    arg: number, file path, or none = latest.
-  /push-seeds      backport workflow wins to seeds.
-  /pull-seeds      pull seeds improvements into this project.
-                   gated on `seeds-version` match.
+                   writes ONE observation to seeds. changes
+                   nothing here — no fixes, no branch, no PR
+                   (DEC-S040). needs a seeds checkout —
+                   sibling ../seeds, or pass the path.
+                   @workout promotes it in seeds later; the
+                   change comes back by hand.
 
 INFRA                              DOMAIN
   /update-config                     /stripe-best-practices
@@ -55,5 +58,3 @@ THE SHORT VERSION
   start of phase:    /start-phase
   end of phase:      /retro
   after a rough one: /read-the-tape
-  after a good one:  /push-seeds
-  refresh template:  /pull-seeds

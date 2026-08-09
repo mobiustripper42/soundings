@@ -82,7 +82,7 @@ docker compose -f deploy/docker-compose.yml up   # broker + DB + Grafana
 | `docs/CHAT_HANDOFF.md` | The chat ↔ Claude Code interchange. Hand-synced question ledger (`HW-nn`) — CC owns the repo, Claude chat owns live web research (prices, datasheets, availability). **Anything that matters and lives only in a chat window is lost.** §3.3 carries CC's review of each promoted round. |
 | `docs/FUTURE_IDEAS.md` | Parking lot for ideas worth keeping but not building yet. Curated by `@ideas`; nothing in it is committed scope. |
 
-Notes on the baseline docs: `docs/SPEC.md` carries the **§12 deferred-decision register** (D1–D6) — the home for every not-yet-locked choice (DEC-001). `docs/RETROSPECTIVES.md` uses **throughput velocity (DEC-S026)**. Baseline docs the shell lists that **don't apply here:** no `docs/BRAND.md`, `docs/USER_STORIES.md`, or `docs/CHEATSHEET.md` (embedded tool).
+Notes on the baseline docs: `docs/SPEC.md` carries the **§12 deferred-decision register** (D1–D6) — the home for every not-yet-locked choice (DEC-001). `docs/RETROSPECTIVES.md` uses **throughput velocity (DEC-S026)**. `docs/USER_STORIES.md`, `docs/CHEATSHEET.md` and `docs/DEV_REFERENCE.md` are installed as of the v5 pass — USER_STORIES still holds template placeholders and wants a real pass. The one baseline doc that genuinely does not apply is BRAND.md: it is webapp-shaped (voice, visual direction, component styling) and this is an embedded tool with no UI. Written without backticks on purpose — the context checker reads a backticked path as a claim that it resolves, and would flag this sentence for being correct.
 
 ## Workflow Overrides
 

@@ -1,0 +1,15 @@
+{
+  "name": "soundings",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Firmware and gateway for the Soundings sensor network. This package.json carries no dependencies and builds nothing — it exists to hang the doc-integrity gates (DEC-S036/S037) and to hold the version the workflow bumps. The firmware itself is not a Node project.",
+  "engines": { "node": ">=22" },
+  "scripts": {
+    "gen:decisions": "node scripts/gen-decisions-index.mjs",
+    "check:decisions": "node scripts/check-decisions.mjs",
+    "check:context": "node scripts/check-context.mjs",
+    "check:docs": "node scripts/check-docs.mjs",
+    "verify": "npm run check:decisions && npm run check:context && npm run check:docs"
+  }
+}
