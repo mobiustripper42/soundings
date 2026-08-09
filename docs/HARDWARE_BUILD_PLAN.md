@@ -148,10 +148,33 @@ and the header/packing-list gap now in the BOM.
 
 ### Recommended: the second board as a dumb serial radio **[proposed]**
 
-The gateway radio is the second Stick Lite, tethered by USB to the existing
-headless Linux box (`SPEC.md` §7). Its firmware does one thing: receive a LoRa
-frame, write the raw bytes over USB serial. It does not decode, does not run
-WiFi, does not speak MQTT.
+The gateway radio is the second Stick Lite, tethered by USB to **bee-grace**, the
+farm's existing headless Beelink Linux box (`SPEC.md` §7). Its firmware does one
+thing: receive a LoRa frame, write the raw bytes over USB serial. It does not
+decode, does not run WiFi, does not speak MQTT.
+
+### Gateway location — settled 2026-08-08, pending the range test
+
+**bee-grace moves to the second-floor finished room, ~25–30 ft above the tank
+cluster.** This is close to the best case available and it collapses several open
+concerns at once:
+
+| Concern | Status |
+|---|---|
+| **Fresnel clearance** — the real limit at farm scale, not distance | **Solved.** ~10 ft needed at 1000 ft, ~23 ft at a mile. 25–30 ft covers it outright. |
+| **Solar panels on the roof** | **Almost certainly a non-issue.** 28 ft over a few hundred feet of run is a ~5° downward angle — the path exits through a wall or gable well below the roof plane where the panels sit. Aim out the tank-facing side. |
+| **Heat** — attics run 130–150 °F, brutal for a mini PC | **Not applicable.** It is a finished room, not an unfinished attic. |
+| **USB cable length** (~5 m practical limit) | **Not a constraint.** Radio and box are in the same room. |
+| **WiFi coverage** for the bridge fallback | **Moot, and excellent anyway** — the AP is in that same room. |
+
+**Consequence: the recommended architecture stands and the WiFi-bridge fallback
+below is unlikely to be needed.** The gateway stays a dumb serial radio; no WiFi
+stack, no MQTT client, no reconnect logic on the ESP32.
+
+⚠ Still contingent on the range test (§2). Run it from this position before
+committing — and since three boards were ordered, one can be flashed as a serial
+radio and one as a WiFi bridge to let the measurement decide rather than the
+argument.
 
 The Python decoder daemon already built in Phase 1 stays exactly where it is on
 the server, and gains one new `IPacketSource` implementation — a
@@ -174,7 +197,9 @@ board that can be swapped between node and gateway roles while debugging.
 ### Fallback: the board as a WiFi→MQTT bridge **[proposed]**
 
 **Trigger:** the range test shows the link won't close from the tank to the
-server's physical location.
+server's physical location. ⚠ **Now unlikely** — see *Gateway location* above; the
+second-floor position removes the height, heat, and cable-length pressures that
+would have forced this.
 
 The gateway radio moves to wherever the link *does* close (with mains power and
 WiFi coverage) and publishes **raw, undecoded frames** to MQTT. The Python

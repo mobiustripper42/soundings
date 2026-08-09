@@ -316,8 +316,10 @@ malformed packets gracefully and log bad packets for debugging.
 
 ### Server stack **[proposed — all of it unvalidated]**
 
-Runs on an **existing headless Linux box** (not a Pi — the Pi, if used, is only
-the radio gateway). `mill-dev` (the Tailscale dev VPS) is the natural place to
+Runs on **bee-grace**, an existing headless Beelink Linux box (not a Pi — the Pi,
+if used, is only the radio gateway). Sited in a second-floor finished room ~25–30 ft
+above the tank cluster, with the WiFi AP co-located; see `docs/HARDWARE_BUILD_PLAN.md`
+§3. `mill-dev` (the Tailscale dev VPS) is the natural place to
 develop and simulate against, separate from the box that runs it on the farm.
 
 ```
