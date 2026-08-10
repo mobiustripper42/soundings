@@ -84,14 +84,19 @@ docker compose -f deploy/docker-compose.yml up   # broker + DB + Grafana
 
 Notes on the baseline docs: `docs/SPEC.md` carries the **§12 deferred-decision register** (D1–D6) — the home for every not-yet-locked choice (DEC-001). `docs/RETROSPECTIVES.md` uses **throughput velocity (DEC-S026)**. `docs/USER_STORIES.md`, `docs/CHEATSHEET.md` and `docs/DEV_REFERENCE.md` are installed as of the v5 pass — USER_STORIES still holds template placeholders and wants a real pass. The one baseline doc that genuinely does not apply is BRAND.md: it is webapp-shaped (voice, visual direction, component styling) and this is an embedded tool with no UI. Written without backticks on purpose — the context checker reads a backticked path as a claim that it resolves, and would flag this sentence for being correct.
 
-## Workflow Overrides
+## Workflow Mechanisms
 
-The shell's `## Micro Workflow` is webapp-shaped (Playwright + pgTAP + 375px screenshot). Soundings is firmware + a Python gateway + a wire contract — those steps are replaced by the **tiered test pyramid** (mirroring tinkle):
+The shell's `## Micro Workflow` states what three steps must achieve and names a slot for how (DEC-S042). Filled below. **Slots, not overrides** — the shell states no webapp default to correct, and nothing here cites a step *number*, because numbers move and a stale cross-reference in an always-loaded file fails silently.
 
-- **Step 5 (Write the test):** native host tests for sensor math (tension/VPD), packet (de)serialization, and the run cycle, with **fake sensors and a fake clock**. **Contract round-trip:** the C++ serializer and Python parser checked against shared golden vectors so they can't drift. No Playwright, no pgTAP.
-- **Step 6 (Run targeted tests):** `pio test -e native` (the load-bearing tier); escalate to the Wokwi + synthetic-node sim for the full fake-node → gateway → bus → DB → dashboard pipeline. Bench (breadboard node, real radio, square-wave sensor stand-ins) then wet/field confirm (real parts in a tunnel) is the final gate.
-- **Step 7 (Mobile screenshot):** N/A — the only UI is Grafana dashboards.
-- **`No test, no push.`** Run targeted tests freely during development; don't run a full/long suite without saying so first.
+Soundings is firmware + a Python gateway + a wire contract. The mechanism is a **tiered test pyramid** (mirroring tinkle).
+
+| Slot | This project |
+|---|---|
+| **Proof** | Native host tests for sensor math (tension/VPD), packet (de)serialization, and the run cycle, with **fake sensors and a fake clock**. Plus the **contract round-trip**: the C++ serializer and the Python parser checked against shared golden vectors, so the two ends of DEC-003's wire format cannot drift apart. No Playwright, no pgTAP — neither exists here. |
+| **Proof command** | `pio test -e native` — the load-bearing tier. Escalate to the Wokwi + synthetic-node sim for the full fake-node → gateway → bus → DB → dashboard pipeline. |
+| **Surface check** | **Bench first** — breadboard node, real radio, square-wave sensor stand-ins — then wet/field confirm with real parts in a tunnel. That is the final gate, and it is the step a green test suite cannot stand in for: the packet is the truth about what is on the device, not the repo. The only screen is a Grafana dashboard; there is no 375px viewport to check. |
+
+**No proof, no push.** Run targeted tests freely during development; don't start a full or long run without saying so first.
 
 ## Migration Protocol (project)
 
