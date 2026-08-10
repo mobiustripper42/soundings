@@ -19,6 +19,13 @@ struct IRadio {
     enum class TxResult { Ok, Busy, Failed };
 
     // Send `len` bytes. Does not retain the buffer — the caller may reuse it on return.
+    //
+    // Implementations must not return Busy instantly in a way that turns a caller's retry
+    // loop into a tight spin: RunCycle retries Busy back-to-back, bounded by a count and a
+    // wall-clock window but with no backoff of its own, and on a node stuck awake is the
+    // failure mode that actually drains the pack (DEC-006). A driver that cannot make that
+    // guarantee should return Failed instead. Noted here rather than in the caller because
+    // it is the driver (Phase 3.9) that owns the timing.
     virtual TxResult send(const uint8_t* buf, size_t len) = 0;
     virtual ~IRadio() = default;
 };

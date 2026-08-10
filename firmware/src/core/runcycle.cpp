@@ -53,11 +53,23 @@ bool RunCycle::transmit(const uint8_t* buf, size_t len) {
 
 uint32_t RunCycle::nextSleepMs() {
     if (cfg_.jitterMs == 0) return cfg_.intervalMs;
+
+    // Clamped, because `intervalMs - jitterMs` is unsigned: a config with jitter larger
+    // than the interval underflows to ~49 days, and on a node whose sleep is TERMINAL
+    // that is not a long nap — it is a brick until someone walks out and pulls the cell.
+    // Nothing in RunCycleConfig can enforce the relationship between two independent
+    // fields, and 3.5 will be filling both from a manifest, so the guard lives at the one
+    // point that consumes them.
+    //
+    // Clamp rather than assert on purpose: a node that wakes too often is wrong and
+    // recoverable, a node that aborts on boot is a reflash in a tunnel.
+    const uint32_t jitter = (cfg_.jitterMs > cfg_.intervalMs) ? cfg_.intervalMs
+                                                              : cfg_.jitterMs;
     // The modulus is what bounds the window, not the raw entropy — a generator returning
     // 0xFFFFFFFF must still land inside ±jitter, or one node sleeps for an hour.
-    const uint32_t span   = cfg_.jitterMs * 2u + 1u;      // inclusive of both extremes
+    const uint32_t span   = jitter * 2u + 1u;             // inclusive of both extremes
     const uint32_t offset = rng_.next() % span;           // [0, 2*jitter]
-    return cfg_.intervalMs - cfg_.jitterMs + offset;
+    return cfg_.intervalMs - jitter + offset;
 }
 
 void RunCycle::runOnce() {

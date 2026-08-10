@@ -244,6 +244,42 @@ void test_jitter_never_escapes_the_window_for_any_rng_value() {
     TEST_ASSERT_TRUE(ms <= kDefaultIntervalMs + kDefaultJitterMs);
 }
 
+// jitter > interval underflows `interval - jitter` as unsigned and yields a sleep of
+// roughly 49 days. On a node whose sleep is TERMINAL that is not a long nap, it is a
+// brick until someone walks out and pulls the cell. The invariant is clamped rather than
+// asserted: a misconfigured node that wakes too often is recoverable over the air, and
+// one that aborts on boot is a reflash in a tunnel.
+void test_jitter_larger_than_interval_cannot_underflow_the_sleep() {
+    Rig r;
+    r.rng.push(0);
+    RunCycleConfig cfg = r.cfg();
+    cfg.intervalMs = 1000;
+    cfg.jitterMs   = 5000;          // nonsense, and must stay merely wrong
+    RunCycle c(cfg, r.slots, 1, r.battery, r.radio, r.clock, r.sleeper, r.rng, r.seq);
+    TEST_ASSERT_EQUAL_UINT32(0, c.nextSleepMs());
+}
+
+void test_jitter_larger_than_interval_stays_bounded_for_any_rng_value() {
+    Rig r;
+    r.rng.push(0xFFFFFFFFu);
+    RunCycleConfig cfg = r.cfg();
+    cfg.intervalMs = 1000;
+    cfg.jitterMs   = 5000;
+    RunCycle c(cfg, r.slots, 1, r.battery, r.radio, r.clock, r.sleeper, r.rng, r.seq);
+    TEST_ASSERT_TRUE(c.nextSleepMs() <= 2u * cfg.intervalMs);
+}
+
+// The exact boundary, where the clamp is a no-op and the low extreme is zero.
+void test_jitter_equal_to_interval_is_the_boundary_and_does_not_wrap() {
+    Rig r;
+    r.rng.push(0);
+    RunCycleConfig cfg = r.cfg();
+    cfg.intervalMs = 1000;
+    cfg.jitterMs   = 1000;
+    RunCycle c(cfg, r.slots, 1, r.battery, r.radio, r.clock, r.sleeper, r.rng, r.seq);
+    TEST_ASSERT_EQUAL_UINT32(0, c.nextSleepMs());
+}
+
 void test_cycle_sleeps_exactly_once_for_the_jittered_interval() {
     Rig r;
     r.distance.push(1000);
@@ -365,6 +401,9 @@ int main(int, char**) {
     RUN_TEST(test_jitter_high_extreme_is_interval_plus_full_jitter);
     RUN_TEST(test_jitter_midpoint_is_the_bare_interval);
     RUN_TEST(test_jitter_never_escapes_the_window_for_any_rng_value);
+    RUN_TEST(test_jitter_larger_than_interval_cannot_underflow_the_sleep);
+    RUN_TEST(test_jitter_larger_than_interval_stays_bounded_for_any_rng_value);
+    RUN_TEST(test_jitter_equal_to_interval_is_the_boundary_and_does_not_wrap);
     RUN_TEST(test_cycle_sleeps_exactly_once_for_the_jittered_interval);
     RUN_TEST(test_two_nodes_with_different_entropy_sleep_differently);
     RUN_TEST(test_busy_radio_is_retried_up_to_the_cap);
