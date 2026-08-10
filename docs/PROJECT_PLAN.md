@@ -142,19 +142,19 @@ that runs in parallel against fakes, 3.8–3.12 are bring-up, 3.13 trails.
 
 | Task | Description | Points | Issue |
 |------|-------------|--------|-------|
-| 3.1 | Hardware build plan + BOM + the chat↔CC research loop — resolve the `[verify]` set (HW-01…HW-08) before anything is ordered. | 3 | — |
-| 3.2 | **Range test** — 2× Heltec V3, RSSI + loss from the tank cluster to the intended gateway location. **Resolves D3 + D4.** Gates every downstream hardware choice; do it before any other spend. | 3 | — |
-| 3.3 | Adapter seam, tank subset — `IDistance`, `IRadio`, `IClock`, battery + fakes. A narrowed 2.1; the sensor-specific fakes for soil/air stay parked. | 3 | — |
-| 3.4 | Run cycle — wake → sample → assemble → transmit → sleep, non-blocking against `millis()`, ±30 s jitter (injectable RNG), battery read. Node-type-agnostic, so 2.5 is largely satisfied by this. | 5 | — |
-| 3.5 | Minimal declared manifest — tank preset only, identity-as-data shaped (DEC-002) but without the full node-type preset system. A narrowed 2.6 (8 → 3). | 3 | — |
-| 3.6 | Gateway: tank derivation in **Python, not firmware** (DEC-004) — **speed-of-sound temperature correction (DEC-007)**, two-segment curve, band-check reject, percent. Plus the `farm/soundings/…` topic hierarchy and node→location map. **Resolves D7 + D9.** | 5 | — |
-| 3.7 | Poop Deck publish path — retire the provisional VictoriaMetrics + Grafana from `deploy/`, swap `ingest.py`'s writer. The DEC-004 breakout, previously untracked. | 3 | — |
-| 3.8 | Real A02YYUW UART driver behind `IDistance` — free-running frame parse, checksum, discard-first-3 + **median of 5–7**. Plus the **DS18B20 headspace read** (DEC-007) and the **P-FET rail switch** (Vext is unusable, F-6). | 3 | — |
-| 3.9 | Gateway radio firmware (LoRa → USB serial) + `SerialPacketSource` behind the existing `IPacketSource` seam. | 5 | — |
-| 3.10 | Power — battery ADC (gated by ADC_Ctrl), the HW-02 deep-sleep disable list, **3.2 V/cell firmware cutoff** (DEC-006, replacing the dropped LVC board), and a multimeter confirmation that sleep is µA not mA. Calibrates the fleet battery model ([#36](https://github.com/mobiustripper42/soundings/issues/36)). | 5 | — |
-| 3.11 | Enclosure + tank-lid mount + PVC standoff build. Gated on HW-03 (beam angle) and HW-04 (cable run). | 3 | — |
-| 3.12 | **First light** — real tank distance on a chart, analytic seed curve. **M1.** | 3 | — |
-| 3.13 | Calibration — analytic curve from measured tank geometry, then empirical correction from observed fills. **M2, calendar-gated** — may trail the phase close. | 3 | — |
+| 3.1 | Hardware build plan + BOM + the chat↔CC research loop — resolve the `[verify]` set (HW-01…HW-08) before anything is ordered. | 3 | [#40](https://github.com/mobiustripper42/soundings/issues/40) |
+| 3.2 | **Range test** — 2× Heltec V3, RSSI + loss from the tank cluster to the intended gateway location. **Resolves D3 + D4.** Gates every downstream hardware choice; do it before any other spend. | 3 | [#41](https://github.com/mobiustripper42/soundings/issues/41) |
+| 3.3 | Adapter seam, tank subset — `IDistance`, `IRadio`, `IClock`, battery + fakes. A narrowed 2.1; the sensor-specific fakes for soil/air stay parked. | 3 | [#42](https://github.com/mobiustripper42/soundings/issues/42) |
+| 3.4 | Run cycle — wake → sample → assemble → transmit → sleep, non-blocking against `millis()`, ±30 s jitter (injectable RNG), battery read. Node-type-agnostic, so 2.5 is largely satisfied by this. | 5 | [#43](https://github.com/mobiustripper42/soundings/issues/43) |
+| 3.5 | Minimal declared manifest — tank preset only, identity-as-data shaped (DEC-002) but without the full node-type preset system. A narrowed 2.6 (8 → 3). | 3 | [#44](https://github.com/mobiustripper42/soundings/issues/44) |
+| 3.6 | Gateway: tank derivation in **Python, not firmware** (DEC-004) — **speed-of-sound temperature correction (DEC-007)**, two-segment curve, band-check reject, percent. Plus the `farm/soundings/…` topic hierarchy and node→location map. **Resolves D7 + D9.** | 5 | [#45](https://github.com/mobiustripper42/soundings/issues/45) |
+| 3.7 | Poop Deck publish path — retire the provisional VictoriaMetrics + Grafana from `deploy/`, swap `ingest.py`'s writer. The DEC-004 breakout, previously untracked. | 3 | [#46](https://github.com/mobiustripper42/soundings/issues/46) |
+| 3.8 | Real A02YYUW UART driver behind `IDistance` — free-running frame parse, checksum, discard-first-3 + **median of 5–7**. Plus the **DS18B20 headspace read** (DEC-007) and the **P-FET rail switch** (Vext is unusable, F-6). | 3 | [#47](https://github.com/mobiustripper42/soundings/issues/47) |
+| 3.9 | Gateway radio firmware (LoRa → USB serial) + `SerialPacketSource` behind the existing `IPacketSource` seam. | 5 | [#48](https://github.com/mobiustripper42/soundings/issues/48) |
+| 3.10 | Power — battery ADC (gated by ADC_Ctrl), the HW-02 deep-sleep disable list, **3.2 V/cell firmware cutoff** (DEC-006, replacing the dropped LVC board), and a multimeter confirmation that sleep is µA not mA. Calibrates the fleet battery model ([#36](https://github.com/mobiustripper42/soundings/issues/36)). | 5 | [#49](https://github.com/mobiustripper42/soundings/issues/49) |
+| 3.11 | Enclosure + tank-lid mount + PVC standoff build. Gated on HW-03 (beam angle) and HW-04 (cable run). | 3 | [#50](https://github.com/mobiustripper42/soundings/issues/50) |
+| 3.12 | **First light** — real tank distance on a chart, analytic seed curve. **M1.** | 3 | [#51](https://github.com/mobiustripper42/soundings/issues/51) |
+| 3.13 | Calibration — analytic curve from measured tank geometry, then empirical correction from observed fills. **M2, calendar-gated** — may trail the phase close. | 3 | [#52](https://github.com/mobiustripper42/soundings/issues/52) |
 
 **Phase 3 total: 47 points.**
 
