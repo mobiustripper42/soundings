@@ -34,7 +34,14 @@ BindResult bindManifest(const NodeManifest& m,
     // refusing outright — it looks like it worked.
     outCount = 0;
 
-    if (m.count > outCap) return BindResult::TooManyChannels;
+    // Two separate bounds, and they are not the same bound. `outCap` is the caller's
+    // array; kMaxChannels is the manifest's OWN. Today every caller passes kMaxChannels
+    // so the two coincide — but the next caller is a byte-format deserializer that does
+    // not exist yet, and a parsed `count` is an attacker-or-bug-supplied number. Trusting
+    // it against only the caller's array would read past `m.channels` the moment someone
+    // passes a roomier one.
+    if (m.count > kMaxChannels) return BindResult::TooManyChannels;
+    if (m.count > outCap)       return BindResult::TooManyChannels;
 
     uint16_t seen = 0;
     for (uint8_t i = 0; i < m.count; ++i) {

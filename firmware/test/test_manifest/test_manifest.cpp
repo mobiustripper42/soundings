@@ -184,6 +184,29 @@ void test_channel_bit_beyond_the_registry_is_rejected() {
     Node n;
     const ChannelDecl decls[] = {{kMaxChannels, kSensorTypeDistance}};   // one past the end
     TEST_ASSERT_TRUE(n.bind(manifestOf(7, decls, 1)) == BindResult::UnknownChannel);
+    TEST_ASSERT_EQUAL_size_t(0, n.slotCount);
+}
+
+// count is a uint8_t and the array it indexes holds kMaxChannels — a byte-format parser
+// (the deferred provisioning task) can produce a manifest claiming more than it has room
+// for, and bindManifest must not read past the array on the strength of that claim. The
+// guard is inside bindManifest rather than resting on every caller passing
+// outCap == kMaxChannels, because the next caller is a deserializer that has not been
+// written yet.
+void test_count_beyond_the_manifest_array_is_rejected_without_reading_past_it() {
+    Node n;
+    NodeManifest m = tankPreset(7);
+    m.count = kMaxChannels + 1;          // a lie a parser could plausibly tell
+
+    // The out array is deliberately LARGER than the manifest's own, because that is the
+    // only configuration in which the existing `count > outCap` check does not already
+    // cover this. With outCap == kMaxChannels the bound holds by coincidence of the two
+    // numbers being equal — which is exactly the caller discipline this pins.
+    SensorSlot roomy[kMaxChannels * 2] = {};
+    size_t count = 0;
+    TEST_ASSERT_TRUE(bindManifest(m, n.registry, 1, roomy, kMaxChannels * 2, count)
+                     == BindResult::TooManyChannels);
+    TEST_ASSERT_EQUAL_size_t(0, count);
 }
 
 // Last-wins would silently swallow a provisioning typo and ship half the sensors the
@@ -278,6 +301,7 @@ int main(int, char**) {
     RUN_TEST(test_multiple_declarations_bind_in_order);
     RUN_TEST(test_channel_with_no_registry_width_is_rejected_at_bind_time);
     RUN_TEST(test_channel_bit_beyond_the_registry_is_rejected);
+    RUN_TEST(test_count_beyond_the_manifest_array_is_rejected_without_reading_past_it);
     RUN_TEST(test_duplicate_channel_declaration_is_rejected);
     RUN_TEST(test_more_declarations_than_slots_is_rejected);
     RUN_TEST(test_a_rejected_manifest_binds_no_slots_at_all);

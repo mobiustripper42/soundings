@@ -23,7 +23,11 @@ namespace soundings {
 // the compiled-in driver that serves it is the registry's job (sensor_registry.h), which
 // is what lets a node declare a sensor whose driver is absent and have that be a fault
 // rather than a compile error.
-constexpr uint8_t kSensorTypeNone     = 0;   // a declaration with no type: config error
+// A declaration carrying kSensorTypeNone is NOT a distinct error path: it resolves like
+// any other type nothing serves, i.e. declared-and-faulted (DEC-002). Said explicitly
+// because the name invites the opposite assumption, and the provisioning task will be
+// reading this header looking for a BindResult variant that does not exist.
+constexpr uint8_t kSensorTypeNone     = 0;
 constexpr uint8_t kSensorTypeDistance = 1;   // ultrasonic tank level (A02YYUW)
 
 struct ChannelDecl {
