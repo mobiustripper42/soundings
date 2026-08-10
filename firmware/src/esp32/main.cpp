@@ -9,6 +9,10 @@
 #include "iradio.h"
 #include "ibattery.h"
 #include "isleeper.h"
+// Phase 3.4's seams reach the node build through runcycle.h, which src/core compiles
+// directly — except DistanceSampler, which nothing on the node side includes yet (its
+// user is the manifest in 3.5). Same reason as above: uncompiled is unchecked.
+#include "distance_sampler.h"
 
 // Phase 1.1 skeleton entry. Its only job right now is to prove src/core links clean
 // under arduino-esp32 on the Heltec V3 — the real wake -> sample -> assemble packet ->
