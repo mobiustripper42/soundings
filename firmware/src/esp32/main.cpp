@@ -1,6 +1,14 @@
 #include <Arduino.h>
 #include "iclock.h"
 #include "elapsed.h"
+// The tank-node adapter seams (Phase 3.3). Included here — and not only by the tests —
+// because a header-only interface that nothing on the node side includes is never
+// compiled for the ESP32 at all, so "it builds on both envs" would be an unchecked
+// claim. Their ESP32 bindings land with the drivers (3.8/3.9/3.10).
+#include "idistance.h"
+#include "iradio.h"
+#include "ibattery.h"
+#include "isleeper.h"
 
 // Phase 1.1 skeleton entry. Its only job right now is to prove src/core links clean
 // under arduino-esp32 on the Heltec V3 — the real wake -> sample -> assemble packet ->

@@ -1,7 +1,7 @@
 #include <unity.h>
 #include "elapsed.h"
-#include "fakes/fake_clock.h"
-#include "fakes/fake_sensor.h"
+#include "../fakes/fake_clock.h"
+#include "../fakes/fake_sensor.h"
 
 // Native unit tests (Unity) — the load-bearing test tier (CLAUDE.md "Testing"). Phase
 // 1.1 proves the harness end to end: a fake clock drives the non-blocking Elapsed timer
