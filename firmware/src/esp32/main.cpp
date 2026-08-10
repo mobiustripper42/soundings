@@ -13,6 +13,11 @@
 // directly — except DistanceSampler, which nothing on the node side includes yet (its
 // user is the manifest in 3.5). Same reason as above: uncompiled is unchecked.
 #include "distance_sampler.h"
+// Phase 3.5's manifest reaches the node build through sensor_registry.cpp and
+// tank_preset.cpp, which src/core compiles — except IManifestStore, whose only user so far
+// is the fake. Same reason again: uncompiled is unchecked. The real wiring (NVS store,
+// registry of real drivers, RunCycle in setup()) lands with the drivers in 3.8–3.10.
+#include "imanifeststore.h"
 
 // Phase 1.1 skeleton entry. Its only job right now is to prove src/core links clean
 // under arduino-esp32 on the Heltec V3 — the real wake -> sample -> assemble packet ->
