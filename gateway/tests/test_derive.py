@@ -131,12 +131,15 @@ def test_a_missing_temperature_channel_refuses_gallons():
     only_distance = [{"name": "TANK_DISTANCE", "bit": 8, "raw": 600, "fault": False}]
     out = topics(derive.derive_tank(reading(channels=only_distance), CFG))
     assert "farm/soundings/water/cluster/level_gal" not in out
+    # percent is gated with gallons, and a percent derived from a suppressed volume is
+    # the exact shape of leak this refusal exists to prevent.
+    assert "farm/soundings/water/cluster/percent" not in out
 
 
 def test_a_faulted_distance_publishes_nothing_derived():
-    out = topics(derive.derive_tank(reading(distance_fault=True), CFG))
-    assert "farm/soundings/water/cluster/distance_mm" not in out
-    assert "farm/soundings/water/cluster/level_gal" not in out
+    # Total silence, not "the two topics I thought to name" — a faulted distance leaves
+    # nothing derivable, so anything appearing here at all is a regression.
+    assert topics(derive.derive_tank(reading(distance_fault=True), CFG)) == {}
 
 
 # Outside the A02YYUW's 30–4500 mm range the number is not a short or long distance,
