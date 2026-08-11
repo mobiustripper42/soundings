@@ -1,0 +1,78 @@
+# Soundings gateway configuration.
+#
+# This file is the node→location map (SPEC §12 D7) and the tank cluster's volume
+# geometry. It is a FILE and not a database table on purpose: the map is what tells
+# ingestion where a reading belongs, so it has to be readable before the database is
+# written to — and a table that must exist before the first write is a bootstrap the
+# gateway does not need. A file is also diffable, so a provisioning change shows up in
+# review rather than in somebody's psql history.
+
+[gateway]
+# The A02YYUW's factory calibration reference temperature. DEC-007 gives the correction
+# as c(T)/c(T_ref) without pinning T_ref; 20 °C is the conventional datasheet reference
+# and is exposed here rather than hardcoded so it can be corrected without a code change
+# if the bench says otherwise. An error here is a scale error on every reading, so it is
+# worth confirming rather than assuming — see HW-13's bench session.
+ref_temp_c = 20.0
+
+# --- Node → location map (D7) -------------------------------------------------
+# `location` is the MQTT sub-path this node's derived values publish under, and the
+# label its readings carry downstream. `role` selects which derivation runs.
+
+[nodes.1]
+location = "water/cluster"
+role = "tank"
+label = "Rain catchment cluster"
+
+# --- Tank cluster volume geometry ---------------------------------------------
+# Two linear segments with one breakpoint, per docs/tank-level-sensor.md § Volume math:
+# below the IBC's top all three tanks rise together (steeper gal/mm); above it only the
+# two cylinders do (shallower).
+
+[tanks."water/cluster"]
+# ⚠ measured = false: EVERY NUMBER BELOW IS A PLACEHOLDER.
+#
+# The analytic seed needs a tape measure — the two cylinder diameters, the IBC footprint
+# and the height at which it tops out (HARDWARE_BUILD_PLAN.md §8 step 8). That has not
+# happened. While this is false the gateway publishes raw distance and headspace
+# temperature and REFUSES to publish gallons or percent, because a plausible-looking
+# wrong number on a chart is worse than a gap: nobody re-checks a reading that looks
+# fine. Set it true in the same commit that lands the measurements.
+measured = false
+
+# ⚠ capacity_gal is NOT 2530. That figure is the sum of three nameplates, and the tanks
+# share one level — they cannot all sit at their own maximum at once. At the level where
+# the IBC is full each cylinder holds well under its rated 1100. The right denominator for
+# `percent` is the volume held at the maximum SHARED level, which needs the cylinder fill
+# height below. Left at 0 rather than filled with 2530, because 2530 is a number that
+# looks right and would quietly make every percent reading low.
+capacity_gal    = 0.0
+
+sensor_zero_mm  = 0        # sensor face → tank floor: the reading when bone dry.
+                           # Cannot exist until the sensor is physically mounted.
+max_height_mm   = 0        # water height at which the cylinders overflow — see [1] below
+breakpoint_mm   = 0        # water height at which the IBC tops out — see [2] below
+
+# Cylinder cross-section is KNOWN (vendor listing, 2026-08-10): 87 in diameter.
+#   r = 43.5 in → π·43.5² = 5944.7 in² → ÷231 in³/gal = 25.74 gal/in per cylinder
+#   two cylinders = 51.47 gal/in = 2.026 gal/mm
+# IBC footprint ASSUMED standard tote 48×40 in = 1920 in² → 8.31 gal/in = 0.327 gal/mm [3]
+#
+#   below the breakpoint (all three rising): 59.78 gal/in = 2.353 gal/mm
+#   above it (cylinders only):               51.47 gal/in = 2.026 gal/mm
+#
+# Left at 0.0 rather than seeded with the arithmetic above, because `measured = false`
+# already refuses to publish gallons and a populated-looking curve invites someone to
+# flip the flag without doing [1]–[3].
+gal_per_mm_below = 0.0
+gal_per_mm_above = 0.0
+
+# Still needed before measured = true:
+#  [1] Cylinder fill height. The vendor's 53 in is the overall height and the top is
+#      DOMED, so the straight-sided section — the only part 25.74 gal/in describes —
+#      stops below it. Geometric volume to 53 in would be 1364 gal against a 1100 gal
+#      rating, and the dome plus a fill line below it is where that difference goes.
+#  [2] IBC liquid height. ~46 in is the cage; the bottle tops out lower.
+#  [3] IBC footprint confirmed rather than assumed — a different tote shifts the entire
+#      lower segment.
+# [1] and [2] are the tape measure (HARDWARE_BUILD_PLAN.md §8 step 8).

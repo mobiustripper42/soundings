@@ -17,10 +17,12 @@ import json
 import logging
 import threading
 import time
+from pathlib import Path
 
 import paho.mqtt.client as mqtt
 
-from . import emitter, gateway, ingest
+from . import config as gwconfig
+from . import derive, emitter, gateway, ingest
 
 log = logging.getLogger("soundings_gateway.spine")
 
@@ -40,7 +42,12 @@ def build_fleet(n: int, **kw) -> emitter.FleetEmitter:
 
 
 def run(args: argparse.Namespace) -> int:
-    topic_wildcard = f"{args.topic_prefix}/+"
+    # Only the per-node reading branch is JSON. The derived branch carries bare scalars
+    # for dashboards and alert rules, so a wildcard that swept both would hand
+    # json.loads() a number and log a "bad payload" for every healthy publish.
+    topic_wildcard = f"{derive.ROOT}/node/+/reading"
+
+    cfg = gwconfig.load_config(args.config)
 
     # --- ingestion side: subscribe to MQTT, write decoded readings to the DB ---
     sink = ingest.Ingest(ingest.vm_writer(args.vm_url))
@@ -73,7 +80,12 @@ def run(args: argparse.Namespace) -> int:
     pub.loop_start()
 
     def publish(msg: dict) -> None:
-        pub.publish(f"{args.topic_prefix}/{msg['node_id']}", json.dumps(msg))
+        pub.publish(derive.reading_topic(msg["node_id"]), json.dumps(msg))
+        # Derived scalars, keyed by place rather than by hardware. Returns nothing for a
+        # node the map doesn't cover or a reading that can't support a volume — the sim
+        # fleet is bed nodes, so this correctly stays quiet on them.
+        for topic, payload in derive.derive_tank(msg, cfg):
+            pub.publish(topic, payload)
 
     fleet = build_fleet(
         args.nodes,
@@ -110,7 +122,8 @@ def main() -> int:
     p.add_argument("--broker-host", default="localhost")
     p.add_argument("--broker-port", type=int, default=1883)
     p.add_argument("--vm-url", default="http://localhost:8428")
-    p.add_argument("--topic-prefix", default="soundings/readings")
+    p.add_argument("--config", default=str(Path(__file__).resolve().parents[1] / "config" / "soundings.toml"),
+                   help="node→location map and tank geometry (D7)")
     p.add_argument("--nodes", type=int, default=3)
     p.add_argument("--cadence-min", type=float, default=12.0)
     p.add_argument("--minutes", type=float, default=1440.0, help="sim minutes to run")
