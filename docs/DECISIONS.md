@@ -23,7 +23,7 @@ so several placeholders would collide. Consult @architect before building on one
 
 ### Process & decision discipline
 - DEC-001 — Nothing gets locked until it has to be
-- DEC-005 — The tank node goes first — a hardware-first vertical slice
+- DEC-005 — The tank node goes first — a hardware-first vertical slice _(extended by DEC-008 — the topic hierarchy below the farm/soundings/ root, which DEC-005 constrained but left open; the namespace choice itself stands)_
 
 ### Hardware — board, power & enclosure
 - DEC-006 — Protected cells + a firmware cutoff, not a hardware LVC board
@@ -36,6 +36,7 @@ so several placeholders would collide. Consult @architect before building on one
 
 ### Radio, wire contract & gateway
 - DEC-003 — Packet v1 wire contract (resolves §12 D2)
+- DEC-008 — MQTT topic hierarchy, and a file-backed node→location map
 
 ### Server, storage & display
 - DEC-004 — Storage and graphing belong to Poop Deck, not soundings (resolves D1 + D6)

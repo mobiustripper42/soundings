@@ -280,13 +280,37 @@ light** (real distance on a chart, analytic curve) is independent of rainfall;
 **Still open:** whether an independent volume reference exists (a meter on the
 fill line, a metered drawdown). No longer blocking, but it sets how good M2 gets.
 
+### What the seed curve still needs (2026-08-10)
+
+The cylinder cross-section is settled from the vendor listing — **87″ diameter**,
+so π·43.5² ÷ 231 = **25.74 gal/in each, 51.47 gal/in for the pair**. Three things
+are still missing, and the gateway config (`gateway/config/soundings.toml`) carries
+`measured = false` until they land:
+
+1. **Cylinder fill height.** The listed 53″ is *overall* and the top is **domed**, so
+   the straight-sided section that 25.74 gal/in describes stops below it. Geometric
+   volume to 53″ would be 1364 gal against a 1100 gal rating; the dome plus a fill line
+   below it is where that difference goes. Tape measure.
+2. **IBC liquid height** — the curve's breakpoint. The ~46″ figure above is the cage;
+   the bottle tops out lower. Tape measure.
+3. **IBC footprint**, confirmed rather than assumed. 48″×40″ (standard tote) gives
+   8.31 gal/in; a different tote shifts the whole lower segment.
+
+**`capacity_gal` is not 2530.** That is the sum of three nameplates, but the tanks
+share one level and cannot all sit at their own maximum at once — at the level where
+the IBC is full, each cylinder holds well under 1100. The denominator for *percent of
+full* is the volume at the maximum **shared** level, which falls out of (1).
+
 ---
 
 ## Integration
 
 **MQTT topics** — under the `farm/soundings/…` namespace (DEC-004, namespace
-conflict resolved by DEC-005; the exact hierarchy below the root is designed in
-Phase 3.6):
+conflict resolved by DEC-005). The hierarchy below the root is settled by
+**DEC-008** (D9): a per-node `node/<node_id>/reading` branch carrying the decoded
+packet as JSON, and this per-location branch carrying one scalar per topic. The
+node→location map that supplies `water/cluster` here is `gateway/config/soundings.toml`
+(D7, also DEC-008):
 
 | Topic | Payload | Notes |
 |-------|---------|-------|
