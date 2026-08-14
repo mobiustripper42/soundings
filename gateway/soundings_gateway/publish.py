@@ -56,6 +56,17 @@ def envelope(msg: dict, cfg, derived: dict | None = None) -> dict | None:
             log.warning("reading with no node_id, not publishable")
             return None
 
+        # seq is the other half of the natural key (node_id, seq). Without it the document
+        # cannot be stored idempotently — and if Poop Deck's column is NOT NULL, as the
+        # natural-key index on their irrigation table suggests it will be, it cannot be
+        # stored at all. Publishing it anyway would look like success on this side and be
+        # a dropped row on theirs, which is the worst available outcome. Note `is None`
+        # and not a truthiness test: seq 0 is the first packet after a power cycle, and a
+        # falsy check would discard exactly the reading that marks a node restart.
+        if msg.get("seq") is None:
+            log.warning("node %s: reading with no seq, cannot be keyed — not published", node_id)
+            return None
+
         received_at = msg.get("received_at")
         if received_at is None:
             # The gateway owns the timestamp (field nodes have no RTC). A document with
@@ -102,5 +113,7 @@ def _derived_map(msg: dict, cfg) -> dict:
     """
     out: dict = {}
     for topic, payload in derive.derive_tank(msg, cfg):
-        out[topic.rsplit("/", 1)[-1]] = float(payload)
+        # derive.metric_name, not a split here: that module owns the topic shape, so the
+        # parse belongs next to the construction rather than guessing at it from outside.
+        out[derive.metric_name(topic)] = float(payload)
     return out

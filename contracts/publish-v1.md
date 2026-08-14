@@ -51,9 +51,9 @@ alert rules; it is **not** this contract and is not storable — it carries no t
 |---|---|---|---|
 | `v` | int | yes | Schema version. A consumer that doesn't recognise it must **drop and log**, never guess. |
 | `node_id` | int | yes | From the packet header. Identifies *hardware*. |
-| `seq` | int | yes | From the packet header, 0–65535, wraps. Survives deep sleep in RTC memory but **not a power cycle** — a backwards jump is a node restart, not packet loss. |
+| `seq` | int | yes | From the packet header, 0–65535, wraps. Half the natural key, so a reading without one is **not published at all** rather than published unkeyable. Survives deep sleep in RTC memory but **not a power cycle** — a backwards jump is a node restart, not packet loss. `0` is a real sequence number (the first packet after a power cycle), never an absent one. |
 | `ts` | string | yes | **ISO-8601 UTC, `…Z`.** Gateway receipt time — field nodes have no RTC. |
-| `fw_version` | int | yes | Which binary produced this. Informational; never a drop gate. |
+| `fw_version` | int | no | Which binary produced this. Informational; **never a drop gate, on either side** — present in every document a healthy node produces, but its absence is not a reason to refuse the reading. The measurement is worth more than the provenance. |
 | `battery_mv` | int | yes | Always present, even when every sensor faulted: a node whose sensors all failed is still worth recording as alive. `0` means the battery read itself failed. |
 | `location` | string | no | Gateway-side enrichment from the node→location map (D7, DEC-008). Absent for an unmapped node. |
 | `channels` | array | yes | Raw per-channel values **and their fault flags**. The durable record (D1). |

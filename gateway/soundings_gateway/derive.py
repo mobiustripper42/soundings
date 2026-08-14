@@ -26,7 +26,7 @@ from . import tank
 
 log = logging.getLogger(__name__)
 
-__all__ = ["ROOT", "reading_topic", "derive_tank"]
+__all__ = ["ROOT", "reading_topic", "metric_name", "derive_tank"]
 
 ROOT = "farm/soundings"
 
@@ -41,6 +41,17 @@ TEMP_COUNTS_PER_C = 16.0
 def reading_topic(node_id: int) -> str:
     """Where a node's full decoded packet is published."""
     return f"{ROOT}/node/{node_id}/reading"
+
+
+def metric_name(topic: str) -> str:
+    """The metric segment of a derived topic — `…/water/cluster/level_gal` → `level_gal`.
+
+    Lives here rather than in the caller because this module owns the topic shape. A
+    consumer that string-split the topic itself would silently produce wrong keys the day
+    that shape changed; keeping the parse next to the construction means the two move
+    together or not at all.
+    """
+    return topic.rsplit("/", 1)[-1]
 
 
 def _channel(msg: dict, name: str):

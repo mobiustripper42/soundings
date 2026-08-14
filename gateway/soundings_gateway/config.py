@@ -31,8 +31,12 @@ class BrokerConfig:
 
     host: str = ""
     port: int = 1883
-    username: str = ""
-    password: str = ""
+    # repr=False on both: GatewayConfig carries this and gets passed into envelope() and
+    # derive_tank(), so one future log.debug("%r", cfg) — or a traceback that happens to
+    # format it — would put a broker credential in a log file. Cheap to close while the
+    # surface is small; the host and port stay visible, which is the debuggable half.
+    username: str = field(default="", repr=False)
+    password: str = field(default="", repr=False)
 
     @property
     def configured(self) -> bool:

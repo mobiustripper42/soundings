@@ -172,4 +172,48 @@ def test_the_envelope_is_json_serializable():
 def test_a_malformed_reading_does_not_raise():
     # This runs in the publish path of a long-lived daemon.
     assert publish.envelope({}, CFG) is None
-    assert publish.envelope({"node_id": 7}, CFG) is not None    # no channels is survivable
+
+
+# seq is half the natural key (node_id, seq). A document with a null seq publishes fine
+# here and can never be stored idempotently there — and if their column is NOT NULL, as
+# their irrigation natural-key index pattern suggests, it cannot be stored at all. The
+# contract calls seq required, so the code has to actually refuse it.
+def test_a_reading_with_no_seq_is_refused_because_it_cannot_be_keyed():
+    assert publish.envelope({"node_id": 7, "battery_mv": 3800}, CFG) is None
+
+
+def test_seq_zero_is_a_real_sequence_number_not_a_missing_one():
+    # The first packet after a power cycle is seq 0. A truthiness check here would drop
+    # exactly the reading that marks a node restart.
+    env = publish.envelope(reading(seq=0), CFG)
+    assert env is not None
+    assert env["seq"] == 0
+
+
+# fw_version is informational — the contract's own notes say it is never a drop gate — so
+# a reading missing it still publishes. Marking it "required" was the contract
+# disagreeing with itself, and the code is the honest half.
+def test_a_reading_with_no_fw_version_still_publishes():
+    env = publish.envelope(reading(fw_version=None), CFG)
+    assert env is not None
+    assert env["fw_version"] is None
+
+
+def test_a_reading_with_no_channels_is_survivable():
+    # A node that declared nothing is still worth recording as alive.
+    env = publish.envelope(reading(channels=[]), CFG)
+    assert env is not None
+    assert env["channels"] == []
+    assert env["battery_mv"] == 3810
+
+
+# ---- Credentials ------------------------------------------------------------
+
+def test_broker_config_never_prints_its_password():
+    # Nothing logs the config today. But GatewayConfig carries the broker and is passed
+    # into envelope() and derive_tank(), so one future log.debug("%r", cfg) — or a
+    # traceback that formats it — would put a broker password in a log file.
+    from soundings_gateway.config import BrokerConfig
+    text = repr(BrokerConfig(host="mqtt.local", username="soundings", password="hunter2"))
+    assert "hunter2" not in text
+    assert "mqtt.local" in text     # the useful half is still debuggable
