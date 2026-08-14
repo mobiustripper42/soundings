@@ -69,8 +69,8 @@ pio run  -e node             # build node firmware (Heltec WiFi LoRa 32 V3)
 #   venv:  python3 -m venv .venv && .venv/bin/pip install pytest
 .venv/bin/python -m pytest   # gateway parser + contract round-trip tests
 
-# Server stack (simulation) — Phase 1.5 landed
-docker compose -f deploy/docker-compose.yml up   # broker + DB + Grafana
+# Dev-sim stack only — NOT production (DEC-004: the store and broker are Poop Deck's)
+docker compose -f deploy/dev-sim/docker-compose.yml up   # broker + DB + Grafana
 ```
 
 ## Additional Docs
@@ -100,7 +100,7 @@ Soundings is firmware + a Python gateway + a wire contract. The mechanism is a *
 
 ## Migration Protocol (project)
 
-**N/A — no Supabase.** The time-series DB is itself a deferred decision (SPEC §12 D6: TimescaleDB vs VictoriaMetrics, unresolved); the server stack is broker + TSDB + Grafana via `deploy/docker-compose.yml`, not a Supabase/migrations setup. The shell's Supabase toolchain, `safe-supabase.sh` guard (DEC-S009), and Vercel env-sync don't apply.
+**N/A — no Supabase, and no database at all.** D6 was **resolved by DEC-004**: soundings does not run a store. Persistence and dashboards belong to Poop Deck (`/home/eric/poop-deck`, TimescaleDB + Grafana, fed over MQTT); soundings publishes `contracts/publish-v1.md` documents and stops. `deploy/dev-sim/` is a local simulation stack, not production. The shell's Supabase toolchain, `safe-supabase.sh` guard (DEC-S009), and Vercel env-sync don't apply, and neither does any migration protocol — the schema soundings' data lands in is Poop Deck's to migrate.
 
 ## Conventions
 
@@ -123,7 +123,7 @@ Tiered, mirroring tinkle:
 
 ## Versioning (project)
 
-**No `package.json`**, so the shell's version-bump steps in `/retro` / `/bump-major` no-op silently. `<VersionTag />` is N/A. Packet payloads carry their own firmware-version field (architecture, above) — that's the versioning that matters operationally; a repo version surface can be added later if needed.
+**There IS a `package.json`** — it builds nothing and carries no dependencies, but it holds the doc-integrity gates (DEC-S036/S037) and the version the workflow bumps. So the shell's version-bump steps in `/retro` and `/bump-major` **do** run here; they no longer no-op. `<VersionTag />` is still N/A — there is no UI to render one in. Packet payloads also carry their own firmware-version field (architecture, above), which is the version that matters operationally; the repo version is the workflow's, not the fleet's, and the two are unrelated.
 
 ## PR Workflow (project)
 

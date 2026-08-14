@@ -1,4 +1,14 @@
-"""Ingestion — decoded readings (off MQTT) into the time-series DB.
+"""Ingestion — decoded readings (off MQTT) into the local sim time-series DB.
+
+⚠ **DEV-ONLY as of Phase 3.7 (DEC-004).** Soundings does not run a store. In production
+the publish IS the handoff: the gateway publishes `contracts/publish-v1.md` documents to
+Poop Deck's broker and Poop Deck remembers. Nothing in this module runs in that path.
+
+It survives because the sim spine needs somewhere to draw a chart until Poop Deck has a
+soundings dashboard, and `deploy/dev-sim/` still stands that up. Deleting it would take
+the only working display with it, ahead of the milestone (3.12, first light) that is
+defined as a chart. When Poop Deck is drawing the tank, this and `deploy/dev-sim/` go
+together.
 
 Turns a reading dict into Influx line protocol and writes it to VictoriaMetrics.
 Measurement `soundings` + one field per channel + a `node` tag yields clean
