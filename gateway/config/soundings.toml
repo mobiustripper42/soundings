@@ -7,6 +7,19 @@
 # gateway does not need. A file is also diffable, so a provisioning change shows up in
 # review rather than in somebody's psql history.
 
+# --- Broker (DEC-004: Poop Deck owns the store and the broker) ----------------
+# soundings connects OUT to Poop Deck's mosquitto. Credentials are environment only —
+# MQTT_SOUNDINGS_USER and MQTT_SOUNDINGS_PASSWORD — matching Poop Deck's own naming.
+# Their broker runs allow_anonymous false with a per-producer ACL, so a missing credential
+# is a refused connection rather than a silent drop. That is the good failure.
+#
+# Host is blank on purpose: bee-grace answers on 192.168.50.201 (LAN) and 100.105.112.4
+# (Tailscale), and which one is right depends on where the gateway box sits — a question
+# this repo cannot answer for a deployment. Set it per install.
+[broker]
+host = ""
+port = 1883
+
 [gateway]
 # The A02YYUW's factory calibration reference temperature. DEC-007 gives the correction
 # as c(T)/c(T_ref) without pinning T_ref; 20 °C is the conventional datasheet reference

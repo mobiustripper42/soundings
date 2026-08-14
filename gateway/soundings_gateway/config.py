@@ -11,11 +11,32 @@ stdlib only (`tomllib`, Python 3.11+), per the project's stdlib-first convention
 """
 from __future__ import annotations
 
+import os
 import tomllib
 from dataclasses import dataclass, field
 from pathlib import Path
 
-__all__ = ["TankGeometry", "NodeLocation", "GatewayConfig", "load_config"]
+__all__ = ["BrokerConfig", "TankGeometry", "NodeLocation", "GatewayConfig", "load_config"]
+
+
+@dataclass(frozen=True)
+class BrokerConfig:
+    """Where to publish. Poop Deck owns the broker (DEC-004), so soundings connects out.
+
+    Host and port are config; **credentials are environment only** and never touch this
+    repo. Poop Deck's mosquitto runs `allow_anonymous false` with a per-producer ACL, so
+    an unauthenticated connect is refused rather than silently dropping messages — which
+    is the good failure, and the reason there is no anonymous fallback here.
+    """
+
+    host: str = ""
+    port: int = 1883
+    username: str = ""
+    password: str = ""
+
+    @property
+    def configured(self) -> bool:
+        return bool(self.host)
 
 
 @dataclass(frozen=True)
@@ -49,6 +70,7 @@ class NodeLocation:
 @dataclass(frozen=True)
 class GatewayConfig:
     ref_temp_c: float = 20.0
+    broker: BrokerConfig = field(default_factory=BrokerConfig)
     nodes: dict[int, NodeLocation] = field(default_factory=dict)
     tanks: dict[str, TankGeometry] = field(default_factory=dict)
 
@@ -89,8 +111,19 @@ def load_config(path) -> GatewayConfig:
             gal_per_mm_above=float(entry.get("gal_per_mm_above", 0.0)),
         )
 
+    br = raw.get("broker", {})
+    broker = BrokerConfig(
+        host=str(br.get("host", "")),
+        port=int(br.get("port", 1883)),
+        # Credentials come from the environment, never the file. The names match Poop
+        # Deck's own convention (their deploy/.env.example uses MQTT_<PRODUCER>_USER).
+        username=os.environ.get("MQTT_SOUNDINGS_USER", ""),
+        password=os.environ.get("MQTT_SOUNDINGS_PASSWORD", ""),
+    )
+
     return GatewayConfig(
         ref_temp_c=float(gw.get("ref_temp_c", 20.0)),
+        broker=broker,
         nodes=nodes,
         tanks=tanks,
     )

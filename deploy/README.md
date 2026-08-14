@@ -1,62 +1,31 @@
-# deploy/ — simulation server stack
+# deploy/
 
-The server-side trio the telemetry pipeline lands on, as a single
-`docker compose` stack so the whole pipeline runs on a laptop with no hardware.
+**Soundings does not run a store, a broker, or a Grafana (DEC-004).** Poop Deck does —
+TimescaleDB, mosquitto and the shared Grafana all live at `/home/eric/poop-deck`. In
+production soundings' gateway connects *out* to that broker and publishes
+`contracts/publish-v1.md` documents; the publish is the handoff, and a Poop Deck outage
+is a dropped publish and nothing worse.
 
-| Service | Image | Port | Role |
-|---------|-------|------|------|
-| Mosquitto | `eclipse-mosquitto:2` | 1883 (MQTT), 9001 (WS) | message bus between gateway and ingestion |
-| VictoriaMetrics | `victoriametrics/victoria-metrics` | 8428 | time-series DB **(provisional — non-binding on D6)** |
-| Grafana | `grafana/grafana-oss` | 3000 | dashboards (datasource pre-provisioned) |
+So there is nothing to deploy from this directory.
 
-## Run
+## `dev-sim/` — the local simulation stack
 
-```bash
-docker compose -f deploy/docker-compose.yml up -d
-# Grafana   http://localhost:3000   (anonymous viewer; admin/admin to edit)
-# VM        http://localhost:8428
-# MQTT      localhost:1883
-docker compose -f deploy/docker-compose.yml down        # stop (keeps volumes)
-docker compose -f deploy/docker-compose.yml down -v     # stop + wipe data
-```
+What used to be `deploy/` is now `deploy/dev-sim/`: mosquitto + VictoriaMetrics + Grafana,
+stood up so the end-to-end sim spine has somewhere to draw a curve. It was always
+provisional (Phase 1.5 landed it explicitly non-binding on the storage decision, and
+DEC-004 then resolved that decision elsewhere).
 
-Knobs (env or a `.env` beside the compose file):
+**It is kept, not deleted, for one reason:** the milestone that closes this phase — 3.12,
+first light — is *defined* as a real tank level on a chart, and until Poop Deck carries a
+soundings dashboard this is the only thing that can draw one. Retiring the display before
+the thing that needs a display would be tidy and wrong.
 
-| Var | Default | Meaning |
-|-----|---------|---------|
-| `VM_RETENTION` | `12` | raw-sample retention, **months** (the retention knob) |
-| `GRAFANA_USER` / `GRAFANA_PASSWORD` | `admin` / `admin` | Grafana admin login |
-| `GRAFANA_PORT` / `VM_PORT` / `MQTT_PORT` / `MQTT_WS_PORT` | `3000` / `8428` / `1883` / `9001` | host ports (override if one is already taken) |
-
-## Provisional DB — non-binding on D6
-
-VictoriaMetrics is here **only because it is the fastest to stand up** (one
-container, no schema, retention is a flag). This is **not** a resolution of D6
-(TimescaleDB vs VictoriaMetrics, SPEC §12) — Phase 3 decides that against the
-"do we need SQL JOINs to farm records?" question and may swap this service out.
-
-What keeps the swap cheap: the datasource is provisioned under the stable uid
-`soundings-tsdb`, so dashboards reference *the DB*, not the engine. Swapping to
-Timescale means replacing one datasource file and the gateway's DB-writer (Phase
-3) — dashboards keep working.
-
-Storage-level **downsampling** is intentionally *not* configured here: it's
-DB-specific (VM downsampling vs Timescale continuous aggregates) and belongs with
-the D6 resolution. The sim downsamples at query time in Grafana. Retention (the
-durable knob) is live now via `VM_RETENTION`.
-
-## Holding a series and drawing it
-
-VictoriaMetrics accepts writes on several line protocols. Quick smoke test
-(Influx line protocol) — push a point and see it in the "Soundings sim spine"
-dashboard:
+It is not production, it is not a fallback, and nothing should grow a dependency on it.
+When Poop Deck is drawing the tank, `dev-sim/` and `gateway/soundings_gateway/ingest.py`
+retire together.
 
 ```bash
-curl -s -XPOST 'http://localhost:8428/write' \
-  --data-binary 'soundings_soil_tension_raw,node=1 value=152'
-# query it back
-curl -s 'http://localhost:8428/api/v1/query?query=soundings_soil_tension_raw'
+docker compose -f deploy/dev-sim/docker-compose.yml up
 ```
 
-The real path (gateway: MQTT → decode → DB write) lands with the end-to-end spine
-(Phase 1.6) and ingestion (Phase 3).
+Details in `dev-sim/README.md`.

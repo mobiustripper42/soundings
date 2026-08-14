@@ -2,7 +2,12 @@
 
     synthetic fleet  →  IPacketSource  →  gateway decode  →  MQTT  →  ingest  →  VictoriaMetrics  →  Grafana
 
-Run the sim stack first (deploy/docker-compose.yml), then:
+⚠ This is the DEV SIM path (DEC-004). It stands the whole pipeline up locally, store and
+all, so the spine has somewhere to draw a curve. In production soundings publishes
+`contracts/publish-v1.md` documents to Poop Deck's broker and stops there — no local DB,
+no local Grafana, no ingest side at all.
+
+Run the sim stack first (deploy/dev-sim/docker-compose.yml), then:
 
     cd gateway && .venv/bin/python -m soundings_gateway.spine --realtime --minutes 720
 
@@ -23,6 +28,7 @@ import paho.mqtt.client as mqtt
 
 from . import config as gwconfig
 from . import derive, emitter, gateway, ingest
+from .publish import envelope
 
 log = logging.getLogger("soundings_gateway.spine")
 
@@ -64,7 +70,19 @@ def run(args: argparse.Namespace) -> int:
         except Exception:  # noqa: BLE001 — a poison message must not kill the loop
             log.exception("bad MQTT payload on %s", message.topic)
 
+    def authenticate(client: mqtt.Client) -> None:
+        """Apply broker credentials if the environment supplied them.
+
+        Poop Deck's broker runs `allow_anonymous false`; the dev-sim mosquitto does not.
+        Setting credentials only when they exist lets one code path serve both, and an
+        absent credential against a real broker fails the connect loudly rather than
+        publishing into a void.
+        """
+        if cfg.broker.username:
+            client.username_pw_set(cfg.broker.username, cfg.broker.password)
+
     sub = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2, client_id="soundings-ingest")
+    authenticate(sub)
     sub.on_connect = on_connect
     sub.on_message = on_message
     sub.connect(args.broker_host, args.broker_port)
@@ -76,14 +94,21 @@ def run(args: argparse.Namespace) -> int:
 
     # --- publisher side: the gateway publishes each decoded reading per node ---
     pub = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2, client_id="soundings-gateway")
+    authenticate(pub)
     pub.connect(args.broker_host, args.broker_port)
     pub.loop_start()
 
     def publish(msg: dict) -> None:
-        pub.publish(derive.reading_topic(msg["node_id"]), json.dumps(msg))
-        # Derived scalars, keyed by place rather than by hardware. Returns nothing for a
-        # node the map doesn't cover or a reading that can't support a volume — the sim
-        # fleet is bed nodes, so this correctly stays quiet on them.
+        # The storable document (contracts/publish-v1.md) — versioned, ISO-8601 stamped,
+        # raw AND derived in one place, keyed (node_id, seq) so a replay is a no-op.
+        # This is what Poop Deck ingests; the raw reading dict never leaves the process.
+        env = envelope(msg, cfg)
+        if env is not None:
+            pub.publish(derive.reading_topic(env["node_id"]), json.dumps(env), qos=1, retain=False)
+        # Derived scalars, keyed by place rather than by hardware — the live view a
+        # dashboard or alert rule subscribes to, not a record. Returns nothing for a node
+        # the map doesn't cover or a reading that can't support a volume; the sim fleet is
+        # bed nodes, so this correctly stays quiet on them.
         for topic, payload in derive.derive_tank(msg, cfg):
             pub.publish(topic, payload)
 
