@@ -1,1 +1,6 @@
 .sessions-worktree/
+
+# Env / secrets — everything matching .env* is a secret, no exceptions (DEC-S043).
+# The template, if this repo ever needs one, is `env.example` — outside the namespace,
+# so there is no negation to keep in sync.
+.env*
