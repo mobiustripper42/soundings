@@ -23,7 +23,7 @@ so several placeholders would collide. Consult @architect before building on one
 
 ### Process & decision discipline
 - DEC-001 — Nothing gets locked until it has to be
-- DEC-005 — The tank node goes first — a hardware-first vertical slice _(extended by DEC-008 — the topic hierarchy below the farm/soundings/ root, which DEC-005 constrained but left open; the namespace choice itself stands)_
+- DEC-005 — The tank node goes first — a hardware-first vertical slice
 
 ### Hardware — board, power & enclosure
 - DEC-006 — Protected cells + a firmware cutoff, not a hardware LVC board
@@ -43,5 +43,5 @@ so several placeholders would collide. Consult @architect before building on one
 
 _**This file is GENERATED** by `npm run gen:decisions` —
 edit `docs/decisions/DEC-*.md`, not this file. `npm run check:decisions` fails on a stale index, a
-duplicate id, an unknown topic, an unknown relation, a forward-pointing amendment, or a
-reference to a decision that does not exist._
+duplicate id, an unknown topic, an unlanded SPEC amendment, or a reference to a decision
+that does not exist._

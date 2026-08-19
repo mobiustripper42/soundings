@@ -2,13 +2,11 @@
 id: DEC-008
 title: "MQTT topic hierarchy, and a file-backed node→location map"
 topic: "Radio, wire contract & gateway"
-amends:
-  - id: DEC-005
-    relation: extends
-    scope: "the topic hierarchy below the farm/soundings/ root, which DEC-005 constrained but left open; the namespace choice itself stands"
 ---
 
 ## DEC-008: MQTT topic hierarchy, and a file-backed node→location map
+
+**See also DEC-005**, which fixed the `farm/soundings/…` namespace and left the hierarchy below it open. This decision fills that in; the namespace choice itself stands unchanged.
 
 **Decision:** Two branches under the `farm/soundings/…` root DEC-005 fixed, and the
 node→location map is a **config file**, not a database table. **Resolves D7 and D9.**
