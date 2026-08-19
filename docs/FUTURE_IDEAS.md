@@ -3,7 +3,7 @@
 *Ideas worth keeping but not worth building yet. Curated by `@ideas`. Parking
 something here is not a rejection — it's a decision to not decide now (DEC-001).*
 
-Nothing in this file is committed scope. Check `docs/SPEC.md` §3 "Not V1" and the
+Nothing in this file is committed scope. Check `docs/SPEC.md` § Not V1 and the
 current `docs/PROJECT_PLAN.md` phase before promoting anything out of it.
 
 ---
