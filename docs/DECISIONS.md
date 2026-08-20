@@ -37,6 +37,7 @@ so several placeholders would collide. Consult @architect before building on one
 ### Radio, wire contract & gateway
 - DEC-003 — Packet v1 wire contract (resolves §12 D2)
 - DEC-008 — MQTT topic hierarchy, and a file-backed node→location map
+- DEC-009 — LoRa stands, and the gateway radio lives on the server
 
 ### Server, storage & display
 - DEC-004 — Storage and graphing belong to Poop Deck, not soundings (resolves D1 + D6)
