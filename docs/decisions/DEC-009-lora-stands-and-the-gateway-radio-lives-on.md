@@ -13,7 +13,7 @@ amends_spec:
 
 **Decision:** The node↔gateway link is **LoRa, SX1262 at both ends**, and the gateway radio is a Heltec Wireless Stick Lite V3 **permanently attached to the server (`bee-grace`) over USB serial**. **Resolves D3 and D4.** Three things follow:
 
-- **D3 (node↔gateway PHY pairing) is dissolved, not chosen.** Both ends are the same board and the same silicon, so there is no pairing question, no SX127x/RFM95 driver, and one radio toolchain to learn. This was already the leading candidate in `SPEC.md:422`; the bench confirmed it.
+- **D3 (node↔gateway PHY pairing) is dissolved, not chosen.** Both ends are the same board and the same silicon, so there is no pairing question, no SX127x/RFM95 driver, and one radio toolchain to learn. This was already the leading candidate in the D3 row of `SPEC.md` §12; the bench confirmed it.
 - **D4 (gateway box) is radio-on-the-server.** No Pi Zero, and no Heltec acting as a LoRa→WiFi bridge. The bridge fallback at `HARDWARE_BUILD_PLAN.md` §3 is **not needed and not built** — it existed for the case where the link wouldn't close at the server, and the link closes at the server with margin.
 - **Issue [#48](https://github.com/mobiustripper42/soundings/issues/48)'s shape is confirmed rather than chosen.** It was already specified as LoRa → USB serial + `SerialPacketSource`; that assumption is now load-bearing on evidence instead of expectation.
 
