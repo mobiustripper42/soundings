@@ -146,7 +146,13 @@ Ctrl, GPIO1 = VBAT read**, confirmed on this board's own datasheet.
 Two things did change, and one is a footgun — see **§5, F-11 (two U.FL sockets)**
 and the header/packing-list gap now in the BOM.
 
-### Recommended: the second board as a dumb serial radio **[proposed]**
+### The second board as a dumb serial radio **[settled]**
+
+> **Decided 2026-08-19 by DEC-009**, on the Phase 3.2 range test (issue
+> [#41](https://github.com/mobiustripper42/soundings/issues/41)). The link closed
+> from the tank cluster, the property corner and the tunnel with roughly 15 dB of
+> SNR margin, so the gateway radio stays at the server and D3 and D4 are both
+> resolved. What was a recommendation is now the build.
 
 The gateway radio is the second Stick Lite, tethered by USB to the existing
 headless Linux box (`SPEC.md` §7). Its firmware does one thing: receive a LoRa
@@ -171,7 +177,14 @@ the server, and gains one new `IPacketSource` implementation — a
 Two identical boards also means one flashing toolchain, one antenna type, and a
 board that can be swapped between node and gateway roles while debugging.
 
-### Fallback: the board as a WiFi→MQTT bridge **[proposed]**
+### Fallback: the board as a WiFi→MQTT bridge **[not taken — retained]**
+
+> **Not built, and deliberately kept (DEC-009).** The trigger below did not fire:
+> the Phase 3.2 range test closed the link at the server from every location a
+> node is going. This section stays because the ladder is what a *future* site
+> failure climbs — a sensor further out, or a tunnel end not walked on
+> 2026-08-19. Moving the gateway is the cheap first move; this is the expensive
+> one. Do not build it speculatively.
 
 **Trigger:** the range test shows the link won't close from the tank to the
 server's physical location.
