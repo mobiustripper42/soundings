@@ -8,6 +8,8 @@ topic: "Process & decision discipline"
 
 **See also DEC-008**, which designs the topic hierarchy below the `farm/soundings/…` root that this decision constrained but left open. The namespace choice below stands unchanged.
 
+**See also DEC-009**, which records the outcome of the Phase 3.2 range test scheduled in `Revisit` below. The link closed from the tank cluster, so the gateway architecture did not branch and the sequencing here stands unchanged.
+
 **Decision:** The tank-level node is promoted ahead of the soil/VPD sensor work and built as a complete vertical slice — hardware plan → parts → real radio → real sensor → real packets → gallons on a chart — as a new **Phase 3** (`docs/PROJECT_PLAN.md`, detail in `docs/HARDWARE_BUILD_PLAN.md`). **Phase 2 is parked, not cancelled**; former Phases 3–6 renumber to 4–7. Three sub-decisions ride along:
 
 - **Topic namespace: `farm/soundings/…`.** Resolves a conflict between `docs/tank-level-sensor.md:93-99` (`farm/water/cluster/*`, written before DEC-004) and DEC-004 (`farm/soundings/…`). Everything soundings publishes lives under its own namespace. If tinkle wants a `farm/water/…` view for its future pump lockout, that is a broker-side republish on the consumer's side of the boundary — not soundings' concern. Constrains D9; the full hierarchy is still designed in 3.6.
