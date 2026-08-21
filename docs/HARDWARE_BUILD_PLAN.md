@@ -117,10 +117,11 @@ outdoor node, and it is the direct cause of several problems Round 1 found:**
 
 - Three of the five items on HW-02's deep-sleep disable list exist **only** because
   of the OLED (SPI/OLED pins to `INPUT`, `displayOff()`, Vext off).
-- **F-6 — the ~1.44 V Vext residual is an OLED artefact.** ⚠ Round 1 blamed the
-  wrong component; the corrected mechanism is in §6. Either way, no OLED plausibly
-  means no residual — which is the entire reason a P-FET load switch entered the
-  BOM, and why it may now leave it.
+- **F-6 — the ~1.44 V Vext residual is an OLED artefact.** ✅ **Confirmed on the
+  bench 2026-08-20: 3.0 mV.** Round 1 blamed the wrong component and concluded the
+  rail was unusable; the corrected mechanism and the measurement are in §6. The
+  residual is the entire reason a P-FET load switch entered the BOM, and with no
+  OLED there is no residual — **so it has left it.**
 - One fewer component to fail in a condensing headspace, in a smaller board that
   is easier to seal.
 
@@ -479,15 +480,25 @@ firmware that would have driven it never gets written.
 | On (firmware running, GPIO36 driven low) | **3.3 V** |
 | Off (RST held, GPIO36 high-Z) | **3.0 mV** |
 
-**How the off-state was read without firmware — worth keeping, it is reusable.**
-Getting GPIO36 driven HIGH looked like it needed a sketch or the Meshtastic
-remote-hardware module, and the latter has an
-[open bug on ESP32-S3](https://github.com/meshtastic/firmware/issues/6276).
-Neither was necessary. **Hold the RST button and probe `Ve`.** With the ESP32 in
-reset, GPIO36 is high-impedance, so the 10K gate pull-up ties the AO3401's gate to
-its own source, Vgs = 0, and the FET is off — the identical drain state that
-driving GPIO36 high produces. Same measurement, no firmware, no port contention.
-GPIO36 is not a strapping pin on the S3, so nothing else moves during reset.
+**How the off-state was read without firmware.** Getting GPIO36 driven HIGH looked
+like it needed a sketch or the Meshtastic remote-hardware module, and the latter
+has an [open bug on ESP32-S3](https://github.com/meshtastic/firmware/issues/6276).
+Neither was necessary: **hold the RST button and probe `Ve`.**
+
+⚠ **The reading is a fact; the equivalence argument behind it is this session's
+inference, not a cited one.** Stated plainly so it is not mistaken for a datasheet
+claim. The argument: with the ESP32 held in reset GPIO36 should be high-impedance,
+so the 10K gate pull-up ties the AO3401's gate to its own source, Vgs = 0, and the
+FET is off — which should be the same drain state that driving GPIO36 high
+produces. GPIO36 is not an S3 strapping pin. **What was not done is HW-18's
+literal test** — nobody drove GPIO36 high and measured. If the distinction ever
+matters, drive the pin and confirm; it is a ten-line sketch.
+
+The 3.0 mV is nonetheless strong evidence for the thing HW-18 actually cares
+about, which is whether *anything back-powers the drain*. Nothing does — and a
+back-power path would have shown up in reset just as readily. **Treat the
+technique as validated on this board and this revision**, not as a general fact
+about Heltec V3s.
 
 The A02YYUW free-runs: powered, it streams frames continuously. It must sit on a
 switched rail or it swamps the budget. **That rail is Vext.**

@@ -135,10 +135,12 @@ research rounds forced:
 - **A DS18B20 in the tank headspace** — required for temperature compensation.
   Waterproof stainless probe, ~3 m lead; placement matters far more than accuracy
   grade (see below).
-- **The sensor rail is switched.** Vext is the likely switch on this board — the
-  ~1.44 V residual seen on the WiFi LoRa 32 V3 is an **OLED back-power artefact**,
-  not a board property, and there is no OLED here. ⚠ Meter it before relying on
-  it; a discrete P-FET is the fallback (`HARDWARE_BUILD_PLAN.md` §6).
+- **The sensor rail is switched, and Vext is the switch** — measured 2026-08-20:
+  3.3 V on, **3.0 mV off** (GPIO36, active LOW). The ~1.44 V residual seen on the
+  WiFi LoRa 32 V3 was an **OLED back-power artefact**, not a board property, and
+  there is no OLED here. No discrete P-FET (`HARDWARE_BUILD_PLAN.md` §6).
+  ⚠ Vext outputs 3.3 V and cannot supply more, so if the A02YYUW proves unreliable
+  at 3.3 V (HW-13, still open) the discrete switch returns, sourced from VBAT.
 
 Lives at the tank cluster as its own dedicated node.
 

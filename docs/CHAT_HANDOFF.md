@@ -309,7 +309,7 @@ Not tied to a single ID. Each needs a home.
 | F-3 | **60° cone illuminates tank sidewalls before reaching the bottom** in an 1100-gal vertical. Practical floor on low-level readings; sidewall/rib/draw-pipe false targets. | `docs/tank-level-sensor.md`, `HARDWARE_BUILD_PLAN.md` §5 |
 | F-4 | **`SPEC.md` §4 LVC board ($3) is redundant** given protected cells + firmware cutoff. Rejected alternative exists → warrants a `DEC-nnn`. | `SPEC.md` §4, `docs/DECISIONS.md` |
 | F-5 | **VBAT-in-packet is now load-bearing**, not optional telemetry — it is the sole validation path for the 2-year claim after HW-07 was descoped. Server-side threshold alert at 3.4 V/cell is part of the design, not an afterthought. | `SPEC.md` §4, packet schema, server side |
-| F-6 | **Vext is not a usable switched rail** (~1.44 V residual). Any doc or code that assumes Vext gates the sensor is wrong; a discrete P-FET load switch is required. | `HARDWARE_BUILD_PLAN.md` §4, firmware |
+| F-6 | ~~**Vext is not a usable switched rail** (~1.44 V residual). Any doc or code that assumes Vext gates the sensor is wrong; a discrete P-FET load switch is required.~~ ✅ **RETIRED 2026-08-20 — measured 3.0 mV off, 3.3 V on.** The residual was an OLED back-power artefact and there is no OLED on this board. **Vext gates the sensor; no P-FET.** HW-11 closed with it. See §3.7. | `HARDWARE_BUILD_PLAN.md` §4, firmware |
 | F-7 | **Gateway node shares the board but not the constraints.** Mains/USB powered — no sleep budget, no battery BOM, no LVC. Ensure the BOM does not inherit node-only line items. | `HARDWARE_BUILD_PLAN.md` §4 |
 | F-8 | **A02YYUW at 3.3 V is unverified.** Reseller guidance recommends 5 V. If it proves flaky, a boost converter enters the BOM and the power budget is re-derived. | `[verify]` in `HARDWARE_BUILD_PLAN.md` §6 |
 | F-9 | **The Stick Lite V3's advertised "≤800 µA deep sleep" is a stale V2-era figure.** Heltec's own `HTIT-WS_V3` datasheet carries a V2-vs-V3 comparison table listing deep sleep as **800 µA (V2, ESP32-D0/SX1276/Micro-USB) vs <10 µA (V3, ESP32-S3/SX1262/Type-C)**. The hardware update log attributes the 800 µA line to the 2019 V2 revision. The product page never updated it. **Do not budget against 800 µA.** | `SPEC.md` §4, `HARDWARE_BUILD_PLAN.md` §6 |
@@ -603,12 +603,17 @@ multimeter.
 *"GPIO36 HIGH: is Vext <50 mV?"*, which reads like it needs a sketch or the
 Meshtastic remote-hardware module — and that module has an
 [open ESP32-S3 bug](https://github.com/meshtastic/firmware/issues/6276) that would
-likely have eaten the afternoon. **Holding the RST button gets the identical
-reading.** In reset GPIO36 is high-impedance, so the 10K gate pull-up ties the
-AO3401's gate to its own source; Vgs = 0 and the FET is off — the same drain state
-driving the pin high produces. GPIO36 is not an S3 strapping pin. Reusable on any
-Heltec V3 with this Vext topology, and it is the kind of thing that is obvious
-once seen and invisible before.
+likely have eaten the afternoon. **Holding the RST button gets the reading.** In
+reset GPIO36 should be high-impedance, so the 10K gate pull-up ties the AO3401's
+gate to its own source; Vgs = 0 and the FET is off — which should be the same drain
+state driving the pin high produces. GPIO36 is not an S3 strapping pin.
+
+⚠ **That equivalence is inference, mine, uncited — and HW-18's literal test
+(drive GPIO36 high, measure) was never run.** The measurement stands on its own for
+what HW-18 is actually asking, which is whether anything back-powers the drain;
+nothing does, and a back-power path would show in reset just as readily. But do not
+carry this forward as a general fact about Heltec V3s — it is validated on this
+board and this revision.
 
 **Sequencing, promoted to `HARDWARE_BUILD_PLAN.md` §8:** these checks were pulled
 ahead of "order the rest of the BOM" on purpose. Check 3 decides whether the P-FET
