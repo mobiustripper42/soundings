@@ -668,25 +668,428 @@ stock is not an answer; say so and give the next one.
 
 | ID | Line item | Why it matters | Status | Answer | Date |
 |----|-----------|----------------|--------|--------|------|
-| SR-01 | **Protected 18650 cells ×2** | ⚠ **The constraint that will bite: protected cells are longer than bare ones**, and it has to match SR-02. Give the length. Matched capacity/IR — same make, same model, ideally same batch. | `open` | | |
-| SR-02 | **2-cell 18650 holder, PARALLEL** | ⚠ **Two silent failures.** Series holders (7.4 V) destroy the board — confirm parallel. And it must **seat the SR-01 cells at their actual length**. Quote the holder's stated cell length. | `open` | | |
-| SR-03 | **IP65 enclosure, light-coloured, ~4×4×2"** | Board is 58.08 × 22.6 × 8.2 mm; also holds the holder, cells, and Wago. Hinged lid preferred. Light-coloured is a heat spec, not aesthetics — it sits outdoors in summer. | `open` | | |
-| SR-04 | **PG7 cable glands ×2** | Sensor cable plus one spare. Must suit the SR-08 cable OD. | `open` | | |
-| SR-05 | **U.FL → SMA-female pigtail, 100–150 mm ×2** | ⚠ **As short as it ships** — 1–1.5 dB/m at 900 MHz, so a long one costs more than the antenna gains. | `open` | | |
-| SR-06 | **SMA bulkhead ×2** | Through the enclosure wall. Not weatherproof by default — self-amalgamating tape goes on the outside joint. | `open` | | |
-| SR-07 | **915 MHz antenna, 3–5 dBi omni, SMA male ×2** | ⚠ **Not 8–10 dBi.** The gain comes from flattening the vertical pattern; gateway and node sit at different heights. See the range-test note in §4. | `open` | | |
-| SR-08 | **Outdoor / direct-burial Cat5e** | Length = tank height + slack. Unshielded is fine. 3 conductors used. | `open` | | |
-| SR-09 | **DS18B20 waterproof stainless probe, ~3 m lead ×2** | Cheapest acceptable grade — at a 2 m path, 1 °C of probe error is 3.5 mm against a 14 cm error being corrected. One is a spare. | `open` | | |
-| SR-10 | **A02YYUW ultrasonic sensor ×1** | The one part with an open question against it (HW-13, 3.3 V reliability). Buy it anyway; only the part can answer. | `open` | | |
-| SR-11 | **JST 1.25 2-pin battery pigtail** | ⚠ Heltec calls it "SH1.25-2" and **the name is wrong** — real JST SH is 1.0 mm pitch. Look for *"JST 1.25 2-pin for Heltec/LilyGo."* | `open` | | |
-| SR-12 | **PVC 4" or 6" Sch40 + matching hole saw** | Cut to 50–75 mm. A shallow wide hood, not a deep tube. Local hardware is likely cheaper than shipped — say so if that's the answer. | `open` | | |
-| SR-13 | **Consumables** — UV-stable silicone, silica gel, Wago lever nuts, 100 nF + 10 µF caps, long USB-C | Low-value, high-annoyance-if-missing. One row so they don't get lost. | `open` | | |
-| SR-15 | **Enclosure mounting hardware** | ⚠ **Answer this one "deferred" unless something obvious fits.** `HARDWARE_BUILD_PLAN.md` §4 carries it as `[proposed]`, and it genuinely depends on what the node straps to at the tank cluster — which nobody has stood in front of and decided. It gets a row so it is a *named* deferral rather than a silent gap; a strap or bracket that arrives with the rest is worth more than a second shipment. | `open` | | |
-| SR-14 | **Anything this list is missing** | Rounds 1 and 2 both found their most valuable items by going off-script. If assembling this order surfaces a part nobody asked for, add an ID and answer it. **Do not rely on this row to catch a line item the table forgot** — it caught SR-15 only because a reviewer looked, not because the mechanism worked. | `open` | | |
+| SR-01 | **Protected 18650 cells ×2** | ⚠ **The constraint that will bite: protected cells are longer than bare ones**, and it has to match SR-02. Give the length. Matched capacity/IR — same make, same model, ideally same batch. | `answered` | **Panasonic NCR18650B Protected Button Top, 3400 mAh — ~$12–14 ea, buy 2 (same listing, same order, so same batch).** [18650batterystore.com](https://www.18650batterystore.com/products/panasonic-18650-protected) (Nevada, tests cells) or [Illumn](https://illumn.com/18650-keeppower-3400mah-panasonic-ncr18650b-protected-button-top.html) (KeepPower P1834J, same cell). **Proving spec — the length, which is the whole point of this row: 68.9 mm** (Illumn, stated explicitly) **to 69.5 mm** (18650batterystore's NCR18650GA listing, "≈69.5 mm Protected Button-Top Length"). **Call it 70 mm for fit purposes.** Bare cells are 65 mm; **the protection PCB and button top add ~4–5 mm.** ⚠ **Do not buy from Amazon** — the 18650 market is a counterfeit swamp and Amazon is the worst of it. ⚠ **UN3480: loose lithium cells ship ground only, always a separate shipment.** Never combine into an air/international order. **2× 3400 = 6800 mAh, above the 6000 mAh SPEC figure** — margin improves, no re-derivation needed. | 2026-08-21 |
+| SR-02 | **2-cell 18650 holder, PARALLEL** | ⚠ **Two silent failures.** Series holders (7.4 V) destroy the board — confirm parallel. And it must **seat the SR-01 cells at their actual length**. Quote the holder's stated cell length. | `answered` — ⚠ **with a caveat that matters** | **⚠ Research cannot fully close this row, and pretending otherwise would be the wrong answer.** Almost no holder vendor publishes an internal bay length; the ones that mention it do so as a warning. Direct evidence the risk is real: PowerMav's parallel 2-cell holder states **"Fits standard unprotected 18650 cells (~65 mm length). May not fit longer protected cells"** ([listing](https://powermavelectronics.com/shop/battery/2x-battery-holder-for-18650-lithium-battery-parallel-with-wire/)), and an Amazon reviewer of a common 2-slot holder reports button-tops fit "extremely tight — such that you have to pry them back out with a flat edge tool." **Recommendation: do not buy a 2-slot holder. Buy two SINGLE-cell holders and wire them parallel yourself.** [SparkFun PRT-12899](https://www.digikey.com/en/products/detail/sparkfun-electronics/PRT-12899/17828154), **$1.36 ea at DigiKey, 4 in stock** — single cell, wire leads, chassis mount. **Why this is strictly better, not just a workaround:** (1) **it deletes the series/parallel failure mode entirely** — you make the joint, so it cannot arrive wrong; (2) each cell gets its own independent spring travel instead of sharing a moulding cut for 65 mm; (3) two singles can be mounted apart, which suits a 4×4×2" box better than one 76×41 mm brick; (4) a dead holder is $1.36, not a whole assembly. ⚠ **Even so, no single-cell holder publishes a bay length either.** Order the cells and holders together, and **check the fit before building anything around them** — bend a contact or shim with a spring if it's tight. **Alternative if a 2-slot is wanted anyway:** [Keystone 1049](https://www.digikey.com/en/products/detail/keystone-electronics/1049/2745670), $6.17, 4,202 in stock, UL94V-0, spring steel contacts — but it is **PC-pin, PCB-mount**, which is wrong for this build, and Keystone does not publish a max cell length either. **See §3.9.** | 2026-08-21 |
+| SR-03 | **IP65 enclosure, light-coloured, ~4×4×2"** | Board is 58.08 × 22.6 × 8.2 mm; also holds the holder, cells, and Wago. Hinged lid preferred. Light-coloured is a heat spec, not aesthetics — it sits outdoors in summer. | `answered` — ⚠ **size up** | **Recommend a light-grey ABS/polycarbonate IP65/IP67 junction box, ~150 × 110 × 70 mm (6 × 4.3 × 2.75"), clear or grey hinged lid, ~$15–25.** Bud Industries PN-series, Hammond 1554/1555, and Polycase WC/WH series all qualify and are stocked at DigiKey and Mouser; the generic grey Chinese IP65 boxes on Amazon are also fine for this and a third the price. ⚠ **Contradiction with the row as written: 4×4×2" is too small, and the shortfall is in depth, not footprint.** Stack-up on the lid-to-base axis is board (8.2 mm) + cells (**18.6 mm diameter**, and SR-02's two singles sit side by side) + holder base + the U.FL pigtail's ~10 mm minimum bend radius (RG178 spec) + gland bodies. **2" (50 mm) internal depth leaves no room for the coax bend, which is the item that will actually force a re-order.** 70 mm is comfortable. ⚠ **The light colour is worth holding firm on and is under-argued in the row:** the constraint is the *cells*, which degrade above ~45 °C, not the electronics. A dark box in Cleveland August sun is plausibly 20 °C over ambient. **Grey or white, and mount it shaded regardless.** ⚠ **Wall thickness drives SR-05** — measure it before ordering the pigtail, or order the 14.5 mm thread version and stop worrying. | 2026-08-21 |
+| SR-04 | **PG7 cable glands ×2** | Sensor cable plus one spare. Must suit the SR-08 cable OD. | `answered` — ⚠ **wrong size for the cable** | **Buy PG9, not PG7, and buy a 10-pack of assorted PG7/PG9/PG11 nylon glands for ~$10 rather than two of anything.** ⚠ **This row contradicts SR-08 and the contradiction is a re-order:** **PG7 clamps roughly 3–6.5 mm OD. Outdoor/direct-burial Cat5e is typically 5.5–6.8 mm OD, and gel-filled or armoured variants run 7–8 mm.** PG7 is at best marginal and quite possibly too small. **PG9 covers ~4–8 mm** and swallows the whole range. **Get the actual OD off the SR-08 spool listing before ordering, and buy the assortment as insurance** — glands are pennies and a second shipment is not. ⚠ **Also: two glands is one short.** Penetrations needed: (a) sensor cable, (b) DS18B20 lead — *unless* the DS18B20 shares the SR-08 jacket, which it should, since Cat5e has 8 conductors and only 3 are spoken for. **Decide that now**, because it is the difference between one gland and two. Plus (c) the SMA bulkhead, which is its own hole. **Glands point down (already settled) and want a nylon washer plus a smear of the SR-13 silicone on the threads.** | 2026-08-21 |
+| SR-05 | **U.FL → SMA-female pigtail, 100–150 mm ×2** | ⚠ **As short as it ships** — 1–1.5 dB/m at 900 MHz, so a long one costs more than the antenna gains. | `answered` — ⚠ **may already be bought; see §3.9** | **[Data Alliance IPEX→SMA-female bulkhead cable](https://www.data-alliance.net/ipex-to-sma-female-cable-2-inch-3-in-4-in-5-in-6-in-7-in-8-in-9-in-10-in/), 4–6 inch, US vendor, ~$10–13 ea — select the 14.5 mm extended-thread option.** Their standard thread is 3/8" (9.5 mm); the longer option **has an O-ring embedded in the flange to waterproof the port where the cable enters an enclosure**, which is exactly this application and removes a failure point. **Alternative, in stock on Amazon:** Proxicast **ANT-105-SMA-2PK**, 8", 1.37 mm low-loss coax, bulkhead mount, explicitly listed for 900 MHz / LoRa, ~$15/pair. ⚠ **SR-05 and SR-06 are ONE part, not two — see §3.9.** ⚠ **The single most likely sourcing error on this whole list is SMA vs RP-SMA.** LoRa uses **standard SMA**; most cheap U.FL pigtails are **RP-SMA**, because they are repurposed WiFi parts, and an RP-SMA bulkhead will not mate with an SMA-male antenna. **Bulkhead must be SMA FEMALE = outer thread, centre SOCKET.** Both parts above are correct as specified; verify at checkout anyway. ⚠ Note the ProBots 11 mm-thread part that turns up first in searches **is RP-SMA** — right idea, wrong gender. | 2026-08-21 |
+| SR-06 | **SMA bulkhead ×2** | Through the enclosure wall. Not weatherproof by default — self-amalgamating tape goes on the outside joint. | `answered` — **⚠ DUPLICATE, do not order** | **⚠ There is no such separate line item. SR-06 is already inside SR-05.** A "U.FL → SMA-female **bulkhead** pigtail" *is* the bulkhead: the SMA-female end is a threaded barrel supplied with nut and washer (and, on the Data Alliance 14.5 mm option, an O-ring) that mounts through the enclosure wall. Ordering SR-05 and SR-06 separately yields **two pigtails and two loose connectors that cannot be joined.** **Action: merge SR-06 into SR-05 and strike this row from the BOM.** The one real item hiding in this row's `Why it matters` column is the **self-amalgamating tape**, which is named as required but **appears in no BOM row at all** — see the new **SR-17**. | 2026-08-21 |
+| SR-07 | **915 MHz antenna, 3–5 dBi omni, SMA male ×2** | ⚠ **Not 8–10 dBi.** The gain comes from flattening the vertical pattern; gateway and node sit at different heights. See the range-test note in §4. | `answered` — **⚠ ALREADY BOUGHT, do not order** | **⚠ This row contradicts §4 of this same file.** §4 states under *Already bought, do not re-source*: **"3× Heltec Wireless Stick Lite V3 and 3× 915 MHz whip antennas ($67.20 delivered)."** SR-07 asks for two more. **Three are in hand for two radios.** The Heltec 868/915 MHz whip is **4 dBi, VSWR ≤1.5, DC ground** — inside the 3–5 dBi window this row specifies, better VSWR than the 3 dBi glue-rod alternative, and the DC-ground path is a genuine plus on a mast in an open field ([heltec.org/project/sma-antenna](https://heltec.org/project/sma-antenna/)). **The row is satisfied by the existing purchase. Strike it.** ⚠ One spec to note rather than act on: the whip is rated **−40 … +55 °C**, a lower ceiling than typical 4 dBi parts. It is a bare whip in moving air, so it is fine — but do not mount it against a dark surface in full sun. | 2026-08-21 |
+| SR-08 | **Outdoor / direct-burial Cat5e** | Length = tank height + slack. Unshielded is fine. 3 conductors used. | `answered` | **Direct-burial / outdoor-rated CMX Cat5e, UV-resistant PE jacket, solid copper (not CCA) — ~$0.20–0.35/ft, or a 100 ft spool for ~$25–35.** Any of Monoprice, trueCABLE, Cable Matters, or a local supply house; this is a commodity and the brand does not matter. **Two specs that do: solid copper, not copper-clad aluminium** (CCA work-hardens and snaps at a strain point, which a tank lid is), and a **UV-rated jacket** — "outdoor" alone sometimes means moisture-rated only. ⚠ **Buy 100 ft, not "tank height plus slack."** A spool is ~$30 against ~$12 for a cut length, and the run gets re-pulled, re-routed, and re-terminated more than once on a first build. ⚠ **Get the published OD and hand it to SR-04 before ordering glands.** ⚠ **8 conductors, 3 spoken for** — put the DS18B20 on the spare pairs in the same jacket rather than running a second cable and cutting a second gland hole. That decision belongs in SR-04. **Gel-filled is unnecessary** for an above-ground run and pushes the OD past PG9. | 2026-08-21 |
+| SR-09 | **DS18B20 waterproof stainless probe, ~3 m lead ×2** | Cheapest acceptable grade — at a 2 m path, 1 °C of probe error is 3.5 mm against a 14 cm error being corrected. One is a spare. | `answered` | **Generic waterproof stainless DS18B20, 3 m lead, ~$8–10 ea in a 2- or 5-pack — Amazon or AliExpress is correct here, and this is the one row where the cheap part is genuinely the right answer.** The arithmetic in the `Why it matters` column is the justification and it holds: **a ±2 °C counterfeit clone still yields ~7 mm of residual against the 14 cm being corrected — >95 % of the benefit.** Do not pay for ±0.5 % Maxim-authentic parts from DigiKey at 4× the price. **Buy 4, not 2** — they are ~$2 each in a 5-pack and clones do occasionally arrive dead, which you want to discover on the bench and not up a tank. ⚠ **Missing part this row implies: a 4.7 kΩ pull-up resistor on the DQ line.** Not in SR-13's consumables list. Folded into **SR-17**. ⚠ **Not a sourcing issue but it governs whether this part earns its price: HW-19.** The dominant error is *where the probe hangs*, not what it costs — thermally isolated from the lid, hanging partway into the headspace, not bolted flush to sun-warmed plastic. | 2026-08-21 |
+| SR-10 | **A02YYUW ultrasonic sensor ×1** | The one part with an open question against it (HW-13, 3.3 V reliability). Buy it anyway; only the part can answer. | `answered` | **DFRobot SEN0311, ~$25–30. In stock at [DigiKey](https://www.digikey.com/en/products/detail/dfrobot/SEN0311/11202577) (ships same day), [Mouser](https://www.mouser.com/ProductDetail/DFRobot/SEN0311), and [DFRobot direct](https://www.dfrobot.com/product-1935.html).** ⚠ **I do not have a confirmed current price** — the distributor pages returned stock status but not the price line. **Buy from DigiKey or Mouser, not a marketplace:** this part has clones, and the reseller-copy problems already logged against it (15° beam angle, "has temperature compensation," "prefer 5 V") all originate from marketplace listings. **Proving spec, restated because two rounds of reseller folklore contradicted it:** DFRobot's own spec table reads **3.3~5 V operating voltage, 3 cm blind zone, 3–450 cm range, 60° sensing angle, ≤8 mA average** ([wiki](https://wiki.dfrobot.com/sen0311/), [datasheet](https://media.digikey.com/pdf/Data%20Sheets/DFRobot%20PDFs/SEN0311_Web.pdf)). ⚠ **Buy TWO, not one.** HW-13 is `blocked` on this part and can only be answered by testing it at 3.3 V; if the first one is marginal you cannot tell a bad unit from a bad rail with a sample size of one. At ~$27 that ambiguity is not worth a second shipment. **Ships with a PH2.0-4P connector; stock lead is short (HW-04), so SR-08 is doing the real run.** | 2026-08-21 |
+| SR-11 | **JST 1.25 2-pin battery pigtail** | ⚠ Heltec calls it "SH1.25-2" and **the name is wrong** — real JST SH is 1.0 mm pitch. Look for *"JST 1.25 2-pin for Heltec/LilyGo."* | `answered` | **[Rokland JST 1.25 battery connector cables, 5-pack for LilyGo and Heltec](https://store.rokland.com/products/battery-connector-cables-battery-wires-jst-1-25-5pcs-for-lilygo-and-heltec) — ~$7–9, Florida, free US shipping.** Sold specifically for these boards, which is what makes it the right SKU rather than a guess at pitch. Generic "JST 1.25 2-pin pigtail" 10-packs on Amazon are ~$7 and also fine. **Buy a multipack regardless — one ships with each board, and they are fragile.** ⚠ **Rokland's own listing warns to check positive and negative on the board before hooking up.** That check is already done and recorded in §3.7: **4.0 V on the pin nearer the USER button; the pin nearer RST is GND.** ⚠ **§3.7 also says that is one sample of one board — meter each of the three before connecting a cell.** Wire colour on the pigtail means nothing and varies between vendors. | 2026-08-21 |
+| SR-12 | **PVC 4" or 6" Sch40 + matching hole saw** | Cut to 50–75 mm. A shallow wide hood, not a deep tube. Local hardware is likely cheaper than shipped — say so if that's the answer. | `answered` — **buy local** | **Yes, buy local. Home Depot / Lowe's / any plumbing supply. 4" Sch40 PVC by the 2 ft length ~$8–12; a 4" bi-metal hole saw with arbor ~$25–35.** Shipping 4" pipe is absurd and the hole saw is a stocked item everywhere. **Take 4", not 6"** — 6" pipe and a 6" hole saw are meaningfully more expensive, a 6" hole in a tank lid is a bigger irreversible commitment, and 4" already permits **88 mm** of standoff against the **50–75 mm** actually wanted (HW-03: `L_max ≈ 1.73 × r_inner`, 4" Sch40 ID 4.03"). **The clearance is not the binding constraint at 4".** ⚠ **Check the hole saw's own cutting depth** — many bi-metal saws cut ~1.5–1.9", which is fine for a tank lid but worth confirming at the shelf. ⚠ **Buy the pipe before cutting the lid.** A 2 ft length gives four or five attempts at a 50–75 mm collar; the tank lid gives one. | 2026-08-21 |
+| SR-13 | **Consumables** — UV-stable silicone, silica gel, Wago lever nuts, 100 nF + 10 µF caps, long USB-C | Low-value, high-annoyance-if-missing. One row so they don't get lost. | `answered` | **~$40–50 total, mostly local.** **UV-stable silicone:** any neutral-cure exterior-grade silicone, hardware store, ~$8. ⚠ **Neutral-cure, not acetoxy** — acetoxy silicone releases acetic acid while curing and corrodes electronics and metal contacts in a sealed box. Read the tube. **Silica gel:** rechargeable indicating desiccant packs, ~$10 for several, Amazon. Buy indicating (blue/orange) so the colour tells you the seal has failed. **Wago 221 lever nuts:** assorted 2/3-conductor pack, ~$15, hardware store or Amazon. **Caps (100 nF ceramic + 10 µF, per HW-04, at the SENSOR end not the board end):** assorted kit ~$10, or you likely have both in stock. **Long USB-C:** ~$10, for bench work — ⚠ note it is bench-only, since the deployed node is battery-powered and the gateway sits at the Beelink. ⚠ **This row is missing items that other rows assume exist — see SR-17.** | 2026-08-21 |
+| SR-15 | **Enclosure mounting hardware** | ⚠ **Answer this one "deferred" unless something obvious fits.** `HARDWARE_BUILD_PLAN.md` §4 carries it as `[proposed]`, and it genuinely depends on what the node straps to at the tank cluster — which nobody has stood in front of and decided. It gets a row so it is a *named* deferral rather than a silent gap; a strap or bracket that arrives with the rest is worth more than a second shipment. | `answered` — **deferred, as instructed** | **Deferred. Nothing obvious fits, and the row is right that it should not be guessed.** The genuine unknown is what the box straps to — tank wall, a post, the frame between cylinders — and that is a fifteen-second decision standing at the tank cluster that cannot be made from here. **The cheap hedge, if a hedge is wanted with the rest of the order: a pack of stainless hose clamps in the 2–4" range (~$10) and a handful of stainless U-bolts.** Between them they cover strapping to almost any pipe or post, and the leftovers are farm-useful regardless. **But the honest answer to the row as written is: go look at the tank first.** ⚠ Whatever is chosen, **stainless or UV-stable nylon only** — zinc-plated hardware on a wet tank in Ohio is a two-season part. And the box needs to sit **low and shaded** (SPEC), which is a placement constraint as much as a hardware one. | 2026-08-21 |
+| SR-16 | *(new — raised by chat)* **Li-ion charger capable of charging cells individually** | ⚠ **HW-05 requires that paralleled cells be charged to the same voltage before joining, and nothing in this order can do that.** Two cells at different SoC dump unlimited equalising current into each other through no current limit. The board's TP4054 charges the *pack*, not the cells, and only after they are already joined. | `answered` | **XTAR VC2SL or VC4SL, or Nitecore i2 / D4 — ~$20–35, Amazon or any of the SR-01 vendors.** Any independent-bay Li-ion charger works; the requirement is **per-bay independent channels** (all four listed have them) and, ideally, a **voltage readout** so you can confirm both cells sit within ~0.05 V of each other before joining. **This is not a nice-to-have.** SR-01's cells arrive at storage charge, typically ~3.6–3.7 V, but not identically; and every future battery swap — which is the entire maintenance plan after HW-07 was descoped — needs the same equalisation step. **Without this, the plan is "buy new cells every time," which defeats the point of a rechargeable node.** ⚠ Also the only way to verify the cells are what the label says before sealing them in a box up a tank: a charger with a capacity-test mode catches a counterfeit in one cycle. **Recommend the XTAR VC2SL** — USB-C, two bays, voltage display, ~$20. | 2026-08-21 |
+| SR-17 | *(new — raised by chat)* **Three parts named in other rows' constraints but present in no BOM row** | ⚠ **Each is named as required somewhere in this ledger and sourced nowhere.** This is the SR-14 failure mode happening in miniature — the constraint got written down, the line item did not. | `answered` | **(a) Self-amalgamating tape** — named in **SR-06's own `Why it matters`** as required for the outside SMA joint, and SR-06 turns out not to be a real line item, so it would have vanished with the row. 3M 130C or any generic rubber splicing tape, ~$10/roll, hardware store or Amazon. **This is the part that keeps water out of the antenna connector**, and it is not optional outdoors. **(b) 4.7 kΩ resistor** — the DS18B20 1-Wire bus pull-up. Implied by SR-09, listed nowhere. Pennies; likely in stock, but confirm before build day. **(c) Heat-shrink assortment + adhesive-lined heat-shrink**, ~$12 — every joint in this build is outdoors: the two-single-holder parallel joint from SR-02, the Cat5e-to-sensor splice, the DS18B20 splice. **Adhesive-lined specifically for the splices in the damp end**, plain for strain relief. ⚠ **Worth naming as a pattern, not just three parts:** all three were discoverable only by reading other rows' constraint columns rather than the line items. SR-14 exists to catch exactly this and **did not fire on its own** — the row's own note already concedes it caught SR-15 "only because a reviewer looked." | 2026-08-21 |
+| SR-14 | **Anything this list is missing** | Rounds 1 and 2 both found their most valuable items by going off-script. If assembling this order surfaces a part nobody asked for, add an ID and answer it. **Do not rely on this row to catch a line item the table forgot** — it caught SR-15 only because a reviewer looked, not because the mechanism worked. | `answered` | **Four findings, two of which delete rows rather than add them.** **(1) SR-06 is not a real part** — it is already inside SR-05. **(2) SR-07 is already bought** and contradicts §4 of this same file. **(3) SR-16 — no charger**, which silently breaks HW-05's equalisation requirement and the entire battery-swap maintenance plan. **(4) SR-17 — three parts named in constraint columns and sourced nowhere**, including the self-amalgamating tape that would have disappeared along with SR-06. **Also flagged inside existing rows rather than as new IDs:** SR-03 is undersized in depth (coax bend radius, not footprint); SR-04 specifies PG7 where the SR-08 cable likely needs PG9, and two glands may be one short; SR-10 should be quantity 2, not 1, because HW-13 cannot be diagnosed with a sample size of one. ⚠ **The pattern across all four: the misses were in rows that already existed, not in categories nobody thought of.** Rounds 1 and 2 found things by researching an unfamiliar part. This round found things by **cross-reading rows against each other** — which is a different check, and the one that should run before the next order. | 2026-08-21 |
 
 ⚠ **Do NOT source: 2×20 headers** (owner has stock; wires solder direct to the pads
 — see the correction in §3.6) or a **P-FET load switch** (F-6 retired 2026-08-20;
 Vext gates the sensor). Both were live in earlier rounds and both are now wrong.
+
+---
+
+## 3.9 Round 3 detail
+
+Rationale and gotchas that did not fit the cells. Keyed by ID.
+
+### The two rows that are deletions
+
+Worth stating first, because they are the findings that change the order rather
+than fill it in.
+
+**SR-06 is not a part.** A *U.FL → SMA-female **bulkhead** pigtail* **is** the
+bulkhead — the SMA-female end ships as a threaded barrel with nut and washer, and
+on the extended-thread version with an O-ring in the flange. Ordering SR-05 and
+SR-06 as separate line items produces two pigtails and two loose connectors that
+cannot be joined to each other. The row should be struck and its one real
+requirement — the self-amalgamating tape — moved to SR-17, or it disappears with
+the row.
+
+**SR-07 was bought before the round opened.** §4 of this file lists *"3× Heltec
+Wireless Stick Lite V3 and 3× 915 MHz whip antennas ($67.20 delivered)"* under
+*Already bought, do not re-source*, and SR-07 asks for two more of the same thing.
+Three antennas, two radios. The Heltec whip is **4 dBi, VSWR ≤1.5, DC ground** —
+inside the window SR-07 specifies and arguably the better of Heltec's two options.
+
+⚠ **Both errors are internal to this file**, not failures of research: the
+information needed to catch them was already written down two sections apart. That
+is worth more attention than the parts themselves — see the closing note.
+
+### SR-01 / SR-02 — the fit problem is real and research cannot close it
+
+The row correctly predicts the failure. What research adds is that **it cannot be
+designed out from a listing**, because holder vendors do not publish internal bay
+length. The two data points that exist are both warnings rather than specs:
+PowerMav states its parallel holder fits ~65 mm cells and *"may not fit longer
+protected cells,"* and an Amazon reviewer of a common 2-slot holder describes
+having to pry button-tops back out with a screwdriver.
+
+**Two singles instead of one double is the answer**, and it is better on four
+independent grounds rather than being a workaround:
+
+1. **It deletes the series/parallel failure mode.** The row lists that as one of
+   two silent failures. With two single holders there is nothing to get wrong in
+   the listing — you make the joint, so you know what it is.
+2. **Independent spring travel per cell**, instead of two cells sharing one
+   moulding cut for 65 mm.
+3. **Better fit in the box.** Two singles can sit apart or stacked; a 76 × 41 mm
+   two-slot brick constrains SR-03 more than the board does.
+4. **A dead holder is $1.36.**
+
+⚠ **The residual risk does not vanish** — single-cell holders do not publish a bay
+length either. **Order cells and holders in the same shipment and test-fit before
+building anything around them.** A contact can be bent or a spring shimmed; that
+is a five-minute fix if discovered on the bench and a re-order if discovered after
+the box is drilled.
+
+### SR-03 — the depth, not the footprint
+
+4 × 4 × 2" fails on the **2"**. The stack-up is board (8.2 mm) + cells (18.6 mm
+diameter, two abreast) + holder base + gland bodies — and then the item that
+actually decides it, the **U.FL pigtail's ~10 mm minimum bend radius**. RG178 is
+semi-flexible and a sharp fold damages the shield. 50 mm of internal depth does not
+leave room to route it. **70 mm does.**
+
+The light colour deserves defending because the row understates the reason: the
+constraint is **the cells**, which degrade above ~45 °C — not the electronics,
+which are happy well past that. A dark box in full Cleveland August sun is
+plausibly 20 °C over ambient, which puts a 30 °C day at the cell limit. Grey or
+white, **and shaded regardless.**
+
+### SR-04 / SR-08 — these two rows contradict each other
+
+**PG7 clamps roughly 3–6.5 mm. Outdoor Cat5e is typically 5.5–6.8 mm, and
+gel-filled or armoured runs 7–8 mm.** PG7 is marginal at best. **PG9 (~4–8 mm)
+covers the whole range.** Get the OD off the actual SR-08 listing before ordering,
+and buy an assorted PG7/PG9/PG11 pack as insurance — glands are pennies, a second
+shipment is not.
+
+**Gland count is also probably wrong.** Penetrations: sensor cable, DS18B20 lead,
+SMA bulkhead. The DS18B20 **should share the Cat5e jacket** — 8 conductors, 3
+spoken for, and a shared jacket means one gland and one hole instead of two. That
+decision belongs in SR-04 and should be made before ordering.
+
+### SR-05 — SMA vs RP-SMA is the highest-probability sourcing error on the list
+
+LoRa uses **standard SMA**. WiFi uses **RP-SMA**. Most cheap U.FL pigtails are
+RP-SMA because they are repurposed WiFi parts, and an RP-SMA bulkhead physically
+will not mate with the SMA-male antennas already in hand.
+
+**Bulkhead must be SMA FEMALE: outer thread, centre socket.** The ProBots
+11 mm-thread part that surfaces first in searches is **RP-SMA** — right idea,
+wrong gender, and its own listing makes the useful point that *most SMA connectors
+have only 6 mm of thread, making them impossible to mount on outdoor waterproof
+boxes.* Hence the extended-thread recommendation.
+
+**Measure the SR-03 wall before ordering**, or take the 14.5 mm option and stop
+thinking about it. The O-ring in that flange is doing real work on an outdoor box.
+
+### SR-16 — the charger is a genuine gap, not a nice-to-have
+
+HW-05 requires that paralleled cells be **charged to the same voltage before
+joining**, because two cells at different SoC equalise through each other with no
+current limit. **Nothing in this order can do that.** The board's TP4054 charges
+the pack, and only once the cells are already joined — which is after the moment
+that matters.
+
+It also breaks the maintenance plan. After HW-07 was descoped, the entire
+validation-and-service story is *"watch VBAT, swap cells on alert."* **Every swap
+needs the same equalisation step.** Without a charger, "swap" means "buy two new
+cells," which is not a rechargeable node.
+
+Secondary but real: a charger with a capacity-test mode is the only way to confirm
+the cells are what the label claims **before** they are sealed in a box up a tank.
+
+### SR-17 — the pattern, not the parts
+
+Three parts were named as required in other rows' `Why it matters` columns and
+appear in no line item: **self-amalgamating tape** (SR-06), **a 4.7 kΩ 1-Wire
+pull-up** (SR-09), and **heat-shrink for the outdoor splices** (SR-02, SR-08,
+SR-09). Individually they are ~$25 of hardware-store stock. Collectively they are
+a pattern: **constraint columns accumulated requirements that never became rows.**
+
+The tape is the sharp case. It is the part that keeps water out of the antenna
+connector, it is named only inside SR-06 — and **SR-06 turns out not to be a real
+line item**, so striking that row would have taken the tape with it.
+
+### What this round did differently, and what it implies for the next one
+
+Rounds 1 and 2 found their best material — the 20 cm blind zone, the 14 cm
+temperature error, the 3 mA TXD leak — by **researching an unfamiliar part
+deeply**. SR-14 is written to expect the same mechanism again.
+
+**It did not repeat.** Every finding this round came from **cross-reading rows
+against each other and against §4**: SR-06 against SR-05, SR-07 against §4's
+already-bought list, SR-04 against SR-08, SR-16 against HW-05, SR-17 against four
+constraint columns. No datasheet produced a surprise; the parts are all well
+understood by now.
+
+⚠ **That is a different check, and the ledger has no mechanism for it.** SR-14's
+own note already concedes it caught SR-15 *"only because a reviewer looked, not
+because the mechanism worked."* This round is the second consecutive instance.
+**A consistency pass — do rows contradict each other, and does every named
+constraint have a line item — is worth making an explicit step before an order
+goes out**, rather than hoping a catch-all row fires.
+
+### The order, assembled
+
+Deletions applied. **Ship-together where possible; cells ship alone by law.**
+
+| From | Items | Approx |
+|---|---|---|
+| **DigiKey or Mouser** | SR-10 A02YYUW ×2, SR-02 SparkFun PRT-12899 ×2 (or ×4) | ~$60 |
+| **Battery specialist** (18650batterystore / Illumn) — ⚠ **separate ground shipment, UN3480** | SR-01 protected NCR18650B ×2 | ~$30 |
+| **Amazon / general** | SR-05 pigtail ×2, SR-09 DS18B20 ×4, SR-03 enclosure, SR-04 gland assortment, SR-11 JST 1.25 pack, SR-16 XTAR VC2SL, SR-17 tape + heat-shrink | ~$130 |
+| **Local hardware** | SR-12 4" PVC + hole saw, SR-13 consumables, SR-15 hedge (optional) | ~$90 |
+| | | **~$310** |
+
+⚠ **Not a purchase order.** Per the 🔒 rule, none of this is orderable until CC
+promotes it into `HARDWARE_BUILD_PLAN.md` §4. Prices are approximate and, where
+noted in the rows, unconfirmed — **SR-10's price in particular was not retrievable
+from the distributor pages.**
+
+**Order-sequencing note that saves a shipment:** SR-04's gland size depends on
+SR-08's cable OD, and SR-05's thread length depends on SR-03's wall thickness.
+Neither is knowable from the rows as written. **Pick the cable and the enclosure
+first, read their published dimensions, then order the glands and the pigtail** —
+or buy the assortment and the 14.5 mm thread and make both questions moot for
+about $8.
+
+---
+
+## 3.10 Round 3 closeout — what was actually procured (2026-08-21)
+
+**The round specced 15 line items. Twelve closed without a purchase.** Nine were
+already on the shelf, two were struck as errors, and one purchase supersedes three
+rows. **Four things get bought.**
+
+⚠ **This section records procurement state only.** It is not authority to order —
+per the 🔒 rule that still comes from `HARDWARE_BUILD_PLAN.md` §4 after CC
+promotes. Owner intends to place the order **after** promotion, and to record
+actual ordered parts in the BOM at that time.
+
+### Procurement state
+
+| ID | Line item | State | Note |
+|----|-----------|-------|------|
+| SR-01 | Protected 18650 cells ×2 | `superseded` | → DEC-010, replaced by pack |
+| SR-02 | 2-cell holder, parallel | `superseded` | → DEC-010, replaced by pack |
+| SR-03 | IP65 enclosure | `cart` | Zulkit 150×100×70 mm, grey, hinged (inner 130×81×63) |
+| SR-04 | Cable glands | `on hand` | Owner has assorted sizes ⚠ verify size against SR-08 OD at build |
+| SR-05 | U.FL → SMA-F bulkhead pigtail | `on hand` | Shipped with the Heltec boards — the "IPEX Ver.1-SMA Wire: Yes" option was taken. ~6 in stock |
+| SR-06 | SMA bulkhead | `struck` | Duplicate of SR-05 — not a separate part |
+| SR-07 | 915 MHz antenna | `on hand` | Already in the $67.20 Heltec order — 3 whips, 2 radios |
+| SR-08 | Sensor cable | `on hand` | ⚠ **Substitution — not Cat5e.** See below |
+| SR-09 | DS18B20 probes | `cart` | Amazon |
+| SR-10 | A02YYUW ×2 | `cart` | DFRobot direct ⚠ see lead-time note |
+| SR-11 | JST 1.25 pigtails | `cart` | Amazon |
+| SR-12 | PVC + hole saw | `on hand` | |
+| SR-13 | Consumables | `on hand` | |
+| SR-15 | Enclosure mounting | `on hand` | Owner reports included |
+| SR-16 | Li-ion charger | `superseded` | → DEC-010, three-pack rotation replaces it |
+| SR-17 | Tape / 4.7 kΩ / heat-shrink | `on hand` | |
+
+**Four purchases: SR-03, SR-09, SR-10, SR-11.** Roughly $110.
+
+### SR-08 — accepted substitution, with one caveat
+
+**Not the specced direct-burial Cat5e.** Owner has 25 ft of **22 AWG 6-conductor,
+UL 2464, stranded tinned copper, PVC jacket** left over from tinkle.
+
+**Electrically this is better than the spec, and the row should be updated rather
+than waived.** 22 AWG stranded tinned copper beats 24 AWG solid Cat5e here on
+three counts: lower resistance, corrosion resistance at the splices, and — the one
+that matters — **stranded survives flexing at a tank lid, where solid conductors
+work-harden and break.** The original row's "solid copper not CCA" warning was
+aimed at CCA; stranded tinned copper is a different and better answer.
+
+**Conductor count works exactly:** sensor takes V+ / GND / TX, DS18B20 shares V+
+and GND and adds DQ. **Four used, two spare, one gland.** The "does the DS18B20
+share the jacket" question from SR-04 is answered: yes.
+
+⚠ **The one real gap: UL 2464 is an indoor appliance-wiring rating with no
+sunlight-resistance requirement.** The listing describes the cable as outdoor;
+that is marketing copy, not the standard. A genuinely sun-rated jacket carries a
+*Sunlight Resistant* mark. **Plain PVC chalks and cracks in a couple of seasons of
+direct sun and stiffens in Cleveland winters.**
+
+**Mitigation, ~$4: sleeve the exposed run in split loom or ½" flex conduit.** The
+enclosure is shaded by design; the run up to the tank lid is not. This is a build
+step, not a re-order — a jacket failure is visible long before the conductors go.
+
+⚠ **Verify 25 ft covers tank height plus slack before cutting.**
+
+### The two errors this round caught, restated for the BOM
+
+Both delete line items rather than filling them, and both were discoverable from
+inside this file:
+
+- **SR-06 is not a part.** A U.FL→SMA-female *bulkhead* pigtail is itself the
+  bulkhead. Ordering both yields two pigtails and two unusable connectors.
+- **SR-07 was already bought**, per §4's own *already bought* list. Three
+  antennas, two radios.
+
+### Still `blocked` — HW-13
+
+⚠ **HW-13 is NOT closed by the datasheet, and this was raised and corrected during
+the round.** DFRobot has stated 3.3–5 V since Round 1; **F-8 exists because
+multiple resellers recommend 5 V "for best performance"**, which is a claim about
+behaviour at the bottom of the range, not about the published spec. A datasheet
+cannot settle it. **Only the part can.**
+
+**Why it still matters after F-6 was retired:** Vext outputs **3.3 V**, and Vext is
+now what gates the sensor rail. If 3.3 V proves marginal, the fix is a discrete
+switch sourced from **VBAT (3.4–4.2 V)** — reintroducing the P-FET that HW-11 just
+deleted. **That is the consequence hiding behind this row.**
+
+**Test, at build step 5:** sensor on 3.3 V, count checksum-valid frames over
+several minutes. Two sensors are on order specifically so a marginal result can be
+distinguished from a bad unit.
+
+### Lead time — the one scheduling risk
+
+**SR-10 is the long pole.** DFRobot ships from Chengdu; $5 flat, but **2–4 weeks**.
+HW-13 cannot be tested until it lands, and HW-13 is the last open question in the
+build. **DigiKey and Mouser both stock SEN0311 and ship same day domestically** for
+a few dollars more. ⚠ **Recommend switching SR-10 to a domestic distributor** —
+this is a schedule decision for the owner, not a spec change.
+
+---
+
+## 3.11 DEC-010 (draft) — single 1S2P pack replaces cells, holder, and charger
+
+Drafted for CC in `DECISIONS.md` house style. **Numbering is provisional** — CC
+assigns the real number against the existing sequence.
+
+**Status:** proposed, 2026-08-21
+**Supersedes:** SR-01, SR-02, SR-16
+**Amends:** DEC-006
+**Touches:** `SPEC.md` §4, `HARDWARE_BUILD_PLAN.md` §4
+
+### Decision
+
+Power the field node from a **single pre-built 1S2P 18650 pack — 3.7 V, 5200 mAh,
+with an integrated protection circuit module** — instead of two loose protected
+cells in a holder. **Buy three.**
+
+### Context
+
+Rounds 1–2 settled on two protected 18650 cells wired in parallel (DEC-006),
+which required a holder (SR-02) and a charger (SR-16). Round 3 sourcing surfaced
+that **the holder could not be closed by research**: no vendor publishes internal
+bay length, and protected cells run ~69–70 mm against the ~65 mm most holders are
+moulded for. SR-02's recommendation — two single-cell holders wired in parallel —
+reduced but did not remove the fit risk.
+
+A pre-built pack removes the problem at its root.
+
+### Consequences
+
+**Simplifications:**
+
+- **SR-02 disappears.** No holder, no fit risk, and the series/parallel silent
+  failure mode is gone — the pack is factory-wired 1S2P.
+- **SR-16 disappears.** HW-05 required cells be equalised before paralleling; a
+  factory pack is matched at build and never separated. The board's TP4054
+  charges the pack over USB.
+- **Smaller.** ~68 × 37 × 19 mm versus two holders side by side. Helps SR-03.
+- **Better swap.** With a JST 1.25 crimped on, replacement is unplug-old /
+  plug-new. **Three packs give a rotation:** one in service, one charged, one
+  spare. This is the maintenance story that replaced the descoped PPK2 (HW-07).
+
+**Costs — both real:**
+
+- ⚠ **Capacity drops from ~6700 mAh to 5200 mAh.** Against the same ~2,400 mAh
+  two-year draw and the same 70 % cold derating, **margin falls from ~1.9× to
+  ~1.5×.**
+- ⚠ **Cell provenance is unverifiable.** The rationale for buying loose cells from
+  a specialist was that they *test* them. A consumer pack cannot be verified —
+  and the capacity-test charger that could have verified it is the thing this
+  decision deletes.
+
+### DEC-006 amendment
+
+DEC-006 required **protected cells + a 3.2 V/cell firmware cutoff**, on the
+finding that the Heltec TP4054 provides no discharge-side protection.
+
+**Both halves survive.** The pack's PCM satisfies the protection requirement — and
+arguably better, since a pack-level PCM is designed around the pack rather than
+around an individual cell. **The firmware cutoff is unchanged and remains the more
+important half**, for the reason DEC-006 already records: the risk is a
+stuck-*awake* node, which firmware catches and no hardware protection catches
+early.
+
+### SPEC §4 amendment — required, not optional
+
+⚠ **The 15-minute wake interval stops being a preference and becomes a
+constraint.** At 5200 mAh the 10-minute cadence lands at roughly 1.0× margin —
+no margin at all. **`SPEC.md` §4 must record 15 minutes as a floor, with the
+reason**, or a future session will "improve" the cadence and silently break the
+two-year target.
+
+### Rejected alternatives
+
+- **Two protected NCR18650GA cells + two single-cell holders + XTAR charger**
+  (the SR-01/02/16 path). More capacity and verifiable cells, but an unclosable
+  fit risk, three line items, and a manual equalisation step before every swap.
+- **DFRobot DFR0969 2-way 18650 holder** ($9.90). Rejected outright: it is a
+  power-bank shield, not a holder. ⚠ **Its NORMAL mode automatically shuts down
+  when output current is too low** — a node sleeping at ~16 µA reads as no load,
+  so the module would cut power to it. Its boost converter, controller, and four
+  status LEDs also draw milliamps continuously against a 20 µA budget.
+- **Dantona L37A52-2-1-2W** 1S2P 5200 mAh. Correct topology, but no published
+  price, no cart, no stated PCM, and a probable sales enquiry and MOQ.
+- **Primary lithium (ER18650 Li-SOCl₂).** Raised and rejected. ⚠ Three
+  independent blockers: **(a)** an almost flat discharge curve, which destroys
+  VBAT telemetry as a validation path — and per **F-5** that is the *only*
+  remaining validation path after HW-07 was descoped; **(b)** the TP4054 sits
+  permanently across VBAT and would attempt to charge a non-rechargeable cell
+  whenever USB is connected, which happens routinely during firmware work;
+  **(c)** high internal resistance handles the ~120 mA LoRa TX pulse poorly,
+  typically requiring a hybrid layer capacitor.
+- **"10-year lithium" AA (Energizer Ultimate, LiFeS₂).** 1.5 V per cell — two in
+  series is 3.0 V, at or below LDO dropout. Non-starter.
+
+### Verification
+
+Per **F-5**, VBAT-in-packet remains the sole validation path and this decision
+makes it more load-bearing, not less — it is now also how an over-stated capacity
+claim gets caught. **A garbage pack shows up in the discharge slope within a
+couple of months**, at which point it is a ~$20 replacement rather than a
+redesign.
+
+### Open item for CC
+
+⚠ **The pack's product listing is demonstrably unreliable**, which does not make
+the pack bad but does mean **no number from it should be promoted into `SPEC.md`
+as fact.** It claims a built-in TP4054 "stabilizes voltage output" (the TP4054 is
+a charger IC — and is already the charger on the Heltec board), −40 °C to 60 °C
+operation (Li-ion does not usefully discharge at −40 °C), 2C fast charging while
+describing 0–80 % in 1.5 h (≈0.5C), and UL 2056 certification (the power-bank
+standard, not a cell-pack standard). **Record 5200 mAh as a nameplate figure
+pending VBAT confirmation.**
+
+---
+
+## 3.12 Build-step additions from Round 3
+
+Small items that belong in `HARDWARE_BUILD_PLAN.md` §5–§8 rather than the BOM.
+
+| # | Step | Why |
+|---|---|---|
+| B-1 | **Meter JP1 polarity on each board before connecting any pack** | §3.7 recorded polarity from **one sample of one board**. Not a datasheet guarantee. |
+| B-2 | **Meter the pack pigtail polarity before plugging in** | Wire colour on a consumer pack is no more trustworthy than the rest of its listing. Cut the shipped connector, crimp SR-11 JST 1.25. |
+| B-3 | **Label the LoRa U.FL socket (E2) with a paint pen before the first antenna** | F-11. Two identical sockets; the wrong one transmits into an unmatched load with no error. |
+| B-4 | **Sleeve the exposed SR-08 run in split loom or ½" flex conduit** | UL 2464 PVC is not sunlight-rated. ~$4. |
+| B-5 | **Test-fit before drilling anything** | Board + pack in the SR-03 enclosure, and the U.FL bend radius in particular. Inner depth is 63 mm; the coax turn is what consumes it. |
+| B-6 | **Check SR-04 gland size against the actual SR-08 cable OD** | Glands are on hand in assorted sizes; the right one has not been identified. |
+| B-7 | **Verify 25 ft of SR-08 covers tank height plus slack before cutting** | Only one cut is free. |
+| B-8 | **Check the SR-03 moulded knockout thread before drilling** | Determines which on-hand gland fits without a new hole. |
+| B-9 | **Confirm SR-05 thread length against the SR-03 wall** | The on-hand pigtails shipped for Heltec's own thin plastic shell. If the nut will not reach, a 14.5 mm-thread pigtail is ~$12 — a part, not a redesign. |
 
 ---
 
