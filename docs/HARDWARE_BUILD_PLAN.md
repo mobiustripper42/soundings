@@ -221,9 +221,9 @@ Per `SPEC.md` §4, minus the perfboard (no excitation circuit on a tank node).
 | **DS18B20, headspace air — waterproof stainless probe, ~3 m lead** | 2 | [settled] | **DEC-007.** Required, not optional. **HW-12: stainless probe, not bare TO-92** — in a condensing headspace, water bridging DQ↔GND corrupts readings and bare leads corrode over years. The sheath's thermal mass is a *benefit* in slow-moving headspace air. **Buy the cheapest; accuracy grade barely matters** — at a 2 m path 1 °C of probe error is 3.5 mm, against the 14 cm error being corrected. Second one is a spare (~$8 each). ⚠ **Placement dominates the part — see §5 and HW-19.** |
 | 18650 cells, **protected** | 2 | [settled] | Parallel, ~6000 mAh combined. **Protected** per DEC-006 (~$2/cell premium). ⚠ Match capacity and internal resistance, and **equalise state of charge before joining** — cells at different SoC dump unlimited current into each other. |
 | 18650 holder, 2-cell **parallel** | 1 | [settled] | ⚠ **Confirm PARALLEL, not series.** Most 2×18650 lead holders are series (7.4 V) and **will destroy the board.** |
-| Battery pigtail, **JST 1.25 2-pin** | 1 | [settled] | HW-05. Heltec calls it "SH1.25-2" — the name is wrong (real JST SH is 1.0 mm pitch). Order parts listed as *"JST 1.25 2-pin for Heltec/LilyGo."* ⚠ **Verify polarity with a meter**, not wire colours: USB in, **no battery**, probe each JP1 pin to a GND header pin; the one near 4.2 V is +. |
+| Battery pigtail, **JST 1.25 2-pin** | 1 | [settled] | HW-05. Heltec calls it "SH1.25-2" — the name is wrong (real JST SH is 1.0 mm pitch). Order parts listed as *"JST 1.25 2-pin for Heltec/LilyGo."* ✅ **Polarity measured 2026-08-20: `+` is the JP1 pin nearer the USER button; `GND` is the pin nearer RST.** Read 4.0 V on USB with no cell attached (4.0 rather than 4.2 is normal unloaded). ⚠ Still verify per board — this is one sample of one revision, and wire colours on the pigtail remain no evidence of anything. |
 | ~~Low-voltage-cutoff board~~ | — | **removed** | **DEC-006.** The V3's TP4054 is a charger with no discharge-side protection, but protected cells + a 3.2 V/cell firmware cutoff cover it better. |
-| **P-FET load switch** | 0–1 | **[verify]** | ⚠ **Probably moot — do not order until the bench check.** HW-18: Round 1's mechanism for the ~1.44 V Vext residual was **wrong** (see §6); with no OLED there is likely no back-power path and Vext should switch clean. **Meter Vext at build step 5 before buying.** If still needed: **AO3401** + 10K gate pull-up to source + 1K series gate drive (Heltec's own proven circuit on this board), or a **TI TPS22860** load switch. Both SMD. |
+| ~~**P-FET load switch**~~ | **0** | **not ordered** | ✅ **HW-18 measured 2026-08-20: Vext switches to 3.0 mV** (§6). No back-power path, so Vext *is* the switched sensor rail — no discrete switch, no extra part, and the firmware to drive one never gets written. F-6 retired. ⚠ **Closed, not deleted.** Vext outputs 3.3 V and cannot give the sensor more (F-13). If HW-13 shows the A02YYUW is unreliable at 3.3 V, this line comes back — **AO3401** + 10K gate pull-up to source + 1K series gate drive, sourced from **VBAT**, not the 3.3 V rail. |
 | IP65 enclosure, light-colored, ~4×4×2" | 1 | [proposed] | Hinged lid preferred. Mounted **low and shaded** (`SPEC.md` §4 heat spec) |
 | PG7 cable glands | 2 | [proposed] | Sensor cable + spare. Pointing **down**, siliconed both sides |
 | **U.FL → SMA-female pigtail**, 100–150 mm | 2 | [settled] | HW-01. The V3 has **U.FL/IPEX only, no SMA on the PCB**. ⚠ Keep it **as short as it ships** — U.FL pigtail is ~1–1.5 dB/m at 900 MHz; a long run throws away more than the antenna gain provides. |
@@ -468,10 +468,29 @@ which `SPEC.md` §4 already brackets at 20–30 µA. Leave it there.
 Stick Lite threads is **light sleep**, where the ESP32-S3 baseline sits at
 2–7.5 mA. When a figure appears without the sleep mode named, assume light sleep.
 
-### ⚠ Vext — Round 1 got the mechanism wrong (F-6, HW-18)
+### Vext — measured clean, F-6 retired (HW-18)
+
+**Settled 2026-08-20 on the bench: Vext switches to 3.0 mV.** Round 1 said Vext
+could not be the sensor rail. It can. The P-FET load switch is off the BOM and the
+firmware that would have driven it never gets written.
+
+| State | Measured at the `Ve` header pin |
+|---|---|
+| On (firmware running, GPIO36 driven low) | **3.3 V** |
+| Off (RST held, GPIO36 high-Z) | **3.0 mV** |
+
+**How the off-state was read without firmware — worth keeping, it is reusable.**
+Getting GPIO36 driven HIGH looked like it needed a sketch or the Meshtastic
+remote-hardware module, and the latter has an
+[open bug on ESP32-S3](https://github.com/meshtastic/firmware/issues/6276).
+Neither was necessary. **Hold the RST button and probe `Ve`.** With the ESP32 in
+reset, GPIO36 is high-impedance, so the 10K gate pull-up ties the AO3401's gate to
+its own source, Vgs = 0, and the FET is off — the identical drain state that
+driving GPIO36 high produces. Same measurement, no firmware, no port contention.
+GPIO36 is not a strapping pin on the S3, so nothing else moves during reset.
 
 The A02YYUW free-runs: powered, it streams frames continuously. It must sit on a
-switched rail or it swamps the budget.
+switched rail or it swamps the budget. **That rail is Vext.**
 
 **Round 1 said Vext can't be that rail, and attributed the ~1.44 V residual to
 "R12, a 10K pull to VDD_3V3." That attribution was wrong.** That 10K is the
@@ -484,18 +503,22 @@ rail, and with Vext low they feed the dead rail through the OLED. ~1.44 V is abo
 two diode drops, and the [Meshtastic report](https://github.com/meshtastic/firmware/issues/2591)
 conditions the symptom on *"if an OLED screen is present."*
 
-**Consequence: no OLED, no back-power path — Vext should reach 0 V on this board.**
-Vext exists here (GPIO36, active LOW, "output 3.3 V, power supply for external
-sensor") and is a textbook AO3401 high-side switch.
+**Consequence: no OLED, no back-power path — and the meter agrees.** 3.0 mV is
+two orders of magnitude under the 50 mV threshold that was set for this. Vext is
+confirmed on this board as GPIO36, **active LOW**, delivering a clean 3.3 V on and
+effectively zero off — a textbook AO3401 high-side switch behaving like one.
 
-⚠ **But this is inference from a corrected mechanism, and the previous mechanism
-was confidently stated and wrong. Meter it.** GPIO36 HIGH, measure Vext to GND. If
-under 50 mV, **HW-11 is moot, F-6 retires, and one BOM line and its firmware
-disappear.** Until then the P-FET stays in the BOM at qty 0–1.
+**HW-18 answered, HW-11 closed, F-6 retired.** Worth noting *how* it resolved: the
+corrected mechanism predicted this, and the prediction held. But the mechanism it
+replaced was also stated confidently, which is why this was carried as `[verify]`
+rather than promoted on the strength of the argument.
 
-⚠ **Vext outputs 3.3 V, so it is not a route to 5 V** if HW-13 goes badly (F-13).
-The zero-cost fallback there is gating the sensor from **VBAT (3.4–4.2 V)** — more
-headroom, no new part, no boost — but that requires the discrete switch.
+⚠ **The one string still attached: Vext outputs 3.3 V, so it is not a route to 5 V**
+if HW-13 goes badly (F-13). The zero-cost fallback there is gating the sensor from
+**VBAT (3.4–4.2 V)** — more headroom, no new part, no boost — but that requires the
+discrete switch. **So HW-11 is closed, not deleted:** if the A02YYUW proves
+unreliable at 3.3 V, the AO3401 comes back, sourced from VBAT rather than the
+3.3 V rail.
 
 ### Sensor cost, in context (HW-08)
 
@@ -574,9 +597,9 @@ how good M2 can get.
 |---|---|---|
 | 1 | ~~Resolve the `[verify]` set~~ | ✅ **Done 2026-08-08** — Round 1 closed, 10 answers promoted |
 | 2 | ~~Order boards + antennas~~ | ✅ **Ordered 2026-08-08** — 3× Wireless Stick Lite V3 + 3× 915 MHz whip with IPEX→SMA wire, $67.20 delivered |
-| 3 | **Range test** (§2) | RSSI and loss recorded tank ↔ server. **D3 + D4 resolved.** |
-| 4 | Order the rest of the BOM | Branch chosen (§3); HW-11/HW-12 answered |
-| 5 | **Bench session — four checks, one sitting** (see below). Sensor wires soldered direct to the pads, no breadboard. | Resolves HW-13, HW-14, HW-18, HW-05 |
+| 3 | ~~**Range test** (§2)~~ | ✅ **Done 2026-08-19** — 20 sent / 19 received, −82 to −89 RSSI at every location. **D3 + D4 resolved** (DEC-009). |
+| 4 | **Order the rest of the BOM** | ⏳ **Current step.** Branch chosen (§3); HW-11 closed, HW-12 answered. |
+| 5 | **Bench session — four checks, one sitting** (see below). Sensor wires soldered direct to the pads, no breadboard. | ✅ **Checks 1–3 done 2026-08-20** (HW-05, HW-14, HW-18). Check 4 (HW-13) waits on the sensor arriving. |
 | 6 | Bench: node firmware + gateway radio, end to end on the desk | A real packet decoded by the Python daemon |
 | 7 | Multimeter check: sleep current is **µA, not mA** (§6) | Confirms the disable list actually took |
 | 8 | Measure the tanks, compute the analytic curve (§7) | A seed curve in gateway config |
@@ -584,17 +607,34 @@ how good M2 can get.
 | 10 | Deploy and watch | **M1 — first light** |
 | 11 | Log fills as they happen | **M2 — calibrated gallons** |
 
-### Step 5 in detail — everything still open collapses into one DMM session
+⚠ **Checks 1–3 of step 5 were deliberately pulled ahead of step 4, and that was
+the right call.** Check 3 decides whether the P-FET load switch is bought at all,
+and it needs only a board and a meter — both already on hand from step 2. Running
+it first turned a contingent BOM line into a zero and saved a second order. Where a
+bench check gates a purchase and needs nothing that has to be purchased, do it
+before the order, not in sequence order.
 
-| # | Check | Resolves |
-|---|---|---|
-| 1 | **JP1 polarity** — USB in, **no battery**, probe each pin to a GND header pin; the one near 4.2 V is + | HW-05. **⚠ Do this first — it is the only one that is destructive if skipped.** |
-| 2 | GPIO36 HIGH/LOW, watch Vext | HW-14 — confirms the pin *and* the active-LOW sense |
-| 3 | Same probe, GPIO36 HIGH: **is Vext under 50 mV?** | HW-18 — **if yes, HW-11 is moot, F-6 retires, a BOM line and its firmware disappear** |
-| 4 | Sensor on 3.3 V, checksum-valid frame rate over a few minutes | HW-13 |
+### Step 5 in detail — three of four done, 2026-08-20
 
-**Steps 2–3 are unblocked right now.** Nothing in Round 2 gates the order — the
-remaining questions are all answered by the bench, not by research.
+| # | Check | Result | Resolves |
+|---|---|---|---|
+| 1 | **JP1 polarity** — USB in, **no battery**, probe each pin to a GND header pin; the one near 4.2 V is + | ✅ **4.0 V on the pin nearer the USER button; GND nearer RST** | HW-05. **⚠ Do this first — it is the only one that is destructive if skipped.** |
+| 2 | GPIO36 / Vext, firmware running | ✅ **`Ve` = 3.3 V**, so GPIO36 is being driven low — confirms the pin and the **active-LOW** sense | HW-14 |
+| 3 | **Is Vext under 50 mV with the FET off?** | ✅ **3.0 mV** — see the RST technique below | HW-18 — **HW-11 closed, F-6 retired, a BOM line and its firmware gone** |
+| 4 | Sensor on 3.3 V, checksum-valid frame rate over a few minutes | ⏳ **Blocked on the order** — the A02YYUW is not bought yet | HW-13 |
+
+**Check 3 needs no firmware — hold RST.** The obvious reading of "is Vext under
+50 mV" is *drive GPIO36 high and measure*, which means a sketch or the Meshtastic
+remote-hardware module (which has an
+[open ESP32-S3 bug](https://github.com/meshtastic/firmware/issues/6276)). Neither is
+needed. **Hold the RST button and probe `Ve`:** in reset GPIO36 is high-impedance,
+the 10K gate pull-up ties the AO3401's gate to its own source, Vgs = 0, and the FET
+is off — the same drain state driving GPIO36 high would produce. GPIO36 is not an
+S3 strapping pin, so nothing else moves. Reusable on any Heltec V3 with this Vext
+topology.
+
+**Only check 4 is left, and it is gated on the purchase, not on research** — see
+§9. Nothing here blocks the order.
 
 Steps 5–6 need node firmware, which is the software half of Phase 3 and can be
 built in parallel with steps 1–4 against the existing fakes.
@@ -611,16 +651,33 @@ board transfer (HW-15), held DEC-006 (HW-16), corrected the Vext mechanism
 (HW-18), revised the sleep-disable list (HW-20), and raised the probe-placement
 finding (HW-19) that amended DEC-007.
 
-**Nothing open blocks the order.** What remains is bench work, not research:
+**Nothing open blocks the order**, and the 2026-08-20 bench session closed four of
+the six below. **One question is genuinely open, and it is bench work gated on the
+purchase:**
 
-| ID | Question | When |
-|----|----------|------|
-| HW-05 | JP1 battery polarity | Step 5, check 1 — **before any cell is connected** |
-| HW-14 | Confirm GPIO36 = Vext, GPIO37 = ADC_Ctrl on the board received | Step 5, check 2 |
-| HW-18 | Does Vext reach <50 mV with no OLED? | Step 5, check 3 — **may delete HW-11** |
-| HW-11 | P-FET part choice | Only if HW-18 fails. AO3401 + 10K + 1K, or TPS22860 |
-| HW-13 | A02YYUW reliable at 3.3 V? | Step 5, check 4. Fallback is VBAT, not a boost (F-13) |
+| ID | Question | Status |
+|----|----------|--------|
+| HW-05 | JP1 battery polarity | ✅ **Answered 2026-08-20** — `+` nearer the USER button, GND nearer RST (§4) |
+| HW-14 | Confirm GPIO36 = Vext on the board received | ✅ **Answered 2026-08-20** — `Ve` = 3.3 V under firmware, so GPIO36 is driven low; active-LOW confirmed (§6) |
+| HW-18 | Does Vext reach <50 mV with no OLED? | ✅ **Answered 2026-08-20 — 3.0 mV.** F-6 retired (§6) |
+| HW-11 | P-FET part choice | ✅ **Closed — not needed.** Vext is the switched rail. Returns only if HW-13 fails, sourced from VBAT (§4) |
+| HW-13 | A02YYUW reliable at 3.3 V? | ⏳ **The only open one.** Step 5 check 4, **blocked on the order.** See below. |
 | HW-19 | Does the fitted gradient model beat a single lid probe? | First season, from stored raw — no hardware change |
+
+**HW-13 has nothing left to research.** DFRobot's own spec table gives
+**Operating Voltage 3.3~5V** with no note recommending 5 V and no warning of
+degraded performance at the bottom of the range
+([wiki](https://wiki.dfrobot.com/sen0311/),
+[datasheet](https://media.digikey.com/pdf/Data%20Sheets/DFRobot%20PDFs/SEN0311_Web.pdf)).
+The "prefer 5 V" guidance is reseller folklore with no manufacturer backing —
+**F-8 downgrades again.** That is not the same as proving reliability at the
+bottom of a spec'd range, which is exactly why F-8 exists, so the bench check
+stands. But there is no round of research that would close it: only the part will.
+
+⚠ **`GPIO37 = ADC_Ctrl` was folded into HW-14 and was NOT measured.** The Vext
+half is confirmed; the battery-sense gate is still documentary only (WSL V3 Rev1.1
+datasheet). It costs nothing to check when the board is next on the bench, and
+Heltec has moved that exact pin across revisions before (C-5).
 
 ---
 
