@@ -935,6 +935,14 @@ inside this file:
 
 ### Still `blocked` — HW-13
 
+> ⚠ **Superseded in part, 2026-08-21.** The argument below — that a datasheet
+> cannot close F-8 — was made in this round and **the operator ruled against it**:
+> the manufacturer's stated 3.3–5 V range beats unsourced reseller copy, so **F-8
+> is closed** (see the F-8 row in §3.2 and `HARDWARE_BUILD_PLAN.md` §9, which
+> records both positions). **HW-13 itself is unaffected and still open** — it is a
+> question about this specific part on this specific rail, and only the bench
+> answers it. Everything below about *why it matters* still stands.
+
 ⚠ **HW-13 is NOT closed by the datasheet, and this was raised and corrected during
 the round.** DFRobot has stated 3.3–5 V since Round 1; **F-8 exists because
 multiple resellers recommend 5 V "for best performance"**, which is a claim about

@@ -59,9 +59,12 @@ zip-tie, ~30 mating cycles, fragile latch).
 
 ### Powering the two boards
 
-**No batteries for this test.** The JST 1.25 polarity is unverified (HW-05) and
-the 2-slot holder has to be confirmed parallel-not-series — neither risk is worth
-taking before the boards have proven they work.
+**No batteries for this test.** *(Historical: written before the 2026-08-19 range
+test, which ran exactly this way.)* JST 1.25 polarity was unverified then; it has
+since been measured — **`+` is the pin nearer the USER button** (§3.7 of
+`CHAT_HANDOFF.md`), though **B-1 says meter every board anyway**, since that is one
+sample. The 2-slot holder risk is gone entirely: the **DEC-006 amendment** replaced
+it with a factory-wired 1S2P pack.
 
 | End | Power | Notes |
 |---|---|---|
@@ -248,7 +251,7 @@ Per `SPEC.md` §4, minus the perfboard (no excitation circuit on a tank node).
 | ~~18650 cells, loose protected~~ | — | **superseded** | DEC-006 amendment. Protected cells run **68.9–69.5 mm** against 65 mm bare, and **no holder vendor publishes an internal bay length** — the fit could not be closed by research, only managed. The pack removes the problem instead. |
 | ~~18650 holder, 2-cell parallel~~ | — | **superseded** | Gone with the loose cells, and the parallel-not-series silent failure went with it — the pack is factory-wired 1S2P. |
 | ~~Li-ion charger, independent bays~~ | — | **superseded** | Briefly a real gap: DEC-006 requires cells be equalised before paralleling and nothing else in the BOM could do it. A factory pack is matched at build and never separated, so the requirement is satisfied by construction; the board's TP4054 charges the pack over USB. |
-| Battery pigtail, **JST 1.25 2-pin** | 1 | [settled] | HW-05. Heltec calls it "SH1.25-2" — the name is wrong (real JST SH is 1.0 mm pitch). Order parts listed as *"JST 1.25 2-pin for Heltec/LilyGo."* ✅ **Polarity measured 2026-08-20: `+` is the JP1 pin nearer the USER button; `GND` is the pin nearer RST.** Read 4.0 V on USB with no cell attached (4.0 rather than 4.2 is normal unloaded). ⚠ Still verify per board — this is one sample of one revision, and wire colours on the pigtail remain no evidence of anything. |
+| Battery pigtail, **JST 1.25 2-pin** | multipack | [settled] — **buy** | HW-05. Heltec calls it "SH1.25-2" — the name is wrong (real JST SH is 1.0 mm pitch). Order parts listed as *"JST 1.25 2-pin for Heltec/LilyGo."* ✅ **Polarity measured 2026-08-20: `+` is the JP1 pin nearer the USER button; `GND` is the pin nearer RST.** Read 4.0 V on USB with no cell attached (4.0 rather than 4.2 is normal unloaded). ⚠ Still verify per board — this is one sample of one revision, and wire colours on the pigtail remain no evidence of anything. |
 | ~~Low-voltage-cutoff board~~ | — | **removed** | **DEC-006.** The V3's TP4054 is a charger with no discharge-side protection, but protected cells + a 3.2 V/cell firmware cutoff cover it better. |
 | ~~**P-FET load switch**~~ | **0** | **not ordered** | ✅ **HW-18 measured 2026-08-20: Vext switches to 3.0 mV** (§6). No back-power path, so Vext *is* the switched sensor rail — no discrete switch, no extra part, and the firmware to drive one never gets written. F-6 retired. ⚠ **Closed, not deleted.** Vext outputs 3.3 V and cannot give the sensor more (F-13). If HW-13 shows the A02YYUW is unreliable at 3.3 V, this line comes back — **AO3401** + 10K gate pull-up to source + 1K series gate drive, sourced from **VBAT**, not the 3.3 V rail. |
 | **IP65 enclosure — Zulkit 150 × 100 × 70 mm, grey, hinged** (inner 130 × 81 × 63) | 1 | [settled] — **buy** | ⚠ **The old spec of ~4×4×2" was too small, and the failure was in DEPTH, not footprint (SR-03).** Stack-up is board (8.2 mm) + pack + gland bodies + — the item that actually decides it — the **U.FL pigtail's ~10 mm minimum bend radius**. RG178 is semi-flexible and a sharp fold damages the shield; 50 mm of internal depth leaves nowhere to route it. 63 mm inner does. ⚠ **Light colour is a cell spec, not aesthetics** — the **cells** degrade above ~45 °C, not the electronics, and a dark box in full August sun runs plausibly 20 °C over ambient. Grey or white, **and mounted low and shaded regardless** (`SPEC.md` §4). ⚠ **Test-fit before drilling** (B-5). |
@@ -305,7 +308,7 @@ mated twice, ever: RTV dab plus a zip-tie strain relief once seated.
 | **USB-C data cables** ×2 | [settled] | ⚠ **Data, not charge-only** — the V3 flashes over a CP2102 bridge. Likely on hand. |
 | **USB power bank** | [settled] | Powers the walking board during the range test. Any 5 V bank; watch for low-draw auto-shutoff. Likely on hand. |
 | Multimeter | [settled] | **The only current instrument this build needs.** DEC-006 — the design errors worth catching (SX1262 not slept, OLED left on) are 1–40 mA and a multimeter in series reads them fine. |
-| ~~Nordic PPK2 (~$90–110)~~ | **not purchased** | DEC-006. Buys resolution *within* the µA band that the ~1.8× margin doesn't need. Revisit at 3+ distinct node designs. |
+| ~~Nordic PPK2 (~$90–110)~~ | **not purchased** | DEC-006. Buys resolution *within* the µA band that the margin (~1.48× post-amendment) doesn't need. Revisit at 3+ distinct node designs. |
 | Tape measure | [settled] | Calibration, §7 |
 
 ---
@@ -443,16 +446,30 @@ problem**: wake energy dominates by 5:1.
 | Self-discharge ~3 %/yr | ~360 mAh |
 | **Total** | **~2,460 mAh** |
 
-Against 6000 mAh nominal, **derated to ~4,500 mAh effective for cold** (Li-ion
-delivers ~70 % of rated near −10 °C; no charging, so no plating risk — just
-capacity). **~1.8× margin.**
+⚠ **Re-derived 2026-08-21 for the DEC-006 amendment. The capacity dropped and the
+margin dropped with it.**
 
-**Cadence: 15 minutes, not 10.** At a 10-minute interval the margin drops to
-~1.3×, which is thin. `SPEC.md` §3 settled the range at 10–15 min; this picks the
-top of it on evidence rather than taste. Tank level moves on rain events and
-irrigation runs — it does not need 10-minute resolution.
+| | Old — 2× loose cells | **Now — 1S2P pack** |
+|---|---|---|
+| Nameplate | 6,000 mAh | **5,200 mAh** |
+| Cold-derated (×0.70) | ~4,500 mAh | **~3,640 mAh** |
+| Margin @ 15 min | ~1.8× | **~1.48×** |
+| Margin @ 10 min | ~1.3× | **~1.1×** |
 
-**All of the margin lives in `t_active ≈ 2 s`.** That is the number to watch.
+Li-ion delivers ~70 % of rated near −10 °C; no charging, so no plating risk, just
+capacity. ⚠ **5,200 mAh is nameplate off a listing DEC-006's amendment says may
+not be trusted** — VBAT telemetry is what confirms it.
+
+🔒 **Cadence: 15 minutes, and it is now a FLOOR rather than a preference.** At
+6,000 mAh, 10 minutes was *thin* at ~1.3× and the choice was taste-adjacent. At
+5,200 mAh it is **~1.1×, which is no margin at all** — the wake term grows from
+~1,750 to ~2,625 mAh (96 → 144 wakes/day) against 3,640 mAh of derated capacity.
+`SPEC.md` §3 settled the range at 10–15 min; the battery now picks the top of it.
+Tank level moves on rain events and irrigation runs and does not need 10-minute
+resolution — which is fortunate, because it can no longer be paid for.
+
+**All of the margin lives in `t_active ≈ 2 s`, and there is now less of it to
+spend.** That is the number to watch.
 
 ### Getting to 16 µA — the disable list (HW-02)
 
@@ -572,7 +589,7 @@ milliseconds.
 - **On the bench, with a multimeter:** confirm sleep current is **microamps, not
   milliamps.** That is the whole check. The design errors that matter (radio not
   slept, OLED on, SPI floating) are 1–40 mA and a multimeter in series reads them
-  fine. A PPK2 buys resolution inside the µA band that the 1.8× margin has no use
+  fine. A PPK2 buys resolution inside the µA band that the ~1.48× margin has no use
   for — see DEC-006 for why it isn't being bought.
 - **In the field, from telemetry:** `battery_mv` is already a fixed header field
   in every packet (`contracts/packet-v1.md:45`) — no schema change needed. A
@@ -763,8 +780,8 @@ Heltec has moved that exact pin across revisions before (C-5).
 |---|---|---|
 | **Link won't close** tank → server | Forces the fallback architecture (§3) | Range test is step 3, before any other spend |
 | **A02YYUW unreliable at 3.3 V** (F-8/HW-13) | A boost converter enters the BOM and §6 is re-derived | **Bench-test at step 5**, before the enclosure is built around it |
-| **`t_active` exceeds ~2 s** | The entire 1.8× margin lives here; overrun eats it directly | Measure awake time at step 6–7; 15-min cadence already banked the cheap margin |
-| **Series holder wired by mistake** | 7.4 V destroys the board | Confirm parallel at unboxing; verify JP1 polarity with a meter before first connection |
+| **`t_active` exceeds ~2 s** | ⚠ **Sharper since the DEC-006 amendment.** The entire margin lives here and it is now **~1.48×, not ~1.8×** — the same overrun eats proportionally more | Measure awake time at step 6–7; 15-min cadence already banked the cheap margin |
+| ~~**Series holder wired by mistake**~~ | — | **Retired with the holder (DEC-006 amendment)** — the pack is factory-wired 1S2P, so there is no series/parallel choice left to get wrong. The live half of this risk, *trusting a wire colour instead of a meter*, survives as **B-1 and B-2** in §8. |
 | **Sidewall / rib false echoes** at low level (F-3) | Short-reading outliers exactly where the pump-dry risk lives | Dead-centre mount, median-of-5–7, gateway band-check (§5) |
 | **Headspace stratification** defeats a single temp sensor | Residual error after correction | Accepted (DEC-007) — turns ~14 cm into low-single-digit cm; second sensor is a cheap later fix |
 | **Deep sleep worse than cited 16 µA** | Service interval shrinks | Multimeter check at step 7 confirms µA vs mA — the distinction that matters |

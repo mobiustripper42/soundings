@@ -133,7 +133,8 @@ Deep sleep ~20–30 µA; active cycle ~3–5 s every 15 min; average ~0.15–0.2
 > a bare V3 puts it at **~16 µA**, contingent on a specific disable list (radio
 > explicitly slept, SPI/OLED pins to `INPUT`, OLED and Vext off, ADC_Ctrl off).
 > But **sleep was never the constraint**: at a 15-min cadence, wake energy
-> outweighs it ~5:1 (~1,750 mAh vs 350 mAh over two years). The margin is ~1.8×
+> outweighs it ~5:1 (~1,750 mAh vs 350 mAh over two years). ⚠ **The ~1.8× margin
+> quoted here is pre-amendment — it is now ~1.48×; see below.** It was ~1.8×
 > after cold derating, and all of it rests on `t_active ≈ 2 s`.
 >
 > 🔒 **15 minutes is a FLOOR, not a preference — do not "improve" it.** This was
@@ -162,7 +163,7 @@ Deep sleep ~20–30 µA; active cycle ~3–5 s every 15 min; average ~0.15–0.2
 
 - 1S2P pack (5200 mAh nameplate) ≈ 2.9 yr theoretical; derated for cold ≈ **~2 yr
   real-world** at 15 min. ⚠ The two-year figure survives the DEC-006 amendment,
-  but the **margin behind it shrank from ~1.9× to ~1.48×** — it is now a target
+  but the **margin behind it shrank from ~1.8× to ~1.48×** — it is now a target
   the design meets rather than one it clears easily.
 - **Solar deliberately rejected for V1** — power needs are tiny, and solar adds a
   panel, a charge controller (a common moisture-failure point), wiring, and
