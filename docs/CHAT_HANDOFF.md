@@ -884,7 +884,7 @@ actual ordered parts in the BOM at that time.
 | SR-06 | SMA bulkhead | `struck` | Duplicate of SR-05 — not a separate part |
 | SR-07 | 915 MHz antenna | `on hand` | Already in the $67.20 Heltec order — 3 whips, 2 radios |
 | SR-08 | Sensor cable | `on hand` | ⚠ **Substitution — not Cat5e.** See below |
-| SR-09 | DS18B20 probes | `cart` | Amazon |
+| SR-09 | DS18B20 probes | **`ordered` 2026-08-21** | Amazon — ⚠ **5 × 5 m, not the specced 4 × ~3 m.** Promoted to `HARDWARE_BUILD_PLAN.md` §4 as ordered. The longer lead moves the splice out of the condensing zone; it does **not** license a second lid penetration — the shared-jacket decision from SR-04/SR-08 stands. |
 | SR-10 | A02YYUW ×2 | `cart` | DFRobot direct ⚠ see lead-time note |
 | SR-11 | JST 1.25 pigtails | `cart` | Amazon |
 | SR-12 | PVC + hole saw | `on hand` | |

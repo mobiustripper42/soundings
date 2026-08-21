@@ -220,12 +220,37 @@ struck as errors, and one decision replaced three rows.
 | 1 | **A02YYUW ultrasonic sensor (SEN0311)** | **2** | **DigiKey** or Mouser | Clones exist, and every piece of reseller folklore this project has had to correct came from marketplace listings. DFRobot direct is 2–4 weeks from Chengdu and HW-13 — the last open question in the build — cannot be tested until it lands. |
 | 2 | **1S2P 18650 pack, 5200 mAh, PCM** | **3** | — | DEC-006 amendment. One in service, one charged, one spare. |
 | 3 | **IP65 enclosure, 150 × 100 × 70 mm grey hinged** | 1 | — | Inner depth 63 mm. The old 4×4×2" spec failed on depth, not footprint. |
-| 4 | **DS18B20 waterproof stainless probe, 3 m** | **4** | marketplace | The one row where the cheap part is genuinely correct — see the row for the arithmetic. |
+| 4 | **DS18B20 waterproof stainless probe, 5 m** | **5** | marketplace | The one row where the cheap part is genuinely correct — see the row for the arithmetic. **Ordered 2026-08-21 as 5 × 5 m** rather than the specced 4 × ~3 m; see the note below. |
 | 5 | **JST 1.25 2-pin pigtails** | multipack | marketplace | One ships per board and they are fragile. |
 
 ⚠ **Nothing here is orderable from a chat window, a session transcript, or §3.10 of
 `CHAT_HANDOFF.md`.** This table is the purchasing authority. If a part is not in
 §4, it does not get ordered.
+
+#### As ordered, 2026-08-21 — two deviations, both recorded rather than waived
+
+The order was placed against this table. **Two things differ from what it
+specified, and the table above has been updated to match what was actually
+bought** — that direction matters, because a BOM that describes an order nobody
+placed is the failure this whole file exists to prevent.
+
+| | Specified | Ordered | |
+|---|---|---|---|
+| DS18B20 probes | 4 × ~3 m | **5 × 5 m** | $18.04 vs $9.99 for a 4-pack at 1 m |
+| Enclosure | box only | **box + 2 cable glands included** | may settle B-6/B-8 for free |
+
+⚠ **The 5 m lead moves a decision that was already made, and it should not quietly
+un-make it.** With ~3 m, the DS18B20 had to splice into the 6-conductor jacket —
+that was **SR-04/SR-08's answer to the gland count**: one shared jacket, one gland,
+one hole in the tank lid. At 5 m the probe could plausibly run on its own cable all
+the way back, and **that would mean a second lid penetration.** The shared jacket is
+still the design. The extra lead buys freedom about *where along it the splice
+sits* — dry inside the enclosure rather than in the condensing zone at the lid —
+which is a genuine improvement and the reason the swap was worth $8.
+
+⚠ **The enclosure's included glands are unverified.** They may be the right bore
+for the 6-conductor cable or they may not; B-6 and B-8 still run. Included ≠
+correct.
 
 ⚠ **Two rows were struck as errors during Round 3, and both were discoverable from
 inside the ledger rather than from any datasheet:** the SMA bulkhead was never a
@@ -246,7 +271,7 @@ Per `SPEC.md` §4, minus the perfboard (no excitation circuit on a tank node).
 | **Heltec Wireless Stick Lite V3** | 3 | [settled] | §3. Node + gateway + **one spare**. **HW-15: the pinout transfers — everything from Round 1 holds.** GPIO36 = Vext Ctrl, GPIO37 = ADC Ctrl, GPIO1 = VBAT read, confirmed on the WSL V3 Rev1.1 datasheet. Same CP2102, LDO, TP4054, fuse, JP1, battery divider, SX1262 nets. **58.08 × 22.6 × 8.2 mm** (longer, narrower, thinner than the V3 — size the enclosure to this). |
 | 2×20 pin headers | — | **not ordered** | **F-12 — headers are not in the box** (unlike the WiFi LoRa 32; note 2×20, not 2×18). **Owner has stock; not a purchase.** Plan for this build is to **solder the six sensor wires directly to the board pads** rather than breadboard — better for a sealed outdoor node anyway, since headers plus jumpers are a vibration and corrosion liability. |
 | **A02YYUW ultrasonic sensor (DFRobot SEN0311)** | **2** | [settled] — **buy** | UART, free-running, 9600 8N1. `docs/tank-level-sensor.md`. **Quantity 2, deliberately** — HW-13 is blocked on this part, and with one unit you cannot tell a marginal sensor from a marginal rail. ⚠ **Buy from DigiKey or Mouser, not a marketplace.** This part has clones, and every piece of reseller folklore logged against it across three rounds — 15° beam angle, "has temperature compensation", "prefer 5 V" — originated in marketplace listings. DFRobot direct is $5 flat but **2–4 weeks from Chengdu**, and HW-13 is the last open question in the build. |
-| **DS18B20, headspace air — waterproof stainless probe, ~3 m lead** | **4** | [settled] — **buy** | **DEC-007.** Required, not optional. **HW-12: stainless probe, not bare TO-92** — in a condensing headspace, water bridging DQ↔GND corrupts readings and bare leads corrode over years. The sheath's thermal mass is a *benefit* in slow-moving headspace air. **Buy the cheapest; accuracy grade barely matters** — at a 2 m path 1 °C of probe error is 3.5 mm against the 14 cm error being corrected, so even a ±2 °C clone captures >95 % of the benefit. **Quantity 4, not 2 (SR-09)** — ~$2 each in a multipack, and clones do arrive dead. Find that on the bench, not up a tank. This is the one row where a marketplace part is the right answer. ⚠ **Placement dominates the part — see §5 and HW-19.** |
+| **DS18B20, headspace air — waterproof stainless probe, 5 m lead** | **5** | [settled] — **ordered 2026-08-21** | **DEC-007.** Required, not optional. **HW-12: stainless probe, not bare TO-92** — in a condensing headspace, water bridging DQ↔GND corrupts readings and bare leads corrode over years. The sheath's thermal mass is a *benefit* in slow-moving headspace air. **Buy the cheapest; accuracy grade barely matters** — at a 2 m path 1 °C of probe error is 3.5 mm against the 14 cm error being corrected, so even a ±2 °C clone captures >95 % of the benefit. **Quantity 4, not 2 (SR-09)** — ~$2 each in a multipack, and clones do arrive dead. Find that on the bench, not up a tank. This is the one row where a marketplace part is the right answer. ⚠ **Placement dominates the part — see §5 and HW-19.** ⚠ **As ordered: 5 probes at 5 m, not 4 at ~3 m** — a 5-pack at 5 m was $18.04 against $9.99 for a 4-pack at 1 m, and the extra lead buys real freedom about where the splice goes (see the note under the purchase table). |
 | **1S2P 18650 pack, 3.7 V, 5200 mAh, integrated PCM** | **3** | [settled] | **DEC-006 amendment, 2026-08-21 (SR-01/02/16).** Replaces loose cells, holder **and** charger. Three gives the rotation: one in service, one charged, one spare — this is the maintenance story that replaced the descoped PPK2. ⚠ **5200 mAh is NAMEPLATE.** That listing also claims a TP4054 "stabilizes voltage output", −40 °C discharge, and UL 2056 — none of which survives contact with the datasheets. **No number off it goes anywhere as fact**; VBAT telemetry confirms it. ⚠ **Meter the pack pigtail polarity before plugging in** (B-2) — wire colour on a consumer pack is worth no more than the rest of its listing. Cut the shipped connector, crimp a JST 1.25. |
 | ~~18650 cells, loose protected~~ | — | **superseded** | DEC-006 amendment. Protected cells run **68.9–69.5 mm** against 65 mm bare, and **no holder vendor publishes an internal bay length** — the fit could not be closed by research, only managed. The pack removes the problem instead. |
 | ~~18650 holder, 2-cell parallel~~ | — | **superseded** | Gone with the loose cells, and the parallel-not-series silent failure went with it — the pack is factory-wired 1S2P. |
