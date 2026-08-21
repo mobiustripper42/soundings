@@ -215,10 +215,14 @@ implementation of the parser is a second thing that can drift from the contract.
 Fifteen line items were specced; **eleven closed without a purchase**, two were
 struck as errors, and one decision replaced three rows.
 
+> ✅ **ORDERED 2026-08-21 — all five, ~$122.** Sensors from Mouser ($57.47 with
+> tariff), the rest from Amazon. Deviations from what this table specified are
+> recorded below it; the table itself has been updated to match what was bought.
+
 | # | Item | Qty | Where | Why this vendor |
 |---|---|---|---|---|
-| 1 | **A02YYUW ultrasonic sensor (SEN0311)** | **2** | **DigiKey** or Mouser | Clones exist, and every piece of reseller folklore this project has had to correct came from marketplace listings. DFRobot direct is 2–4 weeks from Chengdu and HW-13 — the last open question in the build — cannot be tested until it lands. |
-| 2 | **1S2P 18650 pack, 5200 mAh, PCM** | **3** | — | DEC-006 amendment. One in service, one charged, one spare. |
+| 1 | **A02YYUW ultrasonic sensor (SEN0311)** | **2** | **Mouser**, $18.63 ea | Clones exist, and every piece of reseller folklore this project has had to correct came from marketplace listings. DFRobot direct is 2–4 weeks from Chengdu and HW-13 — the last open question in the build — cannot be tested until it lands. |
+| 2 | **1S2P 18650 pack, 5200 mAh, PCM** (Horbupa) | **3** | Amazon, $9.99 ea | DEC-006 amendment. One in service, one charged, one spare. ⚠ **Ships with JST-PH 2.0, not JST 1.25** — three recrimps, three polarity checks (B-2). |
 | 3 | **IP65 enclosure, 150 × 100 × 70 mm grey hinged** | 1 | — | Inner depth 63 mm. The old 4×4×2" spec failed on depth, not footprint. |
 | 4 | **DS18B20 waterproof stainless probe, 5 m** | **5** | marketplace | The one row where the cheap part is genuinely correct — see the row for the arithmetic. **Ordered 2026-08-21 as 5 × 5 m** rather than the specced 4 × ~3 m; see the note below. |
 | 5 | **JST 1.25 2-pin pigtails** | multipack | marketplace | One ships per board and they are fragile. |

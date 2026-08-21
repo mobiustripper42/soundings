@@ -878,22 +878,36 @@ actual ordered parts in the BOM at that time.
 |----|-----------|-------|------|
 | SR-01 | Protected 18650 cells ×2 | `promoted` — superseded | → **DEC-006 amendment 2026-08-21**, replaced by pack |
 | SR-02 | 2-cell holder, parallel | `promoted` — superseded | → **DEC-006 amendment 2026-08-21**, replaced by pack |
-| SR-03 | IP65 enclosure | `cart` | Zulkit 150×100×70 mm, grey, hinged (inner 130×81×63) |
+| SR-03 | IP65 enclosure | **`ordered` 2026-08-21** | Zulkit 150×100×70 mm (5.9×3.9×2.8"), grey, hinged, $9.99 — ⚠ **ships with 2 cable glands**, bore unverified (B-6, B-8) |
 | SR-04 | Cable glands | `on hand` | Owner has assorted sizes ⚠ verify size against SR-08 OD at build |
 | SR-05 | U.FL → SMA-F bulkhead pigtail | `on hand` | Shipped with the Heltec boards — the "IPEX Ver.1-SMA Wire: Yes" option was taken. ~6 in stock |
 | SR-06 | SMA bulkhead | `struck` | Duplicate of SR-05 — not a separate part |
 | SR-07 | 915 MHz antenna | `on hand` | Already in the $67.20 Heltec order — 3 whips, 2 radios |
 | SR-08 | Sensor cable | `on hand` | ⚠ **Substitution — not Cat5e.** See below |
 | SR-09 | DS18B20 probes | **`ordered` 2026-08-21** | Amazon — ⚠ **5 × 5 m, not the specced 4 × ~3 m.** Promoted to `HARDWARE_BUILD_PLAN.md` §4 as ordered. The longer lead moves the splice out of the condensing zone; it does **not** license a second lid penetration — the shared-jacket decision from SR-04/SR-08 stands. |
-| SR-10 | A02YYUW ×2 | `cart` | DFRobot direct ⚠ see lead-time note |
-| SR-11 | JST 1.25 pigtails | `cart` | Amazon |
+| SR-10 | A02YYUW ×2 | **`ordered` 2026-08-21** | **Mouser**, $18.63 ea + $7.46 tariff = $57.47, UPS Ground. ⚠ **Switched off DFRobot direct** on the lead-time finding — 2–4 weeks from Chengdu would have gated HW-13, the last open question in the build |
+| SR-11 | JST 1.25 pigtails | **`ordered` 2026-08-21** | Amazon, Letool 30 pairs, $6.99. **Needed three times over** — the packs ship with JST-PH 2.0, so every one gets recrimped (B-2) |
 | SR-12 | PVC + hole saw | `on hand` | |
 | SR-13 | Consumables | `on hand` | |
 | SR-15 | Enclosure mounting | `on hand` | Owner reports included |
 | SR-16 | Li-ion charger | `promoted` — superseded | → **DEC-006 amendment 2026-08-21**, three-pack rotation replaces it |
 | SR-17 | Tape / 4.7 kΩ / heat-shrink | `on hand` | |
 
-**Four purchases: SR-03, SR-09, SR-10, SR-11.** Roughly $110.
+**Four purchases: SR-03, SR-09, SR-10, SR-11 — plus the pack from the DEC-006
+amendment, which is not an SR row.** ✅ **All submitted 2026-08-21.**
+
+| What | Where | Cost |
+|---|---|---|
+| A02YYUW SEN0311 ×2 | Mouser | $57.47 inc. tariff |
+| 1S2P 5200 mAh pack ×3 (Horbupa) | Amazon | $29.97 |
+| DS18B20 5 × 5 m | Amazon | $18.04 |
+| Zulkit IP65 enclosure | Amazon | $9.99 |
+| JST 1.25 pigtails, 30 pairs | Amazon | $6.99 |
+| | | **~$122** |
+
+⚠ **The pack arrives with a JST-PH 2.0 connector, not JST 1.25.** B-2 already
+covers it — cut and recrimp — but note it is **three** recrimps, one per pack, and
+each one is a polarity check that must not be skipped.
 
 ### SR-08 — accepted substitution, with one caveat
 
