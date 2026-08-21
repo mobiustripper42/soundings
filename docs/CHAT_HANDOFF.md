@@ -8,16 +8,22 @@ back.*
 
 ## 0. If you are Claude chat and this file was just handed to you
 
-**Your job: answer the `open` questions in §3.4 and edit this file in place.** Then
-hand the whole file back. Everything you need is in it.
+**Your job: answer the `open` rows in §3.8 (Round 3 — sourcing) and edit this file
+in place.** Then hand the whole file back. Everything you need is in it — the brief
+is §4, and it is written for this round.
+
+⚠ **Round 3 is a sourcing round, not a research round.** Every part *type* is
+already decided. You are being asked for specific products, vendor links, and
+current prices — not for design advice, and not for improvements to settled
+choices. §4 lists what is settled; treat that list as closed.
 
 **Edit freely:**
 
-- The `Answer`, `Status`, and `Date` cells of **Round 2** rows (§3.4). Set
+- The `Answer`, `Status`, and `Date` cells of **Round 3** rows (§3.8). Set
   `Status` to `answered`.
-- A new `## 3.5 Round 2 detail` section, mirroring §3.1 — the tables hold the
-  decision, that section holds the reasoning, gotchas, and anything that didn't
-  fit in a cell.
+- A new `## 3.9 Round 3 detail` section, mirroring §3.1 — the table holds the line
+  item, that section holds anything that didn't fit in a cell: stock caveats,
+  shipping consolidation, a cheaper bundle, a part that forced a rethink.
 - The cross-cutting findings table (§3.2) — append new `F-n` rows for anything
   that doesn't belong to a single ID.
 - **New question IDs.** Add them. Round 1's two most valuable findings — HW-09
@@ -28,11 +34,14 @@ hand the whole file back. Everything you need is in it.
 
 **Do not edit:**
 
-- **Round 1 rows (§3).** They are `promoted` — a historical record of what was
-  decided and why. Tidying them destroys the audit trail.
-- **§3.3.** That is CC's review of your previous round, including corrections.
-  Disagree with it in your Round 2 answers if you think it's wrong — don't
-  rewrite it.
+- **Rounds 1 and 2 (§3, §3.4) and their detail sections.** All `promoted` — a
+  historical record of what was decided and why. Tidying them destroys the audit
+  trail, including the parts that turned out to be **wrong**: §3.6 carries a struck
+  sentence about headers and a correction under it, and that pairing is the point.
+- **§3.3 and §3.6.** Those are CC's reviews of your previous rounds, including
+  corrections to your own answers. Disagree in your Round 3 answers if you think
+  one is wrong — don't rewrite them.
+- **§4.1.** Round 2's superseded brief, kept for the record.
 - §0–§2, §5, §6 — the workflow itself.
 
 **Conventions that make the merge work:**
@@ -48,6 +57,9 @@ hand the whole file back. Everything you need is in it.
   part. Round 1 did this well on the A02YYUW cable length.
 - Mark a row `blocked` if it genuinely needs a bench measurement or a purchase
   before anyone can answer it.
+- **Round 3 only — a price and a link, or it isn't an answer.** "A 2-slot parallel
+  holder" is what the row already says. The row is answered when someone could
+  place the order from it without deciding anything further.
 
 ---
 
@@ -571,11 +583,18 @@ budget stays on the independently measured 16 µA, bracketed at 20–30 µA in
 
 **F-12 is the order-relevant finding**, and it is easy to miss inside a
 cross-cutting table: the packing list is board + LoRa antenna + SH1.25×2
-connector + pin-map sticker — **no header pins**, unlike the WiFi LoRa 32. Build
-step 5 breadboards the sensor, so **2×20 headers are a gap**. The separately
-ordered antennas are *not* redundant despite a LoRa antenna being in the box: the
-bundled one mates directly to U.FL, and enclosure mounting needs the U.FL→SMA
-bulkhead run (HW-01).
+connector + pin-map sticker — **no header pins**, unlike the WiFi LoRa 32.
+~~Build step 5 breadboards the sensor, so **2×20 headers are a gap**.~~ The
+separately ordered antennas are *not* redundant despite a LoRa antenna being in
+the box: the bundled one mates directly to U.FL, and enclosure mounting needs the
+U.FL→SMA bulkhead run (HW-01).
+
+⚠ **Correction, 2026-08-21 — headers are not a gap and not a purchase.** The
+struck sentence above is wrong and a sourcing round acted on it. Build step 5
+**solders the six sensor wires directly to the board pads; nothing is
+breadboarded** (`HARDWARE_BUILD_PLAN.md` §8), which is the better choice for a
+sealed outdoor node anyway — headers plus jumpers are a vibration and corrosion
+liability. The owner also has header stock. **Do not source headers.**
 
 ### Nothing this round moved the power budget
 
@@ -631,7 +650,110 @@ a purchase and requires only what is already on hand, it runs before the order.
 
 ---
 
-## 4. Brief to paste into chat — **Round 2**
+## 3.8 Round 3 — sourcing (opened 2026-08-21)
+
+**A different kind of round.** Rounds 1 and 2 asked *what kind of part*. Every one
+of those is answered. This round asks **which SKU, from whom, at what price** — and
+it is the last thing between here and an order.
+
+**Answer by ID. One row, one line item.** Each answer wants: a **specific product**,
+a **vendor link**, a **price**, and the **spec that proves it meets the constraint
+in the `Why it matters` column**. A part that meets the constraint but is out of
+stock is not an answer; say so and give the next one.
+
+| ID | Line item | Why it matters | Status | Answer | Date |
+|----|-----------|----------------|--------|--------|------|
+| SR-01 | **Protected 18650 cells ×2** | ⚠ **The constraint that will bite: protected cells are longer than bare ones**, and it has to match SR-02. Give the length. Matched capacity/IR — same make, same model, ideally same batch. | `open` | | |
+| SR-02 | **2-cell 18650 holder, PARALLEL** | ⚠ **Two silent failures.** Series holders (7.4 V) destroy the board — confirm parallel. And it must **seat the SR-01 cells at their actual length**. Quote the holder's stated cell length. | `open` | | |
+| SR-03 | **IP65 enclosure, light-coloured, ~4×4×2"** | Board is 58.08 × 22.6 × 8.2 mm; also holds the holder, cells, and Wago. Hinged lid preferred. Light-coloured is a heat spec, not aesthetics — it sits outdoors in summer. | `open` | | |
+| SR-04 | **PG7 cable glands ×2** | Sensor cable plus one spare. Must suit the SR-08 cable OD. | `open` | | |
+| SR-05 | **U.FL → SMA-female pigtail, 100–150 mm ×2** | ⚠ **As short as it ships** — 1–1.5 dB/m at 900 MHz, so a long one costs more than the antenna gains. | `open` | | |
+| SR-06 | **SMA bulkhead ×2** | Through the enclosure wall. Not weatherproof by default — self-amalgamating tape goes on the outside joint. | `open` | | |
+| SR-07 | **915 MHz antenna, 3–5 dBi omni, SMA male ×2** | ⚠ **Not 8–10 dBi.** The gain comes from flattening the vertical pattern; gateway and node sit at different heights. See the range-test note in §4. | `open` | | |
+| SR-08 | **Outdoor / direct-burial Cat5e** | Length = tank height + slack. Unshielded is fine. 3 conductors used. | `open` | | |
+| SR-09 | **DS18B20 waterproof stainless probe, ~3 m lead ×2** | Cheapest acceptable grade — at a 2 m path, 1 °C of probe error is 3.5 mm against a 14 cm error being corrected. One is a spare. | `open` | | |
+| SR-10 | **A02YYUW ultrasonic sensor ×1** | The one part with an open question against it (HW-13, 3.3 V reliability). Buy it anyway; only the part can answer. | `open` | | |
+| SR-11 | **JST 1.25 2-pin battery pigtail** | ⚠ Heltec calls it "SH1.25-2" and **the name is wrong** — real JST SH is 1.0 mm pitch. Look for *"JST 1.25 2-pin for Heltec/LilyGo."* | `open` | | |
+| SR-12 | **PVC 4" or 6" Sch40 + matching hole saw** | Cut to 50–75 mm. A shallow wide hood, not a deep tube. Local hardware is likely cheaper than shipped — say so if that's the answer. | `open` | | |
+| SR-13 | **Consumables** — UV-stable silicone, silica gel, Wago lever nuts, 100 nF + 10 µF caps, long USB-C | Low-value, high-annoyance-if-missing. One row so they don't get lost. | `open` | | |
+| SR-14 | **Anything this list is missing** | Rounds 1 and 2 both found their most valuable items by going off-script. If assembling this order surfaces a part nobody asked for, add an ID and answer it. | `open` | | |
+
+⚠ **Do NOT source: 2×20 headers** (owner has stock; wires solder direct to the pads
+— see the correction in §3.6) or a **P-FET load switch** (F-6 retired 2026-08-20;
+Vext gates the sensor). Both were live in earlier rounds and both are now wrong.
+
+---
+
+## 4. Brief to paste into chat — **Round 3 (sourcing)**
+
+> Copy everything between the rules, or hand over the whole file. Round 2's brief
+> is superseded; it is preserved verbatim in §4.1 below.
+
+---
+
+I'm sourcing the parts for a battery-powered wireless sensor node on a farm rain
+tank. **The research is done** — two prior rounds settled every part *type*. I need
+**specific products, vendor links, and current prices**, not design advice. Please
+answer by ID from the table you have (SR-01 … SR-14), and for each give the
+product, the vendor link, the price, and the one spec that proves it meets the
+constraint stated for that row.
+
+**The build, in one paragraph.** One field node in the lid of a rain tank measures
+water level with an ultrasonic sensor and reports over LoRa every 15 minutes to a
+second identical board tethered by USB to a Linux server. Battery only, no solar,
+no mains anywhere near it, ~2 years between swaps. Read-only telemetry — it never
+actuates anything.
+
+**Already bought, do not re-source:** 3× Heltec Wireless Stick Lite V3 and 3×
+915 MHz whip antennas ($67.20 delivered). The boards are in hand and working.
+
+**Already settled — please do not re-derive, re-litigate, or improve on these:**
+
+- The **A02YYUW** ultrasonic sensor: 60° beam cone, 3 cm blind zone, 100 ms
+  response, median-of-5–7 read strategy.
+- **LoRa, not WiFi.** WiFi was raised and rejected on the battery budget; there is
+  no mains power at the tank.
+- **Protected cells plus a 3.2 V/cell firmware cutoff** instead of a hardware
+  low-voltage-cutoff board.
+- **A DS18B20 in the tank headspace** — required, not optional; speed of sound
+  moves 0.176 %/°C, which is ~14 cm of apparent level error across the seasonal
+  range.
+- **15-minute cadence.** All unit conversion happens on the server, not the node.
+- **U.FL→SMA pigtail to a bulkhead**, antenna outside on the bulkhead.
+- **3-conductor Cat5e for the sensor run, unshielded.**
+
+**Three things that will otherwise get sourced wrong:**
+
+1. **Protected cells are longer than bare ones.** The holder (SR-02) must seat the
+   cells you pick for SR-01. Quote both lengths. This is the single most likely
+   thing to arrive and not fit.
+2. **Do not source 2×20 pin headers.** An earlier round said they were a gap. They
+   are not — the sensor wires solder directly to the board pads, nothing is
+   breadboarded, and the owner has header stock regardless.
+3. **Do not source a P-FET load switch.** An earlier round had one in the BOM
+   because the board's switched `Vext` rail was believed unusable. **It was
+   measured on 2026-08-20 and it is fine** — 3.3 V on, 3.0 mV off. The sensor rail
+   gates off Vext directly, so no discrete switch.
+
+**One result you can rely on, and it should stop you over-speccing the antenna.**
+A field range test was run on 2026-08-19: 20 packets sent, 19 received, across the
+tank, the property corner and a tunnel. RSSI sat at −82 to −89 dBm everywhere with
+about −3 dB SNR, against a LongFast decode floor near −20 dB. **The edge of the
+link was never found — the property ran out first.** So a 3–5 dBi omni is amply
+sufficient; nothing here needs a high-gain fiberglass stick, and a high-gain
+antenna would actively hurt by flattening the vertical pattern between two ends at
+different heights. (Recorded in this repo as `DEC-009` and issue #41, neither of
+which you can see — that is why it is stated here.)
+
+**Format that makes this mergeable:** one line item per ID, product + link + price
++ the proving spec. If something is out of stock or the price looks wrong, say so
+and give the alternative rather than picking silently. If assembling the order
+surfaces a part nobody listed, add an SR-ID for it and answer it — both prior
+rounds found their most valuable items exactly that way.
+
+---
+
+## 4.1 Superseded — brief to paste into chat, **Round 2**
 
 > Copy everything between the rules. It's self-contained — chat sees nothing else.
 > Round 1's brief is superseded; its questions are preserved verbatim in the §3
@@ -733,6 +855,16 @@ no ceremony. The three that carry the most context per line:
 - `docs/HARDWARE_BUILD_PLAN.md` §4 and §9 — the BOM and what's still open
 - `SPEC.md` §4 — the node hardware spec and the power claim
 
+⚠ **But if chat has to ask for one of these, the brief is underwritten — fix the
+brief.** Round 3 opened with chat correctly refusing to source anything, because
+§4's brief was still Round 2's and named no line items. The instinct is to paste
+`HARDWARE_BUILD_PLAN.md` §4 across; the right move was to write the round's brief
+so the whole-file handover works as designed. **Pasting is for genuine one-offs, not
+for patching a round that was opened without a brief.** The same rule kills the
+temptation to point chat at a decision record: `DEC-009` is not readable from a
+chat window, so anything a round needs from it gets **stated in the brief**, with
+the DEC cited beside it for whoever reads this repo later.
+
 ---
 
 ## 7. Round log
@@ -741,4 +873,4 @@ no ceremony. The three that carry the most context per line:
 |-------|--------|-------|--------|
 | 1 | 2026-08-07 | Tank node hardware — HW-01…HW-08, plus HW-09 (blind zone) and HW-10 (temperature) raised in chat | **2026-08-08 — all 10 `promoted`.** CC review in §3.3; math re-derived and confirmed; five corrections logged. Yielded DEC-006, DEC-007, and four new open items. |
 | 2 | 2026-08-08 | **Board change to Stick Lite V3** (HW-15…HW-18) + loose ends (HW-11…HW-13). HW-14 is a meter check on receipt, not a chat question. Brief in §4. | **2026-08-20 — closed.** All nine research rows `promoted`. The bench session (§3.7) then measured HW-05, HW-14 (GPIO36 half) and HW-18: **Vext switches to 3.0 mV, so HW-11 is closed and the P-FET leaves the BOM.** CC review in §3.6. |
-| 3 | *not yet opened* | **Sourcing.** Rounds 1–2 answered *what kind of part*; nobody has answered *which SKU, from whom, at what price*. Needs a brief written against §4's `[proposed]` rows and the generic `[settled]` ones. | — |
+| 3 | 2026-08-21 | **Sourcing — SR-01…SR-14.** Rounds 1–2 answered *what kind of part*; this one answers *which SKU, from whom, at what price*. Ledger in §3.8, brief in §4. Carries three corrections chat would otherwise get wrong: protected-cell length vs holder, no headers, no P-FET. | — |
