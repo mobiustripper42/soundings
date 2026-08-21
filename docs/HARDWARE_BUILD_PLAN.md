@@ -59,9 +59,12 @@ zip-tie, ~30 mating cycles, fragile latch).
 
 ### Powering the two boards
 
-**No batteries for this test.** The JST 1.25 polarity is unverified (HW-05) and
-the 2-slot holder has to be confirmed parallel-not-series — neither risk is worth
-taking before the boards have proven they work.
+**No batteries for this test.** *(Historical: written before the 2026-08-19 range
+test, which ran exactly this way.)* JST 1.25 polarity was unverified then; it has
+since been measured — **`+` is the pin nearer the USER button** (§3.7 of
+`CHAT_HANDOFF.md`), though **B-1 says meter every board anyway**, since that is one
+sample. The 2-slot holder risk is gone entirely: the **DEC-006 amendment** replaced
+it with a factory-wired 1S2P pack.
 
 | End | Power | Notes |
 |---|---|---|
@@ -206,6 +209,59 @@ implementation of the parser is a second thing that can drift from the contract.
 
 ## 4. Bill of materials
 
+### 🔒 What actually gets bought — Round 3 closeout, 2026-08-21
+
+**This is the order.** Everything else in §4 is on hand, already bought, or struck.
+Fifteen line items were specced; **eleven closed without a purchase**, two were
+struck as errors, and one decision replaced three rows.
+
+> ✅ **ORDERED 2026-08-21 — all five, ~$122.** Sensors from Mouser ($57.47 with
+> tariff), the rest from Amazon. Deviations from what this table specified are
+> recorded below it; the table itself has been updated to match what was bought.
+
+| # | Item | Qty | Where | Why this vendor |
+|---|---|---|---|---|
+| 1 | **A02YYUW ultrasonic sensor (SEN0311)** | **2** | **Mouser**, $18.63 ea | Clones exist, and every piece of reseller folklore this project has had to correct came from marketplace listings. DFRobot direct is 2–4 weeks from Chengdu and HW-13 — the last open question in the build — cannot be tested until it lands. |
+| 2 | **1S2P 18650 pack, 5200 mAh, PCM** (Horbupa) | **3** | Amazon, $9.99 ea | DEC-006 amendment. One in service, one charged, one spare. ⚠ **Ships with JST-PH 2.0, not JST 1.25** — three recrimps, three polarity checks (B-2). |
+| 3 | **IP65 enclosure, 150 × 100 × 70 mm grey hinged** | 1 | — | Inner depth 63 mm. The old 4×4×2" spec failed on depth, not footprint. |
+| 4 | **DS18B20 waterproof stainless probe, 5 m** | **5** | marketplace | The one row where the cheap part is genuinely correct — see the row for the arithmetic. **Ordered 2026-08-21 as 5 × 5 m** rather than the specced 4 × ~3 m; see the note below. |
+| 5 | **JST 1.25 2-pin pigtails** | multipack | marketplace | One ships per board and they are fragile. |
+
+⚠ **Nothing here is orderable from a chat window, a session transcript, or §3.10 of
+`CHAT_HANDOFF.md`.** This table is the purchasing authority. If a part is not in
+§4, it does not get ordered.
+
+#### As ordered, 2026-08-21 — two deviations, both recorded rather than waived
+
+The order was placed against this table. **Two things differ from what it
+specified, and the table above has been updated to match what was actually
+bought** — that direction matters, because a BOM that describes an order nobody
+placed is the failure this whole file exists to prevent.
+
+| | Specified | Ordered | |
+|---|---|---|---|
+| DS18B20 probes | 4 × ~3 m | **5 × 5 m** | $18.04 vs $9.99 for a 4-pack at 1 m |
+| Enclosure | box only | **box + 2 cable glands included** | may settle B-6/B-8 for free |
+
+⚠ **The 5 m lead moves a decision that was already made, and it should not quietly
+un-make it.** With ~3 m, the DS18B20 had to splice into the 6-conductor jacket —
+that was **SR-04/SR-08's answer to the gland count**: one shared jacket, one gland,
+one hole in the tank lid. At 5 m the probe could plausibly run on its own cable all
+the way back, and **that would mean a second lid penetration.** The shared jacket is
+still the design. The extra lead buys freedom about *where along it the splice
+sits* — dry inside the enclosure rather than in the condensing zone at the lid —
+which is a genuine improvement and the reason the swap was worth $8.
+
+⚠ **The enclosure's included glands are unverified.** They may be the right bore
+for the 6-conductor cable or they may not; B-6 and B-8 still run. Included ≠
+correct.
+
+⚠ **Two rows were struck as errors during Round 3, and both were discoverable from
+inside the ledger rather than from any datasheet:** the SMA bulkhead was never a
+separate part from the pigtail, and the 915 MHz antennas had already been bought
+and were listed as such two sections away from the row asking for more. **The
+check that caught them was reading rows against each other** — see §9.
+
 ### Node — at the tank
 
 Per `SPEC.md` §4, minus the perfboard (no excitation circuit on a tank node).
@@ -218,22 +274,27 @@ Per `SPEC.md` §4, minus the perfboard (no excitation circuit on a tank node).
 |---|---|---|---|
 | **Heltec Wireless Stick Lite V3** | 3 | [settled] | §3. Node + gateway + **one spare**. **HW-15: the pinout transfers — everything from Round 1 holds.** GPIO36 = Vext Ctrl, GPIO37 = ADC Ctrl, GPIO1 = VBAT read, confirmed on the WSL V3 Rev1.1 datasheet. Same CP2102, LDO, TP4054, fuse, JP1, battery divider, SX1262 nets. **58.08 × 22.6 × 8.2 mm** (longer, narrower, thinner than the V3 — size the enclosure to this). |
 | 2×20 pin headers | — | **not ordered** | **F-12 — headers are not in the box** (unlike the WiFi LoRa 32; note 2×20, not 2×18). **Owner has stock; not a purchase.** Plan for this build is to **solder the six sensor wires directly to the board pads** rather than breadboard — better for a sealed outdoor node anyway, since headers plus jumpers are a vibration and corrosion liability. |
-| A02YYUW ultrasonic sensor | 1 | [settled] | UART, free-running, 9600 8N1. `docs/tank-level-sensor.md` |
-| **DS18B20, headspace air — waterproof stainless probe, ~3 m lead** | 2 | [settled] | **DEC-007.** Required, not optional. **HW-12: stainless probe, not bare TO-92** — in a condensing headspace, water bridging DQ↔GND corrupts readings and bare leads corrode over years. The sheath's thermal mass is a *benefit* in slow-moving headspace air. **Buy the cheapest; accuracy grade barely matters** — at a 2 m path 1 °C of probe error is 3.5 mm, against the 14 cm error being corrected. Second one is a spare (~$8 each). ⚠ **Placement dominates the part — see §5 and HW-19.** |
-| 18650 cells, **protected** | 2 | [settled] | Parallel, ~6000 mAh combined. **Protected** per DEC-006 (~$2/cell premium). ⚠ Match capacity and internal resistance, and **equalise state of charge before joining** — cells at different SoC dump unlimited current into each other. ⚠ **Protected cells are longer than bare ones** — the protection board sits under the negative cap. Note the length from the listing and check it against the holder. |
-| 18650 holder, 2-cell **parallel** | 1 | [settled] | ⚠ **Two things to get right, and both are silent failures.** (1) **Confirm PARALLEL, not series** — most 2×18650 lead holders are series (7.4 V) and **will destroy the board.** (2) **Confirm it fits PROTECTED cells** — they are longer than bare ones, and plenty of holders are sized for bare. A holder the cells won't seat in is the direct cost of DEC-006 and nothing else in the BOM implies it. Source a holder whose listing states the length it takes. |
-| Battery pigtail, **JST 1.25 2-pin** | 1 | [settled] | HW-05. Heltec calls it "SH1.25-2" — the name is wrong (real JST SH is 1.0 mm pitch). Order parts listed as *"JST 1.25 2-pin for Heltec/LilyGo."* ✅ **Polarity measured 2026-08-20: `+` is the JP1 pin nearer the USER button; `GND` is the pin nearer RST.** Read 4.0 V on USB with no cell attached (4.0 rather than 4.2 is normal unloaded). ⚠ Still verify per board — this is one sample of one revision, and wire colours on the pigtail remain no evidence of anything. |
+| **A02YYUW ultrasonic sensor (DFRobot SEN0311)** | **2** | [settled] — **buy** | UART, free-running, 9600 8N1. `docs/tank-level-sensor.md`. **Quantity 2, deliberately** — HW-13 is blocked on this part, and with one unit you cannot tell a marginal sensor from a marginal rail. ⚠ **Buy from DigiKey or Mouser, not a marketplace.** This part has clones, and every piece of reseller folklore logged against it across three rounds — 15° beam angle, "has temperature compensation", "prefer 5 V" — originated in marketplace listings. DFRobot direct is $5 flat but **2–4 weeks from Chengdu**, and HW-13 is the last open question in the build. |
+| **DS18B20, headspace air — waterproof stainless probe, 5 m lead** | **5** | [settled] — **ordered 2026-08-21** | **DEC-007.** Required, not optional. **HW-12: stainless probe, not bare TO-92** — in a condensing headspace, water bridging DQ↔GND corrupts readings and bare leads corrode over years. The sheath's thermal mass is a *benefit* in slow-moving headspace air. **Buy the cheapest; accuracy grade barely matters** — at a 2 m path 1 °C of probe error is 3.5 mm against the 14 cm error being corrected, so even a ±2 °C clone captures >95 % of the benefit. **Quantity 4, not 2 (SR-09)** — ~$2 each in a multipack, and clones do arrive dead. Find that on the bench, not up a tank. This is the one row where a marketplace part is the right answer. ⚠ **Placement dominates the part — see §5 and HW-19.** ⚠ **As ordered: 5 probes at 5 m, not 4 at ~3 m** — a 5-pack at 5 m was $18.04 against $9.99 for a 4-pack at 1 m, and the extra lead buys real freedom about where the splice goes (see the note under the purchase table). |
+| **1S2P 18650 pack, 3.7 V, 5200 mAh, integrated PCM** | **3** | [settled] | **DEC-006 amendment, 2026-08-21 (SR-01/02/16).** Replaces loose cells, holder **and** charger. Three gives the rotation: one in service, one charged, one spare — this is the maintenance story that replaced the descoped PPK2. ⚠ **5200 mAh is NAMEPLATE.** That listing also claims a TP4054 "stabilizes voltage output", −40 °C discharge, and UL 2056 — none of which survives contact with the datasheets. **No number off it goes anywhere as fact**; VBAT telemetry confirms it. ⚠ **Meter the pack pigtail polarity before plugging in** (B-2) — wire colour on a consumer pack is worth no more than the rest of its listing. Cut the shipped connector, crimp a JST 1.25. |
+| ~~18650 cells, loose protected~~ | — | **superseded** | DEC-006 amendment. Protected cells run **68.9–69.5 mm** against 65 mm bare, and **no holder vendor publishes an internal bay length** — the fit could not be closed by research, only managed. The pack removes the problem instead. |
+| ~~18650 holder, 2-cell parallel~~ | — | **superseded** | Gone with the loose cells, and the parallel-not-series silent failure went with it — the pack is factory-wired 1S2P. |
+| ~~Li-ion charger, independent bays~~ | — | **superseded** | Briefly a real gap: DEC-006 requires cells be equalised before paralleling and nothing else in the BOM could do it. A factory pack is matched at build and never separated, so the requirement is satisfied by construction; the board's TP4054 charges the pack over USB. |
+| Battery pigtail, **JST 1.25 2-pin** | multipack | [settled] — **buy** | HW-05. Heltec calls it "SH1.25-2" — the name is wrong (real JST SH is 1.0 mm pitch). Order parts listed as *"JST 1.25 2-pin for Heltec/LilyGo."* ✅ **Polarity measured 2026-08-20: `+` is the JP1 pin nearer the USER button; `GND` is the pin nearer RST.** Read 4.0 V on USB with no cell attached (4.0 rather than 4.2 is normal unloaded). ⚠ Still verify per board — this is one sample of one revision, and wire colours on the pigtail remain no evidence of anything. |
 | ~~Low-voltage-cutoff board~~ | — | **removed** | **DEC-006.** The V3's TP4054 is a charger with no discharge-side protection, but protected cells + a 3.2 V/cell firmware cutoff cover it better. |
 | ~~**P-FET load switch**~~ | **0** | **not ordered** | ✅ **HW-18 measured 2026-08-20: Vext switches to 3.0 mV** (§6). No back-power path, so Vext *is* the switched sensor rail — no discrete switch, no extra part, and the firmware to drive one never gets written. F-6 retired. ⚠ **Closed, not deleted.** Vext outputs 3.3 V and cannot give the sensor more (F-13). If HW-13 shows the A02YYUW is unreliable at 3.3 V, this line comes back — **AO3401** + 10K gate pull-up to source + 1K series gate drive, sourced from **VBAT**, not the 3.3 V rail. |
-| IP65 enclosure, light-colored, ~4×4×2" | 1 | [proposed] | Hinged lid preferred. Mounted **low and shaded** (`SPEC.md` §4 heat spec) |
-| PG7 cable glands | 2 | [proposed] | Sensor cable + spare. Pointing **down**, siliconed both sides |
-| **U.FL → SMA-female pigtail**, 100–150 mm | 2 | [settled] | HW-01. The V3 has **U.FL/IPEX only, no SMA on the PCB**. ⚠ Keep it **as short as it ships** — U.FL pigtail is ~1–1.5 dB/m at 900 MHz; a long run throws away more than the antenna gain provides. |
-| SMA bulkhead | 2 | [settled] | Through the enclosure wall, antenna direct on the outside. ⚠ **Not weatherproof by default** — self-amalgamating tape on the outside joint. |
-| **915 MHz antenna, 3–5 dBi omni, SMA male** | 2 | [settled] | HW-01. Vertical. ⚠ **Skip 8–10 dBi fiberglass sticks** — the gain comes from flattening the vertical pattern, so if gateway and tank sit at different heights you shoot over or under. |
+| **IP65 enclosure — Zulkit 150 × 100 × 70 mm, grey, hinged** (inner 130 × 81 × 63) | 1 | [settled] — **buy** | ⚠ **The old spec of ~4×4×2" was too small, and the failure was in DEPTH, not footprint (SR-03).** Stack-up is board (8.2 mm) + pack + gland bodies + — the item that actually decides it — the **U.FL pigtail's ~10 mm minimum bend radius**. RG178 is semi-flexible and a sharp fold damages the shield; 50 mm of internal depth leaves nowhere to route it. 63 mm inner does. ⚠ **Light colour is a cell spec, not aesthetics** — the **cells** degrade above ~45 °C, not the electronics, and a dark box in full August sun runs plausibly 20 °C over ambient. Grey or white, **and mounted low and shaded regardless** (`SPEC.md` §4). ⚠ **Test-fit before drilling** (B-5). |
+| PG cable glands, assorted | — | **on hand** | ⚠ **PG7 was wrong (SR-04).** PG7 clamps ~3–6.5 mm; the sensor cable is thicker than that assumption allowed. Owner has assorted sizes. ⚠ **Check the gland against the actual cable OD, and the enclosure's moulded knockout thread, before drilling anything** (B-6, B-8). Pointing **down**, siliconed both sides, nylon washer. |
+| **U.FL → SMA-female bulkhead pigtail**, 100–150 mm | 2 | [settled] — **on hand** | HW-01. The board has **U.FL/IPEX only, no SMA on the PCB**. **~6 in stock** — they shipped with the Heltec boards, the "IPEX Ver.1-SMA Wire" option having been taken. ⚠ Keep it **as short as it ships** — ~1–1.5 dB/m at 900 MHz, so a long run throws away more than the antenna provides. ⚠ **Confirm the thread reaches through the enclosure wall** (B-9): these shipped for Heltec's own thin shell. If the nut won't reach, a 14.5 mm-thread version is ~$12 — a part, not a redesign. ⚠ **SMA vs RP-SMA is the highest-probability sourcing error on this whole build** — LoRa is standard **SMA**, most cheap U.FL pigtails are RP-SMA because they are repurposed WiFi parts, and an RP-SMA bulkhead will not mate with an SMA-male antenna. Bulkhead = **outer thread, centre socket**. |
+| ~~SMA bulkhead~~ | — | **struck — not a part** | ⚠ **SR-06 was never a separate line item.** A U.FL→SMA-female **bulkhead** pigtail *is* the bulkhead — the SMA end is a threaded barrel supplied with nut and washer. Ordering both yields **two pigtails and two connectors that cannot be joined to each other**. The one real requirement hiding in this row was the self-amalgamating tape, which moved to its own row below rather than vanishing with it. |
+| **915 MHz antenna, 3–5 dBi omni, SMA male** | 3 | [settled] — **on hand** | HW-01. Vertical. **Already bought** in the $67.20 Heltec order — three whips for two radios. Heltec's own whip is **4 dBi, VSWR ≤1.5, DC ground**, inside the 3–5 dBi window and with a better VSWR than the 3 dBi glue-rod alternative. ⚠ **Skip 8–10 dBi fiberglass sticks** — the gain comes from flattening the vertical pattern, so with gateway and tank at different heights you shoot over or under. ⚠ Rated **−40 … +55 °C**, a lower ceiling than most 4 dBi parts; it is a bare whip in moving air so this is fine, but don't mount it against a dark surface in full sun. |
 | Wago lever-nut terminal block | 1 | [settled] | Serviceable internal connections |
 | Silica gel desiccant | 1 | [settled] | Replaced annually |
-| **Outdoor/direct-burial Cat5e**, ~tank height + slack | 1 | [settled] | HW-04. Stock A02YYUW lead length is unpublished; assume short and plan to extend. **Shielding not required.** Extension to several metres is fine — 9600 8N1 is 104 µs/bit, nowhere near a timing limit. |
-| 100 nF + 10 µF capacitors | 1 ea | [settled] | At the **sensor end** of the run |
+| **Sensor cable — 22 AWG 6-conductor, UL 2464, stranded tinned copper**, 25 ft | 1 | [settled] — **on hand** | ⚠ **Substitution, and electrically it beats the specced Cat5e (SR-08).** 22 AWG stranded tinned copper wins on three counts: lower resistance, corrosion resistance at the splices, and — the one that matters — **stranded survives flexing at a tank lid where solid conductors work-harden and snap.** The old row's "solid copper not CCA" warning was aimed at CCA; this is a different and better answer. **Conductor count works out exactly:** sensor takes V+/GND/TX, DS18B20 shares V+/GND and adds DQ — **four used, two spare, one gland, one hole.** That answers the "does the DS18B20 share the jacket" question: yes. HW-04's extension analysis is unchanged — 9600 8N1 is 104 µs/bit, nowhere near a timing limit. ⚠ **The one real gap: UL 2464 is an indoor appliance rating with no sunlight-resistance requirement.** The listing says outdoor; that is marketing, not the standard, and plain PVC chalks and cracks in a couple of seasons of sun. **Mitigation ~$4: sleeve the exposed run in split loom or ½" flex conduit** (B-4) — a build step, not a re-order, and a jacket failure is visible long before the conductors go. ⚠ **Verify 25 ft covers tank height plus slack before cutting** (B-7). |
+| 100 nF + 10 µF capacitors | 1 ea | [settled] — **on hand** | At the **sensor end** of the run |
+| **Self-amalgamating tape** | 1 roll | [settled] — **on hand** | **SR-17.** ⚠ **Nearly lost with the struck SR-06 row, which is the only place it was named.** This is what keeps water out of the antenna connector, and outdoors it is not optional. |
+| **4.7 kΩ resistor** | 1 | [settled] — **on hand** | **SR-17.** The DS18B20 1-Wire bus pull-up on DQ. Implied by the sensor choice since Round 1 and listed in no BOM row until now. |
+| **Heat-shrink, incl. adhesive-lined** | 1 kit | [settled] — **on hand** | **SR-17.** Every joint in this build is outdoors — the Cat5e-to-sensor splice and the DS18B20 splice especially. **Adhesive-lined for the splices in the damp end**, plain for strain relief. |
 
 **Wiring the sensor run (HW-04).** Three conductors suffice: **V+, GND, TX**. RX
 is a mode-select strap — hardwire it low at the sensor for real-time mode. V+ with
@@ -251,18 +312,18 @@ mated twice, ever: RTV dab plus a zip-tie strain relief once seated.
 
 | Item | Qty | Status | Notes |
 |---|---|---|---|
-| **PVC pipe, 4" or 6" Sch40** | 1 | [settled] | HW-03. Cut to **50–75 mm**, sensor face flush with the top of the collar. A shallow wide *hood*, not a deep narrow tube. |
-| **Hole saw, 4" or 6"** | 1 | [settled] | Matched to the collar OD |
-| Silicone sealant, UV-stable | 1 | [proposed] | Lid penetration + gland seals |
-| Enclosure mounting hardware | — | [proposed] | Depends on what the node straps to at the tank cluster |
+| **PVC pipe, 4" Sch40** | 1 | [settled] — **on hand** | HW-03. Cut to **50–75 mm**, sensor face flush with the top of the collar. A shallow wide *hood*, not a deep narrow tube. **4", not 6" (SR-12)** — 4" Sch40 permits **88 mm** of standoff against the 50–75 mm actually wanted, so clearance is not the binding constraint, and a 6" hole in a tank lid is a bigger irreversible commitment. ⚠ **Cut practice collars from the pipe before touching the lid.** The pipe gives four or five attempts; the lid gives one. |
+| **Hole saw, 4"** | 1 | [settled] — **on hand** | Matched to the collar OD. ⚠ Check its **cutting depth** — many bi-metal saws cut ~1.5–1.9", fine for a tank lid but worth confirming. |
+| Silicone sealant, UV-stable | 1 | [settled] — **on hand** | Lid penetration + gland seals. ⚠ **Neutral-cure, not acetoxy (SR-13).** Acetoxy silicone releases acetic acid while curing and corrodes electronics and metal contacts inside a sealed box. Read the tube. |
+| Enclosure mounting hardware | — | [settled] — **on hand** | Owner reports included. ⚠ **Stainless or UV-stable nylon only** — zinc-plated hardware on a wet tank is a two-season part. The genuine unknown is what the box straps to, which is a decision made standing at the tank cluster, not from here (SR-15). |
 
 ### Gateway — at the server
 
 | Item | Qty | Status | Notes |
 |---|---|---|---|
 | Heltec Wireless Stick Lite V3 | — | [settled] | The second board above — identical to the node, so either can take either role |
-| USB-C cable, long | 1 | [proposed] | Length depends on where the radio ends up relative to the box |
-| U.FL→SMA pigtail + bulkhead + antenna | — | [settled] | Second set from the node rows above |
+| USB-C cable, long | 1 | [settled] — **on hand** | Length depends on where the radio ends up relative to the box. ⚠ Data, not charge-only. |
+| U.FL→SMA bulkhead pigtail + antenna | — | [settled] — **on hand** | Second set from the node rows above. **No separate bulkhead** — it is part of the pigtail. |
 
 > ⚠ **F-7 — the gateway shares the board but not the constraints.** It is
 > mains/USB powered. **HW-01 (antenna) applies to it; the battery, holder,
@@ -276,7 +337,7 @@ mated twice, ever: RTV dab plus a zip-tie strain relief once seated.
 | **USB-C data cables** ×2 | [settled] | ⚠ **Data, not charge-only** — the V3 flashes over a CP2102 bridge. Likely on hand. |
 | **USB power bank** | [settled] | Powers the walking board during the range test. Any 5 V bank; watch for low-draw auto-shutoff. Likely on hand. |
 | Multimeter | [settled] | **The only current instrument this build needs.** DEC-006 — the design errors worth catching (SX1262 not slept, OLED left on) are 1–40 mA and a multimeter in series reads them fine. |
-| ~~Nordic PPK2 (~$90–110)~~ | **not purchased** | DEC-006. Buys resolution *within* the µA band that the ~1.8× margin doesn't need. Revisit at 3+ distinct node designs. |
+| ~~Nordic PPK2 (~$90–110)~~ | **not purchased** | DEC-006. Buys resolution *within* the µA band that the margin (~1.48× post-amendment) doesn't need. Revisit at 3+ distinct node designs. |
 | Tape measure | [settled] | Calibration, §7 |
 
 ---
@@ -414,16 +475,30 @@ problem**: wake energy dominates by 5:1.
 | Self-discharge ~3 %/yr | ~360 mAh |
 | **Total** | **~2,460 mAh** |
 
-Against 6000 mAh nominal, **derated to ~4,500 mAh effective for cold** (Li-ion
-delivers ~70 % of rated near −10 °C; no charging, so no plating risk — just
-capacity). **~1.8× margin.**
+⚠ **Re-derived 2026-08-21 for the DEC-006 amendment. The capacity dropped and the
+margin dropped with it.**
 
-**Cadence: 15 minutes, not 10.** At a 10-minute interval the margin drops to
-~1.3×, which is thin. `SPEC.md` §3 settled the range at 10–15 min; this picks the
-top of it on evidence rather than taste. Tank level moves on rain events and
-irrigation runs — it does not need 10-minute resolution.
+| | Old — 2× loose cells | **Now — 1S2P pack** |
+|---|---|---|
+| Nameplate | 6,000 mAh | **5,200 mAh** |
+| Cold-derated (×0.70) | ~4,500 mAh | **~3,640 mAh** |
+| Margin @ 15 min | ~1.8× | **~1.48×** |
+| Margin @ 10 min | ~1.3× | **~1.1×** |
 
-**All of the margin lives in `t_active ≈ 2 s`.** That is the number to watch.
+Li-ion delivers ~70 % of rated near −10 °C; no charging, so no plating risk, just
+capacity. ⚠ **5,200 mAh is nameplate off a listing DEC-006's amendment says may
+not be trusted** — VBAT telemetry is what confirms it.
+
+🔒 **Cadence: 15 minutes, and it is now a FLOOR rather than a preference.** At
+6,000 mAh, 10 minutes was *thin* at ~1.3× and the choice was taste-adjacent. At
+5,200 mAh it is **~1.1×, which is no margin at all** — the wake term grows from
+~1,750 to ~2,625 mAh (96 → 144 wakes/day) against 3,640 mAh of derated capacity.
+`SPEC.md` §3 settled the range at 10–15 min; the battery now picks the top of it.
+Tank level moves on rain events and irrigation runs and does not need 10-minute
+resolution — which is fortunate, because it can no longer be paid for.
+
+**All of the margin lives in `t_active ≈ 2 s`, and there is now less of it to
+spend.** That is the number to watch.
 
 ### Getting to 16 µA — the disable list (HW-02)
 
@@ -543,7 +618,7 @@ milliseconds.
 - **On the bench, with a multimeter:** confirm sleep current is **microamps, not
   milliamps.** That is the whole check. The design errors that matter (radio not
   slept, OLED on, SPI floating) are 1–40 mA and a multimeter in series reads them
-  fine. A PPK2 buys resolution inside the µA band that the 1.8× margin has no use
+  fine. A PPK2 buys resolution inside the µA band that the ~1.48× margin has no use
   for — see DEC-006 for why it isn't being bought.
 - **In the field, from telemetry:** `battery_mv` is already a fixed header field
   in every packet (`contracts/packet-v1.md:45`) — no schema change needed. A
@@ -618,6 +693,23 @@ how good M2 can get.
 | 10 | Deploy and watch | **M1 — first light** |
 | 11 | Log fills as they happen | **M2 — calibrated gallons** |
 
+### Build-step additions from Round 3 sourcing
+
+Small, cheap, and each one prevents a specific irreversible mistake. Fold into the
+steps named.
+
+| # | Step | Where | Why |
+|---|---|---|---|
+| B-1 | **Meter JP1 polarity on every board before connecting any pack** | Step 5 | §3.7 recorded polarity from **one sample of one board**. That is a measurement, not a datasheet guarantee. |
+| B-2 | **Meter the pack pigtail polarity before plugging in** | Step 5 | Wire colour on a consumer pack is worth no more than the rest of its listing. Cut the shipped connector, crimp a JST 1.25. |
+| B-3 | **Paint-pen the LoRa U.FL socket (E2) before the first antenna goes on** | Step 5 | F-11 — two identical sockets, and the wrong one transmits into an unmatched load with **no error and no smoke**. |
+| B-4 | **Sleeve the exposed sensor run in split loom or ½" flex conduit** | Step 9 | UL 2464 PVC is not sunlight-rated. ~$4. The enclosure is shaded by design; the run up to the lid is not. |
+| B-5 | **Test-fit board + pack in the enclosure before drilling it** | Step 9 | Inner depth is 63 mm and **the U.FL bend radius is what consumes it**, not the components. |
+| B-6 | **Check gland size against the actual cable OD** | Step 9 | Glands are on hand in assorted sizes; the right one has not been identified. |
+| B-7 | **Verify 25 ft of sensor cable covers tank height plus slack before cutting** | Step 9 | Only one cut is free. |
+| B-8 | **Check the enclosure's moulded knockout thread before drilling** | Step 9 | Decides which on-hand gland fits without cutting a new hole. |
+| B-9 | **Confirm the pigtail thread reaches through the enclosure wall** | Step 9 | The on-hand pigtails shipped for Heltec's own thin shell. If the nut won't reach, a 14.5 mm-thread version is ~$12 — a part, not a redesign. |
+
 ⚠ **Checks 1–3 of step 5 were deliberately pulled ahead of step 4, and that was
 the right call.** Check 3 decides whether the P-FET load switch is bought at all,
 and it needs only a board and a meter — both already on hand from step 2. Running
@@ -675,15 +767,34 @@ purchase:**
 | HW-13 | A02YYUW reliable at 3.3 V? | ⏳ **The only open one.** Step 5 check 4, **blocked on the order.** See below. |
 | HW-19 | Does the fitted gradient model beat a single lid probe? | First season, from stored raw — no hardware change |
 
-**HW-13 has nothing left to research.** DFRobot's own spec table gives
-**Operating Voltage 3.3~5V** with no note recommending 5 V and no warning of
-degraded performance at the bottom of the range
+**F-8 is closed on the datasheet — operator's call, 2026-08-21 — and the bench
+test still runs.** DFRobot's own spec table reads **Operating Voltage 3.3~5V**
+with no 5 V recommendation and no note of degraded performance at the low end
 ([wiki](https://wiki.dfrobot.com/sen0311/),
 [datasheet](https://media.digikey.com/pdf/Data%20Sheets/DFRobot%20PDFs/SEN0311_Web.pdf)).
-The "prefer 5 V" guidance is reseller folklore with no manufacturer backing —
-**F-8 downgrades again.** That is not the same as proving reliability at the
-bottom of a spec'd range, which is exactly why F-8 exists, so the bench check
-stands. But there is no round of research that would close it: only the part will.
+The contrary "prefer 5 V for best performance" guidance is **unsourced reseller
+copy from the same listings that also produced the 15° beam angle and the phantom
+temperature compensation** — both of which the manufacturer spec flatly
+contradicts. A manufacturer's stated operating range beats marketplace prose.
+
+**Recorded dissent, because it was argued and lost rather than never raised:** the
+counter-position is that F-8 was never a claim about the *published* range but
+about *behaviour at the bottom* of it, which a datasheet cannot address because it
+does not contradict it. That reading makes HW-13 unclosable by any document. The
+operator's call is that unsourced reseller copy is not evidence strong enough to
+keep a finding open against the manufacturer.
+
+**Either way the bench test is unchanged and still runs at step 5**, so nothing
+downstream depends on which reading is right — it confirms rather than decides.
+Two sensors are on order specifically so a marginal result can be told apart from
+a bad unit.
+
+⚠ **Why this still matters after F-6 was retired, and it is the consequence hiding
+behind the row:** **Vext outputs 3.3 V**, and Vext is now what gates the sensor
+rail. If 3.3 V proves marginal, the fix is a discrete switch sourced from **VBAT
+(3.4–4.2 V)** — which reintroduces the P-FET that HW-11 just deleted, along with
+its firmware. HW-13 is the one open question that can still put a line back on the
+BOM.
 
 ⚠ **`GPIO37 = ADC_Ctrl` was folded into HW-14 and was NOT measured.** The Vext
 half is confirmed; the battery-sense gate is still documentary only (WSL V3 Rev1.1
@@ -698,8 +809,8 @@ Heltec has moved that exact pin across revisions before (C-5).
 |---|---|---|
 | **Link won't close** tank → server | Forces the fallback architecture (§3) | Range test is step 3, before any other spend |
 | **A02YYUW unreliable at 3.3 V** (F-8/HW-13) | A boost converter enters the BOM and §6 is re-derived | **Bench-test at step 5**, before the enclosure is built around it |
-| **`t_active` exceeds ~2 s** | The entire 1.8× margin lives here; overrun eats it directly | Measure awake time at step 6–7; 15-min cadence already banked the cheap margin |
-| **Series holder wired by mistake** | 7.4 V destroys the board | Confirm parallel at unboxing; verify JP1 polarity with a meter before first connection |
+| **`t_active` exceeds ~2 s** | ⚠ **Sharper since the DEC-006 amendment.** The entire margin lives here and it is now **~1.48×, not ~1.8×** — the same overrun eats proportionally more | Measure awake time at step 6–7; 15-min cadence already banked the cheap margin |
+| ~~**Series holder wired by mistake**~~ | — | **Retired with the holder (DEC-006 amendment)** — the pack is factory-wired 1S2P, so there is no series/parallel choice left to get wrong. The live half of this risk, *trusting a wire colour instead of a meter*, survives as **B-1 and B-2** in §8. |
 | **Sidewall / rib false echoes** at low level (F-3) | Short-reading outliers exactly where the pump-dry risk lives | Dead-centre mount, median-of-5–7, gateway band-check (§5) |
 | **Headspace stratification** defeats a single temp sensor | Residual error after correction | Accepted (DEC-007) — turns ~14 cm into low-single-digit cm; second sensor is a cheap later fix |
 | **Deep sleep worse than cited 16 µA** | Service interval shrinks | Multimeter check at step 7 confirms µA vs mA — the distinction that matters |
