@@ -133,9 +133,14 @@ contradicting decisions it can't see.
 Answers live here only in transit. **A `promoted` row's real home is elsewhere**
 — this file is a log, not a source of truth.
 
-> **§4 is for the other path.** If you ever want a lighter round, §4 is a
-> self-contained brief that works without the rest of the file. When you hand over
-> the whole document it's redundant but harmless — it states the round's ask.
+> **§4 is for the other path — but check that it still is.** For Rounds 1 and 2,
+> §4 was a self-contained brief that worked without the rest of the file, because
+> those rounds' questions were written out in it. **Round 3 is not**: its questions
+> are fourteen line items in a §3.8 table, and duplicating them into §4 would put
+> the same rows in two places to drift apart. A round whose questions live in a
+> table gets a §4 that is *context for* the table, not a replacement — and it says
+> so at the top. **Hand over the whole document; that is the default and always
+> works.**
 
 > **Shortcut when CC is in a live session:** answers can come straight into the
 > conversation instead of via the file, and CC writes the ledger *and* promotes in
@@ -327,7 +332,7 @@ Not tied to a single ID. Each needs a home.
 | F-9 | **The Stick Lite V3's advertised "≤800 µA deep sleep" is a stale V2-era figure.** Heltec's own `HTIT-WS_V3` datasheet carries a V2-vs-V3 comparison table listing deep sleep as **800 µA (V2, ESP32-D0/SX1276/Micro-USB) vs <10 µA (V3, ESP32-S3/SX1262/Type-C)**. The hardware update log attributes the 800 µA line to the 2019 V2 revision. The product page never updated it. **Do not budget against 800 µA.** | `SPEC.md` §4, `HARDWARE_BUILD_PLAN.md` §6 |
 | F-10 | **Forum "high sleep current" reports on this board are almost all LIGHT sleep, not deep sleep.** The one WSL V3 thread with an actual PPK2 trace states deep sleep base is "a few µA" and "close to zero"; its 7.5 mA and 2.0 mA figures are light-sleep baselines. Anyone quoting mA figures for this board should be checked for which sleep mode they measured. | `SPEC.md` §4 |
 | F-11 | **⚠ The Stick Lite V3 has TWO U.FL/IPEX sockets** — E2 (LoRa, behind the UPG2179 RF switch) and E3 (2.4 GHz Wi-Fi/BT, alongside the E1 spring antenna). The WiFi LoRa 32 V3 has only one. **Plugging the 915 MHz antenna into the 2.4 GHz socket transmits into an unmatched load.** Physically label the correct socket at build time; this is a silent, hard-to-diagnose failure. | `HARDWARE_BUILD_PLAN.md` §5, build checklist |
-| F-12 | **Board footprint and packing list both changed.** 58.08 × 22.6 × 8.2 mm (vs 50.2 × 25.5 × 10.2) — longer, narrower, thinner. Headers are **2×20** (vs 2×18). Packing list is board + LoRa antenna + SH1.25×2 connector + pin-map sticker — **no header pins included**, unlike the WiFi LoRa 32. Order headers separately if anything gets breadboarded. | `HARDWARE_BUILD_PLAN.md` §4 BOM, §5 enclosure sizing |
+| F-12 | **Board footprint and packing list both changed.** 58.08 × 22.6 × 8.2 mm (vs 50.2 × 25.5 × 10.2) — longer, narrower, thinner. Headers are **2×20** (vs 2×18). Packing list is board + LoRa antenna + SH1.25×2 connector + pin-map sticker — **no header pins included**, unlike the WiFi LoRa 32. ~~Order headers separately if anything gets breadboarded.~~ ⚠ **Corrected 2026-08-21 — nothing gets breadboarded, and headers are not a purchase.** See §3.6. The footprint half of this row still stands and still sizes the enclosure. | `HARDWARE_BUILD_PLAN.md` §4 BOM, §5 enclosure sizing |
 | F-13 | **Vext outputs 3.3 V, so it cannot solve HW-13.** If the A02YYUW proves unreliable at 3.3 V, Vext is not a route to 5 V. A zero-cost intermediate exists: gate the sensor from **VBAT (3.4–4.2 V)** with a discrete switch rather than the 3.3 V rail — more headroom, no new part, no boost. Only viable if HW-11's switch is built; Vext cannot do it. | `HARDWARE_BUILD_PLAN.md` §4, `docs/DECISIONS.md` |
 
 ---
@@ -676,7 +681,8 @@ stock is not an answer; say so and give the next one.
 | SR-11 | **JST 1.25 2-pin battery pigtail** | ⚠ Heltec calls it "SH1.25-2" and **the name is wrong** — real JST SH is 1.0 mm pitch. Look for *"JST 1.25 2-pin for Heltec/LilyGo."* | `open` | | |
 | SR-12 | **PVC 4" or 6" Sch40 + matching hole saw** | Cut to 50–75 mm. A shallow wide hood, not a deep tube. Local hardware is likely cheaper than shipped — say so if that's the answer. | `open` | | |
 | SR-13 | **Consumables** — UV-stable silicone, silica gel, Wago lever nuts, 100 nF + 10 µF caps, long USB-C | Low-value, high-annoyance-if-missing. One row so they don't get lost. | `open` | | |
-| SR-14 | **Anything this list is missing** | Rounds 1 and 2 both found their most valuable items by going off-script. If assembling this order surfaces a part nobody asked for, add an ID and answer it. | `open` | | |
+| SR-15 | **Enclosure mounting hardware** | ⚠ **Answer this one "deferred" unless something obvious fits.** `HARDWARE_BUILD_PLAN.md` §4 carries it as `[proposed]`, and it genuinely depends on what the node straps to at the tank cluster — which nobody has stood in front of and decided. It gets a row so it is a *named* deferral rather than a silent gap; a strap or bracket that arrives with the rest is worth more than a second shipment. | `open` | | |
+| SR-14 | **Anything this list is missing** | Rounds 1 and 2 both found their most valuable items by going off-script. If assembling this order surfaces a part nobody asked for, add an ID and answer it. **Do not rely on this row to catch a line item the table forgot** — it caught SR-15 only because a reviewer looked, not because the mechanism worked. | `open` | | |
 
 ⚠ **Do NOT source: 2×20 headers** (owner has stock; wires solder direct to the pads
 — see the correction in §3.6) or a **P-FET load switch** (F-6 retired 2026-08-20;
@@ -686,17 +692,27 @@ Vext gates the sensor). Both were live in earlier rounds and both are now wrong.
 
 ## 4. Brief to paste into chat — **Round 3 (sourcing)**
 
-> Copy everything between the rules, or hand over the whole file. Round 2's brief
-> is superseded; it is preserved verbatim in §4.1 below.
+> ⚠ **Round 3 breaks the "self-contained brief" pattern on purpose — hand over the
+> whole file, not an excerpt.** Rounds 1 and 2 wrote every question out in full
+> here, so §4 worked alone. This round's questions are **fourteen line items in the
+> §3.8 table**, and reproducing them here would put the same fourteen rows in two
+> places, where they would drift the first time one was answered. So the brief below
+> is context *for* §3.8, not a replacement for it: an excerpt-only handover leaves
+> six rows (SR-03, SR-04, SR-08, SR-09, SR-12, SR-13) unanswerable, which is the
+> exact failure that opened this round.
+>
+> Round 2's brief is superseded and preserved verbatim in §4.1.
 
 ---
 
 I'm sourcing the parts for a battery-powered wireless sensor node on a farm rain
 tank. **The research is done** — two prior rounds settled every part *type*. I need
 **specific products, vendor links, and current prices**, not design advice. Please
-answer by ID from the table you have (SR-01 … SR-14), and for each give the
-product, the vendor link, the price, and the one spec that proves it meets the
-constraint stated for that row.
+answer by ID from the **SR-01 … SR-15 table in §3.8 of this file**, and for each
+give the product, the vendor link, the price, and the one spec that proves it meets
+the constraint stated for that row. If you cannot see that table, you were handed an
+excerpt rather than the whole file — say so and ask for the file, because six of the
+rows appear nowhere else.
 
 **The build, in one paragraph.** One field node in the lid of a rain tank measures
 water level with an ultrasonic sensor and reports over LoRa every 15 minutes to a
@@ -873,4 +889,4 @@ the DEC cited beside it for whoever reads this repo later.
 |-------|--------|-------|--------|
 | 1 | 2026-08-07 | Tank node hardware — HW-01…HW-08, plus HW-09 (blind zone) and HW-10 (temperature) raised in chat | **2026-08-08 — all 10 `promoted`.** CC review in §3.3; math re-derived and confirmed; five corrections logged. Yielded DEC-006, DEC-007, and four new open items. |
 | 2 | 2026-08-08 | **Board change to Stick Lite V3** (HW-15…HW-18) + loose ends (HW-11…HW-13). HW-14 is a meter check on receipt, not a chat question. Brief in §4. | **2026-08-20 — closed.** All nine research rows `promoted`. The bench session (§3.7) then measured HW-05, HW-14 (GPIO36 half) and HW-18: **Vext switches to 3.0 mV, so HW-11 is closed and the P-FET leaves the BOM.** CC review in §3.6. |
-| 3 | 2026-08-21 | **Sourcing — SR-01…SR-14.** Rounds 1–2 answered *what kind of part*; this one answers *which SKU, from whom, at what price*. Ledger in §3.8, brief in §4. Carries three corrections chat would otherwise get wrong: protected-cell length vs holder, no headers, no P-FET. | — |
+| 3 | 2026-08-21 | **Sourcing — SR-01…SR-15.** Rounds 1–2 answered *what kind of part*; this one answers *which SKU, from whom, at what price*. Ledger in §3.8, brief in §4. Carries three corrections chat would otherwise get wrong: protected-cell length vs holder, no headers, no P-FET. | — |
