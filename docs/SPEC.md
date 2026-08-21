@@ -142,9 +142,13 @@ Deep sleep ~20–30 µA; active cycle ~3–5 s every 15 min; average ~0.15–0.2
 > cold-derated pack — i.e. it would make this design look impossible. Build against
 > the measured 16 µA that the 20–30 µA bracket above already covers.
 >
-> ⚠ **The Vext residual is an OLED artefact, not a board property.** Round 1
-> attributed it to the wrong component; with no OLED it should switch clean.
-> Confirm with a meter before relying on it (`HARDWARE_BUILD_PLAN.md` §6).
+> ✅ **The Vext residual is an OLED artefact, not a board property — measured
+> 2026-08-20.** Round 1 attributed it to the wrong component and concluded the rail
+> was unusable. On this board Vext reads **3.3 V on and 3.0 mV off**, so it *is*
+> the switched sensor rail: no discrete P-FET load switch, and none of the firmware
+> that would have driven one. Method and the one remaining caveat — Vext cannot
+> supply more than 3.3 V if the sensor turns out to need it — in
+> `HARDWARE_BUILD_PLAN.md` §6.
 
 - 2× 18650 parallel ≈ 3.4 yr theoretical; derated for cold ≈ **~2 yr real-world**.
 - **Solar deliberately rejected for V1** — power needs are tiny, and solar adds a
