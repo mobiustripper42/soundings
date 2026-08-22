@@ -77,6 +77,11 @@ Sensor rail-on is ~800 ms ≈ 6.4 mA·s. **Do not contort this to save sensor
 milliseconds** — the ESP32 awake alongside it costs roughly 5× as much, so total
 awake time is the term worth optimising.
 
+The strategy above is implemented in `firmware/src/core/a02yyuw.cpp`; the numbers
+are named in `A02yyuwConfig` so the bench can move them without a code change.
+One `IDistance::read()` is one complete cycle — rail on, settle, discard, collect,
+median, rail off.
+
 ### Dead zone — **3 cm, not 20–25 cm** (HW-09)
 
 > **Corrected 2026-08-08.** This doc previously claimed a ~20–25 cm blind zone and
