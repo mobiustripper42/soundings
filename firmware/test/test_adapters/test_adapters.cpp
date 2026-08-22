@@ -6,6 +6,8 @@
 #include "../fakes/fake_radio.h"
 #include "../fakes/fake_battery.h"
 #include "../fakes/fake_sleeper.h"
+#include "../fakes/fake_bytesource.h"
+#include "../fakes/fake_powerrail.h"
 
 // Phase 3.3 — the tank-node adapter seam (issue 42). These tests grade the FAKES, because
 // the fakes are the deliverable that everything downstream (3.4's run cycle, 3.5's
@@ -228,6 +230,63 @@ void test_failed_distance_read_rides_as_a_declared_fault() {
     TEST_ASSERT_TRUE(rx.isFault(8));
 }
 
+// ---- IByteSource / IPowerRail (Phase 3.8a) ---------------------------------
+
+void test_fake_bytesource_delivers_pushed_bytes_in_order() {
+    FakeByteSource src;
+    src.push(0xFF); src.push(0x07);
+    uint8_t b = 0;
+    TEST_ASSERT_TRUE(src.readByte(b));  TEST_ASSERT_EQUAL_UINT8(0xFF, b);
+    TEST_ASSERT_TRUE(src.readByte(b));  TEST_ASSERT_EQUAL_UINT8(0x07, b);
+}
+
+// Exhausted must read as "nothing right now", not as an error and not as a zero byte —
+// that is what a free-running sensor's UART looks like between frames, and a fake that
+// returned 0x00 instead would feed the parser a byte the sensor never sent.
+void test_fake_bytesource_reports_empty_without_writing_the_byte() {
+    FakeByteSource src;
+    uint8_t b = 0x5A;
+    TEST_ASSERT_FALSE(src.readByte(b));
+    TEST_ASSERT_EQUAL_UINT8(0x5A, b);
+}
+
+// pushFrame is the helper every driver test leans on, so its checksum arithmetic is
+// graded here against DFRobot's published worked example rather than trusted.
+void test_fake_bytesource_pushframe_matches_the_published_vector() {
+    FakeByteSource src;
+    src.pushFrame(1953);
+    const uint8_t want[4] = {0xFF, 0x07, 0xA1, 0xA7};
+    for (int i = 0; i < 4; ++i) {
+        uint8_t b = 0;
+        TEST_ASSERT_TRUE(src.readByte(b));
+        TEST_ASSERT_EQUAL_UINT8(want[i], b);
+    }
+}
+
+void test_fake_powerrail_tracks_state_and_transitions() {
+    FakePowerRail rail;
+    TEST_ASSERT_FALSE(rail.isOn());
+    rail.on();  rail.on();          // idempotent: a second on() is not a second transition
+    TEST_ASSERT_TRUE(rail.isOn());
+    TEST_ASSERT_EQUAL_INT(1, rail.onCount());
+    rail.off();
+    TEST_ASSERT_FALSE(rail.isOn());
+    TEST_ASSERT_EQUAL_INT(1, rail.offCount());
+}
+
+// autoAdvance is opt-in, and the default has to stay frozen — every existing test in this
+// repo assumes time moves only when it says so.
+void test_fake_clock_does_not_advance_unless_asked() {
+    FakeClock c;
+    c.millis(); c.millis();
+    TEST_ASSERT_EQUAL_UINT32(0, c.millis());
+
+    c.autoAdvance(5);
+    TEST_ASSERT_EQUAL_UINT32(0, c.millis());   // returns the instant BEFORE the tick
+    TEST_ASSERT_EQUAL_UINT32(5, c.millis());
+    TEST_ASSERT_EQUAL_UINT32(10, c.millis());
+}
+
 int main(int, char**) {
     UNITY_BEGIN();
     RUN_TEST(test_fake_distance_returns_scripted_readings_in_order);
@@ -247,5 +306,10 @@ int main(int, char**) {
     RUN_TEST(test_fake_sleeper_accumulates_total_slept);
     RUN_TEST(test_distance_reading_survives_serialize_transmit_deserialize);
     RUN_TEST(test_failed_distance_read_rides_as_a_declared_fault);
+    RUN_TEST(test_fake_bytesource_delivers_pushed_bytes_in_order);
+    RUN_TEST(test_fake_bytesource_reports_empty_without_writing_the_byte);
+    RUN_TEST(test_fake_bytesource_pushframe_matches_the_published_vector);
+    RUN_TEST(test_fake_powerrail_tracks_state_and_transitions);
+    RUN_TEST(test_fake_clock_does_not_advance_unless_asked);
     return UNITY_END();
 }
