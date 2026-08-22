@@ -119,11 +119,16 @@ void test_read_discards_the_first_three_frames() {
     bytes.pushFrame(900); bytes.pushFrame(901); bytes.pushFrame(902);
     bytes.pushFrame(1200); bytes.pushFrame(1205); bytes.pushFrame(1210);
     bytes.pushFrame(1215); bytes.pushFrame(1220);
+    // Trailing noise the driver must never reach: once it has its five samples it stops,
+    // rather than draining the UART. On hardware those bytes are the sensor still talking
+    // into a rail that is about to be cut, and reading them is time the node spends awake.
+    bytes.push(0xFF); bytes.push(0xFF); bytes.push(0xFF); bytes.push(0xFF);
 
     A02yyuwDistance sensor(bytes, rail, clock, settledConfig());
     IDistance::Reading r = sensor.read();
     TEST_ASSERT_TRUE(r.ok);
     TEST_ASSERT_EQUAL_UINT16(1210, r.raw);
+    TEST_ASSERT_EQUAL_INT(32, bytes.consumed());   // 8 frames exactly, and not a byte more
 }
 
 // Median, not mean — the whole reason the read strategy exists. One dropped echo reading

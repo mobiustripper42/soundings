@@ -38,6 +38,12 @@ public:
     // Frames that completed with a wrong SUM. Not an error path the driver acts on — it
     // just keeps reading — but a diagnostic worth having at the bench, where "the sensor
     // is silent" and "the sensor is shouting garbage" want different cables checked.
+    //
+    // CUMULATIVE over the parser's lifetime, deliberately: reset() clears the partial
+    // frame in hand, not the count. A per-read figure would answer "was this reading
+    // noisy", which nothing needs, where the running total answers "is this cable getting
+    // worse", which is the bench question. Nothing consumes it yet — if something later
+    // wants a per-cycle number it should subtract, not repurpose this.
     uint16_t badChecksums() const { return badChecksums_; }
 
     // Drop any partial frame and hunt for a header again. Called when the byte stream is
@@ -87,7 +93,7 @@ class A02yyuwDistance : public IDistance {
 public:
     // Ceiling on sampleFrames: the read strategy says 5–7, and a fixed array keeps the
     // driver allocation-free on a node that must never fragment a heap it cannot inspect.
-    static const uint8_t kMaxSampleFrames = 7;
+    static constexpr uint8_t kMaxSampleFrames = 7;
 
     A02yyuwDistance(IByteSource& bytes, IPowerRail& rail, IClock& clock,
                     const A02yyuwConfig& cfg = A02yyuwConfig())
