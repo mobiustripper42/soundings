@@ -13,12 +13,17 @@ using namespace soundings;
 void setUp() {}
 void tearDown() {}
 
-void test_elapsed_not_expired_before_interval() {
+// Both halves in one test, because `expired() { return false; }` passes the first half
+// alone — verified by mutation. The interesting claim is not "false at 999 ms", it is
+// that the transition happens at 1000 and not at 999.
+void test_elapsed_fires_at_the_interval_and_not_before() {
     FakeClock clock;
     Elapsed timer(clock);
     timer.arm(1000);
     clock.advance(999);
     TEST_ASSERT_FALSE(timer.expired());
+    clock.advance(1);
+    TEST_ASSERT_TRUE(timer.expired());
 }
 
 void test_elapsed_expired_at_interval() {
@@ -34,6 +39,12 @@ void test_elapsed_unarmed_never_expires() {
     Elapsed timer(clock);
     clock.advance(100000);
     TEST_ASSERT_FALSE(timer.expired());
+    // Arming the same timer must make it live — otherwise "never expires" is being
+    // asserted of a timer that can never expire under any circumstances, which is a
+    // different and much weaker claim.
+    timer.arm(10);
+    clock.advance(10);
+    TEST_ASSERT_TRUE(timer.expired());
 }
 
 // The reason the subtraction is (now - start) and not (now >= start + interval): a
@@ -65,7 +76,7 @@ void test_fake_sensor_signals_failed_read() {
 
 int main(int, char**) {
     UNITY_BEGIN();
-    RUN_TEST(test_elapsed_not_expired_before_interval);
+    RUN_TEST(test_elapsed_fires_at_the_interval_and_not_before);
     RUN_TEST(test_elapsed_expired_at_interval);
     RUN_TEST(test_elapsed_unarmed_never_expires);
     RUN_TEST(test_elapsed_wrap_safe_across_millis_rollover);

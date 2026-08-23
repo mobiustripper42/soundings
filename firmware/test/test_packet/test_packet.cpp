@@ -175,11 +175,18 @@ void test_unknown_channel_rejected() {
     TEST_ASSERT_EQUAL((int)ParseResult::UnknownChannel, (int)deserialize(buf, o, q));
 }
 
+// The refusal is paired with the adjacent legal case, because `serialize() { return 0; }`
+// satisfies a refusal on its own — confirmed by mutation. What is being pinned is that
+// the reserved bit is what causes the refusal, not that serialize refuses.
 void test_serialize_refuses_unknown_channel() {
     Packet p;
     p.channel_mask = (uint16_t)(1u << 14);  // reserved
     uint8_t buf[kMaxPacketLen];
     TEST_ASSERT_EQUAL_size_t(0, serialize(p, buf, sizeof(buf)));
+
+    Packet ok;
+    ok.setChannel(8, 1234);                 // TANK_DISTANCE, a sized channel
+    TEST_ASSERT_TRUE(serialize(ok, buf, sizeof(buf)) > 0);
 }
 
 void test_bad_fault_mask_rejected() {

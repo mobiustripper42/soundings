@@ -49,6 +49,16 @@ def reading(distance_mm=600, temp_raw=320, *, node_id=1,
 def topics(pairs):
     return {t: v for t, v in pairs}
 
+def assert_derives_normally():
+    """Positive control, paired with every "derives nothing" assertion in this file.
+
+    `derive_tank` returning `[]` unconditionally satisfies an empty-result assertion on
+    its own, so a refusal test alone pins nothing about WHY it refused. Confirmed by
+    mutation: with `derive_tank` stubbed to `return []`, nine tests in this file passed.
+    """
+    assert topics(derive.derive_tank(reading(), CFG)) != {}
+
+
 
 # ---- Topic hierarchy (D9) ---------------------------------------------------
 
@@ -134,12 +144,16 @@ def test_a_missing_temperature_channel_refuses_gallons():
     # percent is gated with gallons, and a percent derived from a suppressed volume is
     # the exact shape of leak this refusal exists to prevent.
     assert "farm/soundings/water/cluster/percent" not in out
+    # ...and both topics DO appear when the temperature is present, so this pins the
+    # missing channel as the cause rather than a derivation that publishes nothing.
+    assert "farm/soundings/water/cluster/level_gal" in topics(derive.derive_tank(reading(), CFG))
 
 
 def test_a_faulted_distance_publishes_nothing_derived():
     # Total silence, not "the two topics I thought to name" — a faulted distance leaves
     # nothing derivable, so anything appearing here at all is a regression.
     assert topics(derive.derive_tank(reading(distance_fault=True), CFG)) == {}
+    assert_derives_normally()
 
 
 # Outside the A02YYUW's 30–4500 mm range the number is not a short or long distance,
@@ -147,11 +161,13 @@ def test_a_faulted_distance_publishes_nothing_derived():
 def test_a_distance_below_the_sensor_range_is_rejected_entirely():
     out = topics(derive.derive_tank(reading(distance_mm=10), CFG))
     assert out == {}
+    assert_derives_normally()
 
 
 def test_a_distance_above_the_sensor_range_is_rejected_entirely():
     out = topics(derive.derive_tank(reading(distance_mm=4600), CFG))
     assert out == {}
+    assert_derives_normally()
 
 
 def test_a_reading_at_the_exact_range_boundaries_is_accepted():
@@ -162,6 +178,7 @@ def test_a_reading_at_the_exact_range_boundaries_is_accepted():
 # An unmapped node is a provisioning gap, not a reason to guess a location.
 def test_a_node_absent_from_the_map_derives_nothing():
     assert derive.derive_tank(reading(node_id=99), CFG) == []
+    assert_derives_normally()
 
 
 def test_a_node_whose_role_is_not_tank_derives_nothing():
@@ -169,6 +186,7 @@ def test_a_node_whose_role_is_not_tank_derives_nothing():
                         nodes={1: NodeLocation(1, "bed/north", "soil")},
                         tanks={})
     assert derive.derive_tank(reading(), cfg) == []
+    assert_derives_normally()
 
 
 # A mapped node whose location has no geometry entry is a config error, and guessing a
@@ -178,6 +196,7 @@ def test_a_location_with_no_geometry_derives_nothing():
                         nodes={1: NodeLocation(1, "water/cluster", "tank")},
                         tanks={})
     assert derive.derive_tank(reading(), cfg) == []
+    assert_derives_normally()
 
 
 def test_derivation_never_raises_on_a_malformed_reading():
@@ -186,3 +205,4 @@ def test_derivation_never_raises_on_a_malformed_reading():
     assert derive.derive_tank({}, CFG) == []
     assert derive.derive_tank({"node_id": 1}, CFG) == []
     assert derive.derive_tank({"node_id": 1, "channels": "not a list"}, CFG) == []
+    assert_derives_normally()

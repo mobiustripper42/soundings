@@ -121,6 +121,31 @@ Tiered, mirroring tinkle:
 - **Bench:** breadboard node, real radio, square-wave stand-ins for sensors.
 - **Wet/field confirm:** real parts in a tunnel — the final gate.
 
+### A refusal test needs a positive control in the same test
+
+**If every assertion in a test is satisfied by the null value — `0`, `false`, `None`,
+`[]`, "raises" — the test passes against an implementation that does nothing, and it is
+green while pinning nothing.** Pair it with the adjacent legal case in the same test: the
+length that *is* accepted, the config that *does* derive, the moment the timer *does*
+expire. What you are pinning is the boundary, not a general willingness to say no.
+
+This is written down because it kept happening — three occurrences in two consecutive PRs
+before anyone looked, and nineteen more found in the existing suites when someone did.
+
+**Upper bounds count too, and this is the part that surprises.** `assert ms <= limit` is
+satisfied by `0`. The worst instance found: the clamp that stops a misconfigured node
+deep-sleeping for 49 days was pinned by three tests that all asserted a sleep of **0** —
+arithmetically correct at the low end of the jitter window, and exactly what a
+do-nothing implementation returns. A sleep of 0 also means the node never sleeps, which
+is the wake-forever failure DEC-006 names as the real battery killer. The one value those
+tests agreed on was the value that would have been a disaster.
+
+**Mutation is how you check, and grep is not.** Stub the function under test to return
+its null value, run the suite, and see what still passes. Pattern-matching for
+negative-shaped assertions misses the upper-bound case entirely. It costs one edit and
+one test run, and it is worth doing on anything whose failure mode is a node that does
+not come back.
+
 ## Versioning (project)
 
 **There IS a `package.json`** — it builds nothing and carries no dependencies, but it holds the doc-integrity gates (DEC-S036/S037) and the version the workflow bumps. So the shell's version-bump steps in `/retro` and `/bump-major` **do** run here; they no longer no-op. `<VersionTag />` is still N/A — there is no UI to render one in. Packet payloads also carry their own firmware-version field (architecture, above), which is the version that matters operationally; the repo version is the workflow's, not the fleet's, and the two are unrelated.
