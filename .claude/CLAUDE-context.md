@@ -130,7 +130,7 @@ length that *is* accepted, the config that *does* derive, the moment the timer *
 expire. What you are pinning is the boundary, not a general willingness to say no.
 
 This is written down because it kept happening — three occurrences in two consecutive PRs
-before anyone looked, and eighteen more found in the existing suites when someone did.
+before anyone looked, and nineteen more found in the existing suites when someone did.
 
 **Upper bounds count too, and this is the part that surprises.** `assert ms <= limit` is
 satisfied by `0`. The worst instance found: the clamp that stops a misconfigured node

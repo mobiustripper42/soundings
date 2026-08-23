@@ -67,3 +67,8 @@ def test_geometry_defaults_are_safe_when_a_key_is_absent(tmp_path):
     # measured defaults FALSE — an absent flag must never read as "go ahead".
     assert cfg.tanks["water/cluster"].measured is False
     assert cfg.tanks["water/cluster"].breakpoint_mm == 0
+    # The field that WAS supplied has to round-trip, or every assertion above is
+    # satisfied by a parser that discards `entry` and returns bare defaults. The
+    # shipped config has every geometry field at its zero default (the tanks are not
+    # measured yet), so nothing else in this suite would notice.
+    assert cfg.tanks["water/cluster"].capacity_gal == 2530.0

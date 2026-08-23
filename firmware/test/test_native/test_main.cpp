@@ -16,7 +16,7 @@ void tearDown() {}
 // Both halves in one test, because `expired() { return false; }` passes the first half
 // alone — verified by mutation. The interesting claim is not "false at 999 ms", it is
 // that the transition happens at 1000 and not at 999.
-void test_elapsed_not_expired_before_interval() {
+void test_elapsed_fires_at_the_interval_and_not_before() {
     FakeClock clock;
     Elapsed timer(clock);
     timer.arm(1000);
@@ -76,7 +76,7 @@ void test_fake_sensor_signals_failed_read() {
 
 int main(int, char**) {
     UNITY_BEGIN();
-    RUN_TEST(test_elapsed_not_expired_before_interval);
+    RUN_TEST(test_elapsed_fires_at_the_interval_and_not_before);
     RUN_TEST(test_elapsed_expired_at_interval);
     RUN_TEST(test_elapsed_unarmed_never_expires);
     RUN_TEST(test_elapsed_wrap_safe_across_millis_rollover);
