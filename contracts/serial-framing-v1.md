@@ -84,12 +84,20 @@ board dies after writing a valid `LEN` but before writing the payload, the reade
 is committed: it waits for `LEN` bytes and takes whatever arrives next. It emits
 one garbage candidate, which the payload CRC rejects downstream.
 
-The cost is bounded — at most 46 absorbed bytes, therefore **at most one
-following frame lost**, and only when a reset lands inside a frame. A frame
-checksum would detect this a frame earlier but not prevent it, so it buys nothing
-the CRC doesn't already provide. The property that matters is that the reader
-never wedges: it is consuming bytes the whole time and is back in sync within one
-frame.
+**The bound is in bytes: at most 46 bytes of the following stream may be misread
+as payload.** That is what the code guarantees — `LEN` cannot exceed the largest
+legal packet, so the reader cannot be committed to more than that.
+
+Expressed in *frames*, the worst case is **two**, not one. The smallest complete
+frame is 3 + 14 = 17 bytes, and ⌊46 ÷ 17⌋ = 2 — so a reset landing immediately
+after a `LEN` of 46 can swallow two whole minimum-sized frames before the window
+closes. Two lost readings is 30 minutes of tank level at the 15-minute cadence.
+
+Accepted, because the alternatives don't help: a frame checksum would detect the
+absorption one frame earlier but not prevent it, and the event requires a board
+reset landing inside a frame, which is not something that happens in steady
+operation. The property that matters is that the reader never wedges — it is
+consuming bytes the whole time and is back in sync within one window.
 
 **A false sync inside a payload is expected, not exceptional.** `0xA5 0x5A` can
 occur in packet data. It is harmless: it is only looked for when the reader is

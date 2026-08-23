@@ -13,7 +13,7 @@ from __future__ import annotations
 
 import pytest
 
-from soundings_gateway.framing import MAX_PAYLOAD, MIN_PAYLOAD, SYNC, SerialFramer
+from soundings_gateway.framing import MAX_PAYLOAD, MIN_PAYLOAD, OVERHEAD, SYNC, SerialFramer
 from soundings_gateway.gateway import Gateway
 from soundings_gateway.source import SerialPacketSource
 
@@ -100,9 +100,8 @@ def test_reset_mid_frame_absorbs_following_bytes_then_recovers():
     emits candidates rather than claiming to emit packets: the payload CRC rejects it
     downstream, on the path that already exists for radio-corrupted packets.
 
-    The cost is bounded — at most 46 absorbed bytes, so at most one following frame,
-    and only when a reset lands mid-frame. The reader does not wedge, which is the
-    property that actually matters."""
+    The cost is bounded in BYTES — at most MAX_PAYLOAD of the following stream. See
+    the test below for what that is worth in frames; it is not one."""
     f = SerialFramer()
     truncated = framed(payload(40))[:12]
     out = list(f.feed(truncated + BOOT_CHATTER + framed(payload(24, 0xCC))))
@@ -110,6 +109,31 @@ def test_reset_mid_frame_absorbs_following_bytes_then_recovers():
     assert len(out) == 2
     assert out[0] != payload(40)        # garbage: the 9 real bytes plus boot chatter
     assert out[1] == payload(24, 0xCC)  # and the next whole frame survives intact
+
+
+def test_absorption_worst_case_swallows_two_whole_frames():
+    """The worst case is TWO lost frames, not one, and the arithmetic is the reason.
+
+    The smallest complete frame is OVERHEAD + MIN_PAYLOAD = 17 bytes, and the largest
+    absorption window is MAX_PAYLOAD = 46, so floor(46 / 17) = 2 whole frames fit
+    inside one window. A reset landing immediately after a LEN of 46 — with no payload
+    bytes written yet — hits exactly that.
+
+    Pinned as a test because the bound was originally written down as "at most one
+    following frame" and was wrong. At a 15-minute cadence this is 30 minutes of tank
+    level, so the number matters to whoever is staring at a gap in the chart."""
+    f = SerialFramer()
+    smallest = framed(payload(MIN_PAYLOAD, 0xAA))
+    assert len(smallest) == OVERHEAD + MIN_PAYLOAD == 17
+
+    window = smallest + smallest + payload(MAX_PAYLOAD - 2 * len(smallest), 0x00)
+    assert len(window) == MAX_PAYLOAD
+
+    out = list(f.feed(SYNC + bytes([MAX_PAYLOAD]) + window + framed(payload(20, 0xEE))))
+
+    assert len(out) == 2
+    assert out[0] == window                # both real frames swallowed whole
+    assert out[1] == payload(20, 0xEE)     # and the reader is back in sync after one window
 
 
 def test_daemon_restart_mid_stream_discards_the_partial_frame():
