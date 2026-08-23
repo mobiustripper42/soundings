@@ -215,6 +215,10 @@ def test_source_never_raises_on_malformed_input():
 def test_source_survives_a_stream_that_is_only_garbage():
     src = SerialPacketSource(ScriptedStream([BOOT_CHATTER, b"\xa5" * 100]))
     assert list(src) == []
+    # Positive control: the same garbage with a frame appended does yield it. Without
+    # this the test passes against a source that yields nothing from any input.
+    ok = SerialPacketSource(ScriptedStream([BOOT_CHATTER, b"\xa5" * 100, framed(payload(18))]))
+    assert list(ok) == [payload(18)]
 
 
 def test_source_drives_the_gateway_end_to_end():

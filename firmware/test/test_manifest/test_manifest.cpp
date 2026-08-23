@@ -258,10 +258,13 @@ void test_manifest_supplied_nonsense_jitter_is_still_clamped() {
     NodeManifest m = tankPreset(7);
     m.intervalMs = 1000;
     m.jitterMs   = 5000;
-    n.rng.push(0);
+    n.rng.push(1500);
     RunCycleConfig cfg = configFromManifest(m, 0x0103);
     RunCycle c(cfg, n.slots, 0, n.battery, n.radio, n.clock, n.sleeper, n.rng, n.seq);
-    TEST_ASSERT_EQUAL_UINT32(0, c.nextSleepMs());
+    // Non-zero on purpose: pinned at 0, this test — and every other test in this file —
+    // passed against `nextSleepMs() { return 0; }`. Clamped, span = 2001 and the answer
+    // is 1500; unclamped it underflows to roughly 49 days.
+    TEST_ASSERT_EQUAL_UINT32(1500, c.nextSleepMs());
 }
 
 // ---- End to end ------------------------------------------------------------

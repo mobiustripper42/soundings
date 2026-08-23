@@ -166,12 +166,20 @@ def test_gallons_appear_once_the_geometry_is_measured():
 
 def test_the_envelope_is_json_serializable():
     import json
-    json.dumps(publish.envelope(reading(), CFG))   # raises if not
+    env = publish.envelope(reading(), CFG)
+    # Asserted before dumping: json.dumps(None) succeeds quietly, so the original
+    # form passed against `envelope() { return None }` — confirmed by mutation.
+    assert env is not None
+    json.dumps(env)   # raises if not
 
 
 def test_a_malformed_reading_does_not_raise():
     # This runs in the publish path of a long-lived daemon.
     assert publish.envelope({}, CFG) is None
+    # Paired positive control: a well-formed reading still produces an envelope, so
+    # this pins the malformed input as the cause rather than a function that refuses
+    # everything.
+    assert publish.envelope(reading(), CFG) is not None
 
 
 # seq is half the natural key (node_id, seq). A document with a null seq publishes fine
@@ -180,6 +188,9 @@ def test_a_malformed_reading_does_not_raise():
 # contract calls seq required, so the code has to actually refuse it.
 def test_a_reading_with_no_seq_is_refused_because_it_cannot_be_keyed():
     assert publish.envelope({"node_id": 7, "battery_mv": 3800}, CFG) is None
+    # The same reading WITH a seq is accepted — otherwise "refused because it cannot
+    # be keyed" is asserted of a function that refuses regardless.
+    assert publish.envelope({"node_id": 7, "seq": 1, "battery_mv": 3800}, CFG) is not None
 
 
 def test_seq_zero_is_a_real_sequence_number_not_a_missing_one():

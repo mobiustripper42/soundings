@@ -249,14 +249,30 @@ void test_jitter_never_escapes_the_window_for_any_rng_value() {
 // brick until someone walks out and pulls the cell. The invariant is clamped rather than
 // asserted: a misconfigured node that wakes too often is recoverable over the air, and
 // one that aborts on boot is a reflash in a tunnel.
+// ⚠ These three assert an EXACT non-zero sleep, and the reason is not stylistic.
+//
+// Each of them originally pinned a sleep of 0 — arithmetically correct at the low end of
+// the window, and also exactly what `nextSleepMs() { return 0; }` returns. Verified by
+// mutation: with that body substituted, all three passed, and so did the entire
+// test_manifest suite. The clamp that stops a node bricking itself for 49 days was not
+// pinned by anything.
+//
+// A sleep of 0 is not a harmless assertion to land on, either — it means the node never
+// sleeps, which is the wake-forever failure DEC-006 names as the actual battery killer.
+// The one value these tests agreed on was a value that would have been a disaster.
+//
+// So: drive the RNG to a value whose correct answer is distinctive, and assert it. An
+// implementation that returns 0, and one that underflows, now both fail.
 void test_jitter_larger_than_interval_cannot_underflow_the_sleep() {
     Rig r;
-    r.rng.push(0);
+    r.rng.push(1500);
     RunCycleConfig cfg = r.cfg();
     cfg.intervalMs = 1000;
     cfg.jitterMs   = 5000;          // nonsense, and must stay merely wrong
     RunCycle c(cfg, r.slots, 1, r.battery, r.radio, r.clock, r.sleeper, r.rng, r.seq);
-    TEST_ASSERT_EQUAL_UINT32(0, c.nextSleepMs());
+    // jitter clamps to 1000, so span = 2001 and offset = 1500 % 2001 = 1500.
+    // Unclamped this would be 1000 - 5000 + 1500, i.e. ~49 days of unsigned underflow.
+    TEST_ASSERT_EQUAL_UINT32(1500, c.nextSleepMs());
 }
 
 void test_jitter_larger_than_interval_stays_bounded_for_any_rng_value() {
@@ -266,18 +282,27 @@ void test_jitter_larger_than_interval_stays_bounded_for_any_rng_value() {
     cfg.intervalMs = 1000;
     cfg.jitterMs   = 5000;
     RunCycle c(cfg, r.slots, 1, r.battery, r.radio, r.clock, r.sleeper, r.rng, r.seq);
-    TEST_ASSERT_TRUE(c.nextSleepMs() <= 2u * cfg.intervalMs);
+    const uint32_t ms = c.nextSleepMs();
+    // The bound is the property under test, but a bound alone is satisfied by 0 — which
+    // is how this one survived the mutation. 0xFFFFFFFF % 2001 = 885, so the exact answer
+    // is stated beside the bound and the bound keeps its meaning.
+    TEST_ASSERT_EQUAL_UINT32(885, ms);
+    TEST_ASSERT_TRUE(ms <= 2u * cfg.intervalMs);
 }
 
-// The exact boundary, where the clamp is a no-op and the low extreme is zero.
+// The exact boundary, where the clamp is a no-op. Two draws, because the low extreme here
+// genuinely IS zero and a single assertion of it says nothing — the second draw is what
+// distinguishes a working window from a stuck one.
 void test_jitter_equal_to_interval_is_the_boundary_and_does_not_wrap() {
     Rig r;
     r.rng.push(0);
+    r.rng.push(2000);
     RunCycleConfig cfg = r.cfg();
     cfg.intervalMs = 1000;
     cfg.jitterMs   = 1000;
     RunCycle c(cfg, r.slots, 1, r.battery, r.radio, r.clock, r.sleeper, r.rng, r.seq);
-    TEST_ASSERT_EQUAL_UINT32(0, c.nextSleepMs());
+    TEST_ASSERT_EQUAL_UINT32(0,    c.nextSleepMs());   // low extreme, and it does not wrap
+    TEST_ASSERT_EQUAL_UINT32(2000, c.nextSleepMs());   // high extreme of the same window
 }
 
 void test_cycle_sleeps_exactly_once_for_the_jittered_interval() {
