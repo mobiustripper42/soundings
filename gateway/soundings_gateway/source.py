@@ -9,8 +9,14 @@ build (CLAUDE.md "adapters everywhere").
 """
 from __future__ import annotations
 
+import logging
 from abc import ABC, abstractmethod
 from collections.abc import Iterable, Iterator
+from typing import Protocol
+
+from .framing import SerialFramer
+
+log = logging.getLogger(__name__)
 
 
 class IPacketSource(ABC):
@@ -31,3 +37,57 @@ class FakePacketSource(IPacketSource):
 
     def __iter__(self) -> Iterator[bytes]:
         return iter(self._packets)
+
+
+class ByteStream(Protocol):
+    """Anything that hands over bytes when asked. `serial.Serial` satisfies it.
+
+    Declared structurally, and deliberately: it keeps pyserial out of this module
+    entirely, so the framing and the drop-don't-raise behaviour are testable with a
+    scripted stream and the gateway's dependency list is unchanged. The real port
+    gets constructed at the edge, in whatever wires the daemon up.
+    """
+
+    def read(self, size: int) -> bytes: ...
+
+
+class SerialPacketSource(IPacketSource):
+    """Packet frames off a serial port (contracts/serial-framing-v1.md).
+
+    The gateway radio board is a dumb bridge: it receives a LoRa packet, wraps it in
+    the serial envelope, and writes it to USB. This unwraps it. Everything about
+    *which* bytes are real is left to the packet CRC downstream.
+
+    Two conventions the stream has to meet, because they are the only way an
+    iterator over a live port can terminate at all:
+
+    - **`b""` means "nothing right now"**, and iteration continues. That is what a
+      real port returns on a read timeout, and treating it as end-of-stream would
+      stop the daemon the first quiet minute. It follows that the stream must
+      BLOCK — a non-blocking port returning `b""` immediately would spin this loop
+      hot, and the pacing has to come from the port's own timeout.
+    - **`EOFError` means the source is finished**, and iteration stops. A real
+      serial port never raises it on a timeout, so nothing in production trips this;
+      it exists so a test can script a finite stream without a test-only flag on the
+      production class.
+    """
+
+    def __init__(self, stream: ByteStream, *, chunk_size: int = 64):
+        self.stream = stream
+        self.chunk_size = chunk_size
+        self.framer = SerialFramer()
+        self.frames = 0
+
+    def __iter__(self) -> Iterator[bytes]:
+        while True:
+            try:
+                chunk = self.stream.read(self.chunk_size)
+            except EOFError:
+                log.info("serial source finished: %d frames, %d bytes discarded",
+                         self.frames, self.framer.discarded)
+                return
+            if not chunk:
+                continue   # read timeout — the port is quiet, not closed
+            for payload in self.framer.feed(chunk):
+                self.frames += 1
+                yield payload
