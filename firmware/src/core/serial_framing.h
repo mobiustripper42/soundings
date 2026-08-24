@@ -29,17 +29,58 @@ constexpr uint8_t kSerialSync1 = 0x5A;
 // thing to get wrong (contracts/serial-framing-v1.md).
 constexpr size_t kSerialFrameOverhead = 3;
 
-// The smallest legal packet-v1 payload: a header and a CRC with no channels declared.
-// Named here because the framer range-checks the length field against it, and a reader
-// that accepts a shorter one would hand the parser something that cannot be a packet.
-constexpr size_t kMinPacketLen = kHeaderLen + kCrcLen;   // 14
+// The smallest payload this envelope carries, across every type it carries.
+//
+// Was kHeaderLen + kCrcLen (14) — the floor of a packet-v1 frame — when the link ran one
+// way and carried one thing. 3.9b added the reverse leg: a 6-byte downlink-v1 message
+// travels daemon -> board over the same cable, and the smaller type sets the floor.
+//
+// This weakens the range check, and that is accepted rather than overlooked: the check
+// was never what establishes validity. It avoids committing to an absurd length, and the
+// payload's own CRC-16/CCITT-FALSE is what decides whether a candidate is real. Both
+// carried types have one.
+constexpr size_t kMinFramedPayload = 6;
 
 // Wrap one packet for the wire. Returns bytes written to `out`, or 0 if it refused.
 //
 // Refuses — rather than truncating or writing a partial frame — when the payload length
-// is outside [kMinPacketLen, kMaxPacketLen] or `out` is too small. A partial frame is
+// is outside [kMinFramedPayload, kMaxPacketLen] or `out` is too small. A partial frame is
 // worse than no frame: it desynchronises the reader for one frame instead of simply not
 // existing, and the caller (which has a real packet in hand) would have no way to tell.
 size_t frameForSerial(const uint8_t* payload, size_t len, uint8_t* out, size_t cap);
+
+// The DECODE half, and it lives here for the same reason the encoder does: src/core is
+// what `pio test -e native` compiles.
+//
+// It was hand-rolled into the gateway sketch first, on the grounds that it was only
+// fifteen lines — which is exactly the reasoning rejected for the encoder one task
+// earlier, and it went wrong immediately. The sketch version discarded all three header
+// bytes on an invalid length instead of exactly one, so a stream like `A5 A5 5A 06 ...`
+// lost the real frame behind the false sync. That is the specific case
+// contracts/serial-framing-v1.md step 3 exists to name, the Python reader gets it right,
+// and nothing could have caught the C++ version because nothing could run it.
+//
+// Byte at a time, matching A02yyuwFrameParser — the caller has a byte and no obligation
+// to buffer on its behalf.
+class SerialFrameReader {
+public:
+    // Feed one byte. Returns the payload length when a frame completed (payload copied to
+    // `out`), otherwise 0. A completed frame larger than `cap` is consumed and dropped —
+    // reporting 0 rather than a truncated payload, which would invite parsing.
+    size_t feed(uint8_t b, uint8_t* out, size_t cap);
+
+    // Bytes discarded hunting for a frame. A resync counter, useful at a bench for
+    // telling "the cable is noisy" from "nothing is transmitting".
+    uint32_t discarded() const { return discarded_; }
+
+    void reset() { held_ = 0; }
+
+private:
+    // Sync + length + the largest payload, plus the byte being fed. The algorithm never
+    // retains more than one frame's worth, so this cannot be outgrown.
+    uint8_t  buf_[kMaxPacketLen + kSerialFrameOverhead + 1] = {};
+    size_t   held_ = 0;
+    uint32_t discarded_ = 0;
+};
 
 } // namespace soundings

@@ -9,6 +9,7 @@
 #include "isampler.h"
 #include "irandom.h"
 #include "iseqstore.h"
+#include "downlink.h"
 
 namespace soundings {
 
@@ -33,6 +34,11 @@ constexpr uint8_t  kDefaultTxRetries  = 3;
 // hold the cycle open. Retries are bounded by count AND by this window, whichever trips
 // first, and a lost packet is always cheaper than a flat pack.
 constexpr uint32_t kDefaultTxWindowMs = 1000;
+// The receive window the node holds after transmitting (DEC-010). This is the only moment
+// the gateway can reach a node that is deep asleep the rest of the time, so it is worth
+// paying for on every wake — but it is airtime spent listening to silence almost always,
+// so it is short. 0 disables the listen entirely.
+constexpr uint32_t kDefaultRxWindowMs = 250;
 
 struct SensorSlot {
     uint8_t   channelBit;   // index into the packet.h channel registry
@@ -46,6 +52,7 @@ struct RunCycleConfig {
     uint32_t jitterMs     = kDefaultJitterMs;
     uint8_t  txRetries    = kDefaultTxRetries;
     uint32_t txWindowMs   = kDefaultTxWindowMs;
+    uint32_t rxWindowMs   = kDefaultRxWindowMs;
 };
 
 class RunCycle {
@@ -65,11 +72,21 @@ public:
     // Returns intervalMs offset by a jittered amount in [-jitterMs, +jitterMs].
     uint32_t nextSleepMs();
 
+    // The downlink heard in the last window, if any. Valid only until the next runOnce()
+    // — and on hardware there is no next one, because the sleep resets the MCU, so this
+    // is read by whatever runs after runOnce() returns in a host test or by the OTA path
+    // that issue #76 will add inside the cycle itself.
+    bool            lastDownlinkValid() const { return downlinkValid_; }
+    const Downlink& lastDownlink()      const { return downlink_; }
+
 private:
     // Returns bytes written into buf, or 0 if the packet could not be serialized.
     size_t assemble(uint8_t* buf, size_t cap);
     // Returns true if the radio accepted the frame.
     bool transmit(const uint8_t* buf, size_t len);
+    // Hold the receive window and decode whatever arrives. Silence is the ordinary
+    // outcome and leaves downlinkValid_ false.
+    void listen();
 
     const RunCycleConfig cfg_;
     const SensorSlot*    slots_;
@@ -80,6 +97,8 @@ private:
     ISleeper&            sleeper_;
     IRandom&             rng_;
     ISeqStore&           seq_;
+    Downlink             downlink_;
+    bool                 downlinkValid_ = false;
 };
 
 } // namespace soundings

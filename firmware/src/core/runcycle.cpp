@@ -72,12 +72,31 @@ uint32_t RunCycle::nextSleepMs() {
     return cfg_.intervalMs - jitter + offset;
 }
 
+void RunCycle::listen() {
+    downlinkValid_ = false;
+    if (cfg_.rxWindowMs == 0) return;   // listening disabled; do not touch the radio
+
+    uint8_t buf[kDownlinkLen];
+    const size_t n = radio_.receive(buf, sizeof(buf), cfg_.rxWindowMs);
+    // n == 0 is silence, which is what almost every window looks like. Not a fault, not
+    // a retry, and nothing downstream is told about it (contracts/downlink-v1.md).
+    if (n == 0) return;
+
+    // Every rejection inside decodeDownlink — wrong length, wrong protocol, bad CRC, or
+    // addressed to another node — lands here identically: downlinkValid_ stays false and
+    // the cycle carries on. A downlink we could not read is indistinguishable from one
+    // that was never sent, and the quiet case is already the normal one.
+    downlinkValid_ = decodeDownlink(buf, n, cfg_.node_id, downlink_);
+}
+
 void RunCycle::runOnce() {
     uint8_t buf[kMaxPacketLen];
     const size_t n = assemble(buf, sizeof(buf));
 
     if (n > 0) {
-        transmit(buf, n);
+        // The window is held only after a transmit the radio ACCEPTED. Listening after a
+        // failed send is airtime spent waiting for a reply to something nobody heard.
+        if (transmit(buf, n)) listen();
         // Advanced whether or not the transmit succeeded. A dropped packet consuming its
         // sequence number is what makes the loss VISIBLE downstream — reusing it would
         // close the gap and hide exactly what issue #30 is meant to detect.

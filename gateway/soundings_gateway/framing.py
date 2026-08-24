@@ -21,9 +21,13 @@ SYNC = b"\xa5\x5a"
 OVERHEAD = 3  # sync (2) + length (1)
 
 # Range-check bounds for the length byte, mirroring firmware/src/core/serial_framing.h.
-# The minimum is a header and a CRC with no channels; the maximum is every channel
-# declared (contracts/packet-v1.md).
-MIN_PAYLOAD = 14
+#
+# The minimum was 14 — a packet-v1 header and CRC with no channels — while the link ran
+# one way. 3.9b added the reverse leg, where a 6-byte downlink-v1 message travels
+# daemon -> board, so the smaller carried type sets the floor. That weakens the check,
+# which is accepted: it was never what establishes validity, and both carried types
+# carry CRC-16/CCITT-FALSE over their own bytes.
+MIN_PAYLOAD = 6
 MAX_PAYLOAD = 46
 
 

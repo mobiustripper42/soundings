@@ -4,8 +4,12 @@
 
 namespace soundings {
 
-// IRadio — the transmit seam. The SX1262 sits behind it on the real node; a fake queues
+// IRadio — the radio seam. The SX1262 sits behind it on the real node; a fake queues
 // frames in host tests so the run cycle is exercised with no radio and no airtime.
+//
+// Transmit-only until 3.9b, which added receive(). One seam rather than two, because
+// there is one radio: a separate IRadioRx would mean two objects wrapping one SX1262 and
+// a caller having to keep them consistent about which one owns the chip.
 //
 // It takes BYTES, not a Packet. The radio stays ignorant of the wire contract: serialize()
 // is the caller's job (packet.h, DEC-003). Welding the codec to the transport here would
@@ -27,6 +31,21 @@ struct IRadio {
     // guarantee should return Failed instead. Noted here rather than in the caller because
     // it is the driver (Phase 3.9) that owns the timing.
     virtual TxResult send(const uint8_t* buf, size_t len) = 0;
+
+    // Listen for up to `timeoutMs` and copy at most `cap` bytes of the first frame heard
+    // into `buf`. Returns bytes received; 0 means nothing arrived, which is the ORDINARY
+    // outcome and not a fault — the gateway is under no obligation to reply, and a quiet
+    // window is what a node sees on almost every wake (contracts/downlink-v1.md).
+    //
+    // Blocking with a timeout, like send(). The node has nothing else to do inside its
+    // window, and a poll-and-return API would put the deadline in the caller, where every
+    // caller would reimplement it. The timeout is the whole safety property: a node that
+    // listens forever is a node stuck awake, which DEC-006 names as the battery killer.
+    //
+    // A frame longer than `cap` is dropped rather than truncated — a partial frame fails
+    // its CRC anyway, and returning one would invite a caller to parse it.
+    virtual size_t receive(uint8_t* buf, size_t cap, uint32_t timeoutMs) = 0;
+
     virtual ~IRadio() = default;
 };
 
