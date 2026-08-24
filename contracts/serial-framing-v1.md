@@ -1,10 +1,10 @@
 # Serial framing v1 — packet-v1 over the gateway's USB link
 
-**Status:** v1, Phase 3.9a
+**Status:** v1, Phase 3.9a — amended in 3.9b, see *Two payload types* below
 **Scope:** the USB serial link between the gateway radio board and the Python
-daemon on `bee-grace`. Nothing else uses this. The LoRa air interface is not
-framed by this document — the radio delivers whole packets, and this exists only
-because a serial port delivers a byte stream.
+daemon on `bee-grace`, **in both directions**. Nothing else uses this. The LoRa
+air interface is not framed by this document — the radio delivers whole packets,
+and this exists only because a serial port delivers a byte stream.
 
 ## Why there is a frame at all
 
@@ -30,10 +30,35 @@ expect to.**
 | Field | Width | Value |
 |---|---|---|
 | Sync | 2 B | `0xA5 0x5A`, in that order |
-| `LEN` | 1 B (u8) | Payload length. **Valid range 14–46 inclusive** |
+| `LEN` | 1 B (u8) | Payload length. **Valid range 6–46 inclusive** — see *Two payload types* |
 | Payload | `LEN` B | One packet-v1 frame, exactly as the radio delivered it |
 
 Overhead is 3 bytes. Frames are emitted back to back with nothing between them.
+
+## Two payload types (amended 2026-08-23, Phase 3.9b)
+
+**What changed:** the minimum `LEN` was 14 and is now **6**. The direction and
+the envelope are unchanged, and so is everything else in this document.
+
+**Why.** v1 shipped carrying one payload type — a packet-v1 frame, 14 bytes at
+minimum — travelling board → daemon. 3.9b adds the reverse leg: the daemon
+decides what a node hears in its receive window, and the gateway board only
+relays, so a **downlink-v1 message** (`contracts/downlink-v1.md`, 6 bytes)
+travels daemon → board over the same cable. One envelope in both directions
+beats two formats, so the floor drops to the smallest payload any carried type
+can have.
+
+**The cost, stated plainly:** the range check is a weaker filter than it was.
+14–46 rejected more false syncs than 6–46 does. That is acceptable because the
+range check was never the thing establishing validity — it is a cheap filter that
+avoids committing to an absurd length, and **the payload's own CRC is what
+decides whether a candidate is real**. Both payload types carry
+CRC-16/CCITT-FALSE over their own bytes, so nothing about that changed.
+
+**A reader does not need to know which type it holds.** It never did — it yields
+bytes, and the receiving end knows what it asked for. Direction alone
+disambiguates: the daemon only ever receives packets, the node only ever receives
+downlinks.
 
 ## No frame checksum, deliberately
 
@@ -88,10 +113,21 @@ one garbage candidate, which the payload CRC rejects downstream.
 as payload.** That is what the code guarantees — `LEN` cannot exceed the largest
 legal packet, so the reader cannot be committed to more than that.
 
-Expressed in *frames*, the worst case is **two**, not one. The smallest complete
-frame is 3 + 14 = 17 bytes, and ⌊46 ÷ 17⌋ = 2 — so a reset landing immediately
-after a `LEN` of 46 can swallow two whole minimum-sized frames before the window
-closes. Two lost readings is 30 minutes of tank level at the 15-minute cadence.
+Expressed in *frames*, the answer depends on which floor you mean, and **both
+numbers are true**:
+
+- **The framer's bound is five.** The smallest complete frame is 3 + 6 = 9 bytes,
+  and ⌊46 ÷ 9⌋ = 5. This is what a reader of this document can rely on without
+  knowing which direction it is looking at.
+- **The reachable bound board → daemon is two.** That direction carries only
+  packet-v1, whose own minimum is 14, so the smallest real frame there is 17
+  bytes and ⌊46 ÷ 17⌋ = 2. **This is the number that matters for a gap in tank
+  level** — two lost readings is 30 minutes at the 15-minute cadence.
+
+⚠ The five-frame figure is a consequence of the 3.9b amendment below, and it was
+not anticipated when the floor was lowered: dropping `LEN`'s minimum to admit a
+6-byte downlink also widened how much a truncated frame can swallow. It surfaced
+because a test asserted the arithmetic rather than the prose.
 
 Accepted, because the alternatives don't help: a frame checksum would detect the
 absorption one frame earlier but not prevent it, and the event requires a board

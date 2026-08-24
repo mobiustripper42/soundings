@@ -1,5 +1,6 @@
 #include <unity.h>
 #include "runcycle.h"
+#include "downlink.h"
 #include "distance_sampler.h"
 #include "../fakes/fake_clock.h"
 #include "../fakes/fake_distance.h"
@@ -412,6 +413,133 @@ void test_successful_send_is_not_retried() {
     TEST_ASSERT_FALSE(r.radio.overflowed());
 }
 
+// ---- Receive window (3.9b) -------------------------------------------------
+
+// The node is asleep ~99% of the time, so the only moment the gateway can tell it
+// anything is one the node offers itself (DEC-010). That moment is here, after transmit.
+void test_cycle_holds_a_receive_window_after_transmitting() {
+    Rig r;
+    r.rng.push(0);
+    RunCycle c = r.cycle();
+    c.runOnce();
+    TEST_ASSERT_EQUAL_INT(1, r.radio.sentCount());
+    TEST_ASSERT_EQUAL_INT(1, r.radio.receiveCalls());
+    TEST_ASSERT_EQUAL_UINT32(kDefaultRxWindowMs, r.radio.lastTimeoutMs());
+}
+
+// Silence is the ordinary answer, not a fault. Nothing about the cycle may change.
+void test_a_quiet_window_is_not_a_fault() {
+    Rig r;
+    r.rng.push(0);
+    r.distance.push(1200);       // an unscripted FakeDistance is a deliberate failure
+    RunCycle c = r.cycle();
+    c.runOnce();                                 // nothing queued to receive
+    // A QUIET window is still a window. Without this the test passes against a cycle
+    // that never listens, which is not the thing being claimed.
+    TEST_ASSERT_EQUAL_INT(1, r.radio.receiveCalls());
+    TEST_ASSERT_EQUAL_INT(1, r.sleeper.sleepCount());
+    Packet p;
+    TEST_ASSERT_TRUE(r.received(0, p) == ParseResult::Ok);
+    TEST_ASSERT_FALSE(p.isFault(kTankChannel));  // the distance read was fine
+}
+
+// A downlink addressed to this node is accepted and its flags surface. v1 assigns no
+// bits, so nothing acts on them yet — issue #76 does. What is pinned here is that the
+// path works end to end, because that is what OTA will be built on.
+void test_a_downlink_for_this_node_is_received_and_decoded() {
+    Rig r;
+    r.rng.push(0);
+    Downlink d;
+    d.node_id = 7;                               // Rig::cfg() sets node_id 7
+    d.flags   = 0x0005;
+    uint8_t raw[kDownlinkLen] = {};
+    TEST_ASSERT_EQUAL_UINT32(kDownlinkLen, encodeDownlink(d, raw, sizeof(raw)));
+    r.radio.pushReceive(raw, sizeof(raw));
+
+    RunCycle c = r.cycle();
+    c.runOnce();
+
+    TEST_ASSERT_TRUE(c.lastDownlinkValid());
+    TEST_ASSERT_EQUAL_UINT16(0x0005, c.lastDownlink().flags);
+}
+
+// Two nodes in earshot both hear both replies. Dropping someone else's is the common
+// case, and it must be silent — no fault bit, no retry, nothing.
+void test_a_downlink_for_another_node_is_ignored_silently() {
+    Rig r;
+    r.rng.push(0);
+    Downlink d;
+    d.node_id = 9;                               // not us
+    d.flags   = 0x0005;
+    uint8_t raw[kDownlinkLen] = {};
+    encodeDownlink(d, raw, sizeof(raw));
+    r.radio.pushReceive(raw, sizeof(raw));
+
+    RunCycle c = r.cycle();
+    c.runOnce();
+
+    TEST_ASSERT_FALSE(c.lastDownlinkValid());
+    TEST_ASSERT_EQUAL_INT(1, r.radio.receiveCalls());   // we DID listen — and dropped it
+    TEST_ASSERT_EQUAL_INT(1, r.sleeper.sleepCount());   // and it still slept normally
+}
+
+void test_a_corrupt_downlink_is_ignored_and_the_cycle_completes() {
+    Rig r;
+    r.rng.push(0);
+    Downlink d;
+    d.node_id = 7;
+    uint8_t raw[kDownlinkLen] = {};
+    encodeDownlink(d, raw, sizeof(raw));
+    raw[4] ^= 0xFF;                              // wreck the CRC
+    r.radio.pushReceive(raw, sizeof(raw));
+
+    RunCycle c = r.cycle();
+    c.runOnce();
+
+    TEST_ASSERT_FALSE(c.lastDownlinkValid());
+    TEST_ASSERT_EQUAL_INT(1, r.radio.receiveCalls());   // listened, then dropped it
+    TEST_ASSERT_EQUAL_INT(1, r.sleeper.sleepCount());
+}
+
+// The window must not become a way to stay awake. A configured 0 means "do not listen",
+// and the radio is not touched at all.
+void test_a_zero_window_skips_the_listen_entirely() {
+    Rig r;
+    r.rng.push(0);
+    RunCycleConfig cfg = r.cfg();
+    cfg.rxWindowMs = 0;
+    RunCycle c(cfg, r.slots, 1, r.battery, r.radio, r.clock, r.sleeper, r.rng, r.seq);
+    c.runOnce();
+    TEST_ASSERT_EQUAL_INT(0, r.radio.receiveCalls());
+    TEST_ASSERT_EQUAL_INT(1, r.radio.sentCount());      // but it still transmitted
+
+    // Contrast: the default window does listen, on an otherwise identical rig.
+    Rig d;
+    d.rng.push(0);
+    RunCycle dc = d.cycle();
+    dc.runOnce();
+    TEST_ASSERT_EQUAL_INT(1, d.radio.receiveCalls());
+}
+
+// A packet that never went out earns no window — listening after a failed transmit is
+// airtime spent on a reply to something nobody heard.
+void test_no_window_is_held_when_the_transmit_failed() {
+    Rig r;
+    r.rng.push(0);
+    r.radio.setResult(IRadio::TxResult::Failed);
+    RunCycle c = r.cycle();
+    c.runOnce();
+    TEST_ASSERT_EQUAL_INT(0, r.radio.receiveCalls());
+    TEST_ASSERT_EQUAL_INT(1, r.sleeper.sleepCount());   // and it still sleeps
+
+    // Contrast: a transmit that succeeds does earn a window.
+    Rig ok;
+    ok.rng.push(0);
+    RunCycle okc = ok.cycle();
+    okc.runOnce();
+    TEST_ASSERT_EQUAL_INT(1, ok.radio.receiveCalls());
+}
+
 int main(int, char**) {
     UNITY_BEGIN();
     RUN_TEST(test_cycle_transmits_one_frame_carrying_the_reading);
@@ -436,5 +564,12 @@ int main(int, char**) {
     RUN_TEST(test_node_sleeps_even_when_transmit_fails);
     RUN_TEST(test_busy_retries_stop_at_the_window_even_with_a_high_cap);
     RUN_TEST(test_successful_send_is_not_retried);
+    RUN_TEST(test_cycle_holds_a_receive_window_after_transmitting);
+    RUN_TEST(test_a_quiet_window_is_not_a_fault);
+    RUN_TEST(test_a_downlink_for_this_node_is_received_and_decoded);
+    RUN_TEST(test_a_downlink_for_another_node_is_ignored_silently);
+    RUN_TEST(test_a_corrupt_downlink_is_ignored_and_the_cycle_completes);
+    RUN_TEST(test_a_zero_window_skips_the_listen_entirely);
+    RUN_TEST(test_no_window_is_held_when_the_transmit_failed);
     return UNITY_END();
 }

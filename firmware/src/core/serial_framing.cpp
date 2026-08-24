@@ -8,7 +8,7 @@ size_t frameForSerial(const uint8_t* payload, size_t len, uint8_t* out, size_t c
     // range-checks it too (contracts/serial-framing-v1.md step 3), so a length outside
     // this window would produce a frame that cost airtime to receive and is then thrown
     // away at the far end — refusing here is the only place a caller can learn about it.
-    if (len < kMinPacketLen || len > kMaxPacketLen) return 0;
+    if (len < kMinFramedPayload || len > kMaxPacketLen) return 0;
 
     const size_t total = len + kSerialFrameOverhead;
     // Refuse rather than truncate. A short write desynchronises the reader for a frame,

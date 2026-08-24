@@ -29,15 +29,22 @@ constexpr uint8_t kSerialSync1 = 0x5A;
 // thing to get wrong (contracts/serial-framing-v1.md).
 constexpr size_t kSerialFrameOverhead = 3;
 
-// The smallest legal packet-v1 payload: a header and a CRC with no channels declared.
-// Named here because the framer range-checks the length field against it, and a reader
-// that accepts a shorter one would hand the parser something that cannot be a packet.
-constexpr size_t kMinPacketLen = kHeaderLen + kCrcLen;   // 14
+// The smallest payload this envelope carries, across every type it carries.
+//
+// Was kHeaderLen + kCrcLen (14) — the floor of a packet-v1 frame — when the link ran one
+// way and carried one thing. 3.9b added the reverse leg: a 6-byte downlink-v1 message
+// travels daemon -> board over the same cable, and the smaller type sets the floor.
+//
+// This weakens the range check, and that is accepted rather than overlooked: the check
+// was never what establishes validity. It avoids committing to an absurd length, and the
+// payload's own CRC-16/CCITT-FALSE is what decides whether a candidate is real. Both
+// carried types have one.
+constexpr size_t kMinFramedPayload = 6;
 
 // Wrap one packet for the wire. Returns bytes written to `out`, or 0 if it refused.
 //
 // Refuses — rather than truncating or writing a partial frame — when the payload length
-// is outside [kMinPacketLen, kMaxPacketLen] or `out` is too small. A partial frame is
+// is outside [kMinFramedPayload, kMaxPacketLen] or `out` is too small. A partial frame is
 // worse than no frame: it desynchronises the reader for one frame instead of simply not
 // existing, and the caller (which has a real packet in hand) would have no way to tell.
 size_t frameForSerial(const uint8_t* payload, size_t len, uint8_t* out, size_t cap);

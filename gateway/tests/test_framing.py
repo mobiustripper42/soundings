@@ -111,28 +111,35 @@ def test_reset_mid_frame_absorbs_following_bytes_then_recovers():
     assert out[1] == payload(24, 0xCC)  # and the next whole frame survives intact
 
 
-def test_absorption_worst_case_swallows_two_whole_frames():
-    """The worst case is TWO lost frames, not one, and the arithmetic is the reason.
+def test_absorption_worst_case_is_five_frames_at_the_current_floor():
+    """The worst case is arithmetic on the framer's own floor, and it moved in 3.9b.
 
-    The smallest complete frame is OVERHEAD + MIN_PAYLOAD = 17 bytes, and the largest
-    absorption window is MAX_PAYLOAD = 46, so floor(46 / 17) = 2 whole frames fit
-    inside one window. A reset landing immediately after a LEN of 46 — with no payload
-    bytes written yet — hits exactly that.
+    Smallest complete frame = OVERHEAD + MIN_PAYLOAD. At the original floor of 14 that
+    was 17 bytes and floor(46 / 17) = 2. 3.9b lowered MIN_PAYLOAD to 6 so the reverse
+    leg could carry a downlink, which makes the smallest frame 9 bytes and the worst
+    case floor(46 / 9) = 5.
 
-    Pinned as a test because the bound was originally written down as "at most one
-    following frame" and was wrong. At a 15-minute cadence this is 30 minutes of tank
-    level, so the number matters to whoever is staring at a gap in the chart."""
+    ⚠ That is the FRAMER's bound, not the reachable one in a given direction. Board ->
+    daemon carries only packet-v1, whose floor is still 14, so a real gap in tank level
+    is capped at 2 frames there. Both numbers are true and they answer different
+    questions; the contract states both.
+
+    Pinned as a test because this bound has now been written down wrong twice — once as
+    "at most one frame" and once as 2 after the floor moved underneath it."""
     f = SerialFramer()
     smallest = framed(payload(MIN_PAYLOAD, 0xAA))
-    assert len(smallest) == OVERHEAD + MIN_PAYLOAD == 17
+    assert len(smallest) == OVERHEAD + MIN_PAYLOAD == 9
 
-    window = smallest + smallest + payload(MAX_PAYLOAD - 2 * len(smallest), 0x00)
+    fits = MAX_PAYLOAD // len(smallest)
+    assert fits == 5
+
+    window = smallest * fits + payload(MAX_PAYLOAD - fits * len(smallest), 0x00)
     assert len(window) == MAX_PAYLOAD
 
     out = list(f.feed(SYNC + bytes([MAX_PAYLOAD]) + window + framed(payload(20, 0xEE))))
 
     assert len(out) == 2
-    assert out[0] == window                # both real frames swallowed whole
+    assert out[0] == window                # all five swallowed whole
     assert out[1] == payload(20, 0xEE)     # and the reader is back in sync after one window
 
 

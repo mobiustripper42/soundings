@@ -55,10 +55,10 @@ void test_frames_the_smallest_and_largest_legal_payloads() {
     uint8_t payload[kMaxPacketLen];
     uint8_t out[kMaxPacketLen + kSerialFrameOverhead] = {};
 
-    fillPayload(payload, kMinPacketLen, 0xAA);
-    TEST_ASSERT_EQUAL_UINT32(kMinPacketLen + kSerialFrameOverhead,
-                             frameForSerial(payload, kMinPacketLen, out, sizeof(out)));
-    TEST_ASSERT_EQUAL_UINT8(kMinPacketLen, out[2]);
+    fillPayload(payload, kMinFramedPayload, 0xAA);
+    TEST_ASSERT_EQUAL_UINT32(kMinFramedPayload + kSerialFrameOverhead,
+                             frameForSerial(payload, kMinFramedPayload, out, sizeof(out)));
+    TEST_ASSERT_EQUAL_UINT8(kMinFramedPayload, out[2]);
 
     fillPayload(payload, kMaxPacketLen, 0xBB);
     TEST_ASSERT_EQUAL_UINT32(kMaxPacketLen + kSerialFrameOverhead,
@@ -78,8 +78,8 @@ void test_refuses_a_payload_shorter_than_a_packet_can_be() {
     fillPayload(payload, sizeof(payload), 0x11);
     uint8_t out[64] = {};
     TEST_ASSERT_EQUAL_UINT32(0, frameForSerial(payload, 0, out, sizeof(out)));
-    TEST_ASSERT_EQUAL_UINT32(0, frameForSerial(payload, kMinPacketLen - 1, out, sizeof(out)));
-    TEST_ASSERT_TRUE(frameForSerial(payload, kMinPacketLen, out, sizeof(out)) > 0);
+    TEST_ASSERT_EQUAL_UINT32(0, frameForSerial(payload, kMinFramedPayload - 1, out, sizeof(out)));
+    TEST_ASSERT_TRUE(frameForSerial(payload, kMinFramedPayload, out, sizeof(out)) > 0);
 }
 
 void test_refuses_a_payload_longer_than_a_packet_can_be() {
@@ -122,7 +122,7 @@ void test_accepts_a_buffer_that_exactly_fits_and_refuses_one_byte_less() {
 // The overhead constant and the bytes actually written must agree — they are stated in
 // two places (the header and the encoder) and a reader sizing a buffer trusts the constant.
 void test_overhead_constant_matches_the_bytes_written() {
-    uint8_t payload[kMinPacketLen];
+    uint8_t payload[kMinFramedPayload];
     fillPayload(payload, sizeof(payload), 0x11);
     uint8_t out[64] = {};
     const size_t n = frameForSerial(payload, sizeof(payload), out, sizeof(out));
@@ -142,7 +142,7 @@ void test_a_real_serialized_packet_frames_intact() {
 
     uint8_t raw[kMaxPacketLen];
     const size_t rawLen = serialize(p, raw, sizeof(raw));
-    TEST_ASSERT_TRUE(rawLen >= kMinPacketLen);
+    TEST_ASSERT_TRUE(rawLen >= kMinFramedPayload);
 
     uint8_t out[kMaxPacketLen + kSerialFrameOverhead] = {};
     const size_t n = frameForSerial(raw, rawLen, out, sizeof(out));
