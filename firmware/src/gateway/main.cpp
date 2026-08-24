@@ -117,6 +117,18 @@ void pumpSerial() {
 // holding its receive window RIGHT NOW. Poll the port instead of going back to the radio.
 // Logic and tests live in src/core/gateway_bridge.{h,cpp} — nothing in this file is
 // compiled by any test env, which is how 3.9b shipped a broken reader from here.
+//
+// ⚠ SINGLE-NODE ASSUMPTION, AND IT IS A BENCH SIMPLIFICATION RATHER THAN A PROPERTY.
+// For up to kReplyWindowMs this does not call radio.poll(). The radio is still listening —
+// RX_TIMEOUT_INF keeps the chip in receive — but it auto-restarts into the SAME buffer, so
+// a packet arriving while an unread one sits there OVERWRITES it rather than queueing.
+//
+// With one node that cannot happen: the only node in earshot is the one holding its window
+// and it sleeps for fifteen minutes afterwards. SPEC.md §13 schedules 2-3 nodes in Red
+// Tunnel as the NEXT rollout step, and at that point this becomes a real software drain
+// gap — distinct from, and earlier than, the RF collision DEC-011's Revisit already flags.
+// Resolve it before the multi-node bench: poll the radio inside the wait, shrink the
+// window, or accept a measured loss rate deliberately.
 void awaitAndRelayReply() {
     const size_t len = awaitFramedPayload(g_serialBytes, g_reader, g_clock,
                                           kReplyWindowMs, g_inPayload, sizeof(g_inPayload));
@@ -141,7 +153,11 @@ void setup() {
     // board unattributable: no bytes on the port is what a dead radio, a crashed sketch
     // and an unplugged cable ALL look like. One line tells the three apart, and it cost a
     // bench cycle to notice it was missing.
-    delay(200);   // let the USB bridge settle before the first line
+    // ⚠ The one delay() in the project, and the exemption is narrow: setup() only, this
+    // board only, bench builds only. The no-delay() rule protects the NODE's run path,
+    // where time spent awake is battery (DEC-006); this board is mains-powered (DEC-009)
+    // and runs no cycle. Without it the first line races the USB bridge and is lost.
+    delay(200);
     Serial.printf("\nsoundings gateway: radio.begin -> %s (status %d)\n",
                   radioUp ? "up" : "DOWN", (int)g_radio.lastStatus());
 #else
