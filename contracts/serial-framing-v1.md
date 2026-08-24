@@ -81,7 +81,7 @@ A reader holds a buffer and repeats:
    is present, discard everything except a possible trailing `0xA5` (which may be
    the first half of a sync whose second byte hasn't arrived).
 2. **Wait for `LEN`.** If fewer than 3 bytes are held, wait for more.
-3. **Range-check `LEN`.** If it is outside 14–46, this was not a frame header —
+3. **Range-check `LEN`.** If it is outside 6–46, this was not a frame header —
    a payload byte, or boot text that happened to contain the sync pattern.
    **Discard exactly one byte** (the first `0xA5`) and return to step 1. Dropping
    the whole sync pair instead would miss a real frame in `A5 A5 5A …`.
@@ -144,8 +144,15 @@ payload CRC rejects the result within one frame.
 
 | End | File | Direction |
 |---|---|---|
-| Node/gateway firmware | `firmware/src/core/serial_framing.{h,cpp}` | Encode |
-| Python daemon | `gateway/soundings_gateway/framing.py` | Decode |
+| Node/gateway firmware | `firmware/src/core/serial_framing.{h,cpp}` | Encode + decode |
+| Python daemon | `gateway/soundings_gateway/framing.py` | Decode + encode |
+
+⚠ **Step 3's bound above said "outside 14–46" until Phase 3.9c** — stale from the moment
+the 3.9b amendment dropped the floor to 6, while the field table two sections up already
+said 6–46. Both implementations were correct; only the prose was wrong. It is recorded
+rather than quietly corrected because it is the third time a number in this document has
+been wrong in prose while right in code, and the other two were caught by tests asserting
+the arithmetic. Nothing asserts the text of a numbered step.
 
 The encoder lives in `src/core` rather than in the gateway sketch so that it
 compiles and is tested under `pio test -e native`. It is not behind an adapter
@@ -158,8 +165,14 @@ implementation and a fake.
 each *derive* a layout that is a function of `channel_mask`, and get it silently
 wrong in ways that produce plausible readings. **None of that applies here.**
 
-- The framing is **one-way**: firmware only encodes, Python only decodes. There
-  is no round trip for a vector to pin.
+- ~~The framing is **one-way**: firmware only encodes, Python only decodes. There
+  is no round trip for a vector to pin.~~ **No longer true as of 3.9c**, and the
+  conclusion survives anyway. Both ends now encode *and* decode — the daemon
+  could frame nothing until it needed to send a downlink. So a round trip does
+  exist, and each end tests its own: `test_encode_round_trips_through_the_framer`
+  (pytest) and the `SerialFrameReader` suite (native). What still does not exist
+  is a *computed* layout for a vector file to pin, which is the reason that
+  actually mattered — three constant-width fields cannot be derived wrongly.
 - The layout is **fixed**, not computed. Three constant-width fields.
 - The failure is **loud and immediate**. A framing bug means nothing decodes, at
   the bench, on the first try — not a wrong number that looks fine for a season.

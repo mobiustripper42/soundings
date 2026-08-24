@@ -39,6 +39,7 @@ so several placeholders would collide. Consult @architect before building on one
 - DEC-008 — MQTT topic hierarchy, and a file-backed node→location map
 - DEC-009 — LoRa stands, and the gateway radio lives on the server
 - DEC-010 — Modem parameters, and the downlink that carries them back
+- DEC-011 — The gateway listens continuously, and downlinks describe state rather than command it
 
 ### Server, storage & display
 - DEC-004 — Storage and graphing belong to Poop Deck, not soundings (resolves D1 + D6)

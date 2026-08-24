@@ -13,7 +13,14 @@ from __future__ import annotations
 
 import pytest
 
-from soundings_gateway.framing import MAX_PAYLOAD, MIN_PAYLOAD, OVERHEAD, SYNC, SerialFramer
+from soundings_gateway.framing import (
+    MAX_PAYLOAD,
+    MIN_PAYLOAD,
+    OVERHEAD,
+    SYNC,
+    SerialFramer,
+    encode,
+)
 from soundings_gateway.gateway import Gateway
 from soundings_gateway.source import SerialPacketSource
 
@@ -176,6 +183,53 @@ def test_incomplete_frame_is_held_not_dropped():
     whole = framed(payload(46))
     assert list(f.feed(whole[:-1])) == []
     assert list(f.feed(whole[-1:])) == [payload(46)]
+
+
+# ---- encode ----------------------------------------------------------------
+#
+# The daemon could decode this envelope but never write one. 3.9b gave the reverse
+# leg a payload type (downlink-v1) and a reader on the board, and left the daemon
+# with no way to put bytes on it — `test_downlink.py` hand-rolled the three header
+# bytes to prove a downlink survives the envelope. This is the missing half, and it
+# is the mirror of `frameForSerial` in firmware/src/core/serial_framing.cpp.
+
+
+def test_encode_wraps_a_payload_in_the_envelope():
+    assert encode(payload(20)) == framed(payload(20))
+
+
+def test_encode_round_trips_through_the_framer():
+    """The two halves of the contract, checked against each other rather than
+    against a literal either one of them produced."""
+    for n in (MIN_PAYLOAD, 14, 30, MAX_PAYLOAD):
+        assert list(SerialFramer().feed(encode(payload(n)))) == [payload(n)]
+
+
+def test_encode_emits_exactly_three_bytes_of_overhead():
+    assert len(encode(payload(MIN_PAYLOAD))) == MIN_PAYLOAD + OVERHEAD
+    assert encode(payload(9))[:2] == SYNC
+    assert encode(payload(9))[2] == 9
+
+
+@pytest.mark.parametrize("bad_len", [0, 1, MIN_PAYLOAD - 1, MAX_PAYLOAD + 1, 255])
+def test_encode_refuses_a_payload_outside_the_legal_range(bad_len):
+    """Refuses rather than truncating, matching the C++ encoder: a partial frame
+    desynchronises the reader for one frame instead of simply not existing, and the
+    caller — which has a real message in hand — would have no way to tell."""
+    with pytest.raises(ValueError):
+        encode(payload(bad_len))
+    # The adjacent legal lengths ARE accepted. Without these two lines this test
+    # passes against an encoder that raises on everything, which is the exact false
+    # green the Task 3 audit swept for and the one still being written by default.
+    assert len(encode(payload(MIN_PAYLOAD))) == MIN_PAYLOAD + OVERHEAD
+    assert len(encode(payload(MAX_PAYLOAD))) == MAX_PAYLOAD + OVERHEAD
+
+
+def test_encode_does_not_escape_a_sync_pattern_in_the_payload():
+    """There is no escaping in this contract — the length prefix is what delimits.
+    A payload containing 0xA5 0x5A must go out byte-for-byte unchanged."""
+    tricky = SYNC + payload(10) + b"\xa5"
+    assert encode(tricky)[OVERHEAD:] == tricky
 
 
 # ---- SerialPacketSource ----------------------------------------------------

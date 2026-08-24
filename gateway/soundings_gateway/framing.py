@@ -31,6 +31,25 @@ MIN_PAYLOAD = 6
 MAX_PAYLOAD = 46
 
 
+def encode(payload: bytes) -> bytes:
+    """Wrap one payload in the envelope. The mirror of `frameForSerial` in
+    `firmware/src/core/serial_framing.cpp`, and the daemon's half of the reverse leg.
+
+    Raises ValueError outside [MIN_PAYLOAD, MAX_PAYLOAD] rather than truncating or
+    emitting a partial frame — the same call the C++ encoder makes, for the same
+    reason. A partial frame is worse than no frame: it desynchronises the reader for
+    one frame instead of simply not existing, and the caller holding a real message
+    has no way to notice. Raising rather than returning b"" because a silently empty
+    write is indistinguishable, from the board's side, from an unplugged cable.
+    """
+    if not MIN_PAYLOAD <= len(payload) <= MAX_PAYLOAD:
+        raise ValueError(
+            f"payload of {len(payload)} bytes is outside the framed range "
+            f"[{MIN_PAYLOAD}, {MAX_PAYLOAD}]"
+        )
+    return SYNC + bytes([len(payload)]) + payload
+
+
 class SerialFramer:
     """Feed it bytes, get whole payloads out."""
 

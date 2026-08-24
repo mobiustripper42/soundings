@@ -287,6 +287,82 @@ void test_fake_clock_does_not_advance_unless_asked() {
     TEST_ASSERT_EQUAL_UINT32(10, c.millis());
 }
 
+// ---- Continuous receive (3.9c) ---------------------------------------------
+//
+// These grade the FAKE, and that is worth being explicit about: the invariant they pin
+// lives in Sx1262Radio, which no test env compiles. What this buys is that the fake every
+// host test is written against behaves the way iradio.h says an implementation must — so
+// a test above it cannot pass by relying on behaviour the real driver will not have. The
+// real one is graded at the bench.
+
+void test_fake_radio_poll_returns_nothing_until_a_frame_is_queued() {
+    FakeRadio r;
+    uint8_t buf[8] = {};
+    r.startReceive();
+    TEST_ASSERT_EQUAL_UINT32(0, r.poll(buf, sizeof(buf)));   // quiet: the ordinary case
+
+    const uint8_t frame[] = {1, 2, 3, 4};
+    r.pushReceive(frame, sizeof(frame));
+    TEST_ASSERT_EQUAL_UINT32(sizeof(frame), r.poll(buf, sizeof(buf)));
+    TEST_ASSERT_EQUAL_UINT8_ARRAY(frame, buf, sizeof(frame));
+    // ...and it is consumed, not redelivered forever.
+    TEST_ASSERT_EQUAL_UINT32(0, r.poll(buf, sizeof(buf)));
+}
+
+void test_fake_radio_poll_does_not_deliver_unless_receiving() {
+    // poll() before startReceive() must not hand over a frame. A fake that delivered
+    // regardless would hide the exact bug the invariant exists to prevent: a gateway
+    // that stopped listening still looking like it works.
+    FakeRadio r;
+    uint8_t buf[8] = {};
+    const uint8_t frame[] = {9, 9, 9};
+    r.pushReceive(frame, sizeof(frame));
+
+    TEST_ASSERT_EQUAL_UINT32(0, r.poll(buf, sizeof(buf)));
+
+    // Positive control, same test: once armed, the SAME queued frame arrives. Without it
+    // this passes against a poll() that never delivers anything at all.
+    r.startReceive();
+    TEST_ASSERT_EQUAL_UINT32(sizeof(frame), r.poll(buf, sizeof(buf)));
+}
+
+void test_fake_radio_send_rearms_continuous_receive() {
+    // THE INVARIANT. transmit() drops the real chip into standby (SX126x.cpp:214/:271),
+    // so an implementation in continuous mode has to put itself back. A gateway that
+    // forgets goes permanently deaf after its first downlink.
+    FakeRadio r;
+    uint8_t buf[8] = {};
+    r.startReceive();
+
+    const uint8_t out[] = {0xAA, 0xBB};
+    TEST_ASSERT_TRUE(r.send(out, sizeof(out)) == IRadio::TxResult::Ok);
+
+    // Still listening: a frame arriving after the transmit is still delivered.
+    const uint8_t frame[] = {7, 7, 7};
+    r.pushReceive(frame, sizeof(frame));
+    TEST_ASSERT_EQUAL_UINT32(sizeof(frame), r.poll(buf, sizeof(buf)));
+}
+
+void test_fake_radio_send_does_not_start_receive_that_was_never_started() {
+    // The node never calls startReceive() — it uses receive(timeoutMs) and must be left
+    // in standby so it can sleep (DEC-006). send() re-arms only what was already armed.
+    FakeRadio r;
+    uint8_t buf[8] = {};
+    const uint8_t out[] = {0xAA};
+    r.send(out, sizeof(out));
+
+    const uint8_t frame[] = {5, 5};
+    r.pushReceive(frame, sizeof(frame));
+    TEST_ASSERT_EQUAL_UINT32(0, r.poll(buf, sizeof(buf)));
+
+    // Positive control: the same sequence WITH startReceive() first does deliver.
+    FakeRadio r2;
+    r2.startReceive();
+    r2.send(out, sizeof(out));
+    r2.pushReceive(frame, sizeof(frame));
+    TEST_ASSERT_EQUAL_UINT32(sizeof(frame), r2.poll(buf, sizeof(buf)));
+}
+
 int main(int, char**) {
     UNITY_BEGIN();
     RUN_TEST(test_fake_distance_returns_scripted_readings_in_order);
@@ -311,5 +387,9 @@ int main(int, char**) {
     RUN_TEST(test_fake_bytesource_pushframe_matches_the_published_vector);
     RUN_TEST(test_fake_powerrail_tracks_state_and_transitions);
     RUN_TEST(test_fake_clock_does_not_advance_unless_asked);
+    RUN_TEST(test_fake_radio_poll_returns_nothing_until_a_frame_is_queued);
+    RUN_TEST(test_fake_radio_poll_does_not_deliver_unless_receiving);
+    RUN_TEST(test_fake_radio_send_rearms_continuous_receive);
+    RUN_TEST(test_fake_radio_send_does_not_start_receive_that_was_never_started);
     return UNITY_END();
 }

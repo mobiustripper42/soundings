@@ -67,6 +67,22 @@ struct UnfittedBattery : IBattery {
     Reading read() override { return Reading{0, false}; }
 };
 
+#ifdef SOUNDINGS_BENCH
+// Bench readout for the downlink round trip (issue #76). The node is the ONLY thing that
+// can answer the question this measures — "did the reply land while the window was still
+// open" — because the daemon knows when it wrote a downlink and nothing else. DEC-010
+// flags that the gateway->node direction has never been measured; this is the instrument.
+//
+// Bench-only. The field binding is the OTA client, and it is not this.
+struct PrintingDownlinkHandler : IDownlinkHandler {
+    void onDownlink(const Downlink& d) override {
+        Serial.printf("DOWNLINK heard at %lu ms: node=%u flags=0x%04X\n",
+                      (unsigned long)::millis(), (unsigned)d.node_id, (unsigned)d.flags);
+    }
+};
+PrintingDownlinkHandler g_downlinkHandler;
+#endif
+
 ArduinoClock     g_clock;
 DeepSleeper      g_sleeper;
 HwRandom         g_rng;
@@ -131,11 +147,22 @@ void setup() {
     // proportional so the clamp and the window are still exercised, not bypassed.
     cfg.intervalMs = 20000;
     cfg.jitterMs   = 2000;
+    // Overridable at the bench without a source edit, so the round-trip measurement is a
+    // sweep rather than a recompile per data point. SOUNDINGS_RX_WINDOW_MS comes from the
+    // build flags; absent, the node keeps runcycle.h's default.
+#ifdef SOUNDINGS_RX_WINDOW_MS
+    cfg.rxWindowMs = SOUNDINGS_RX_WINDOW_MS;
+#endif
+    Serial.printf("rx window: %lu ms\n", (unsigned long)cfg.rxWindowMs);
 #endif
 
     RunCycle cycle(cfg,
                    slots, slotCount,
-                   g_battery, g_radio, g_clock, g_sleeper, g_rng, g_seqStore);
+                   g_battery, g_radio, g_clock, g_sleeper, g_rng, g_seqStore
+#ifdef SOUNDINGS_BENCH
+                   , &g_downlinkHandler
+#endif
+                   );
 
     // ⚠ TERMINAL. runOnce() ends in deep sleep, which resets the MCU, so this call does
     // not return on hardware. Nothing may be added below it — it would be dead code

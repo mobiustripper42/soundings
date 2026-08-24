@@ -1,2 +1,13 @@
 # PlatformIO build output, downloaded platforms/libs, and IDE metadata.
 .pio/
+
+# Build-time secrets, merged in via `extra_configs` (issue #76). The wildcard in
+# platformio.ini means an absent file is fine — the build then compiles without
+# credentials and the node never attempts an update. Deliberately NOT named
+# `.env*`: that namespace is a blanket permission deny fleet-wide (DEC-S043), so
+# a secret living there is one no session can read to debug.
+*secret*.ini
+
+# Per-build firmware archive (fw_build_id.py). One .bin per build, sortable by
+# the build id; clean it up by hand whenever.
+build_archive/

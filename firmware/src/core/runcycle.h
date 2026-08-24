@@ -10,6 +10,7 @@
 #include "irandom.h"
 #include "iseqstore.h"
 #include "downlink.h"
+#include "idownlinkhandler.h"
 
 namespace soundings {
 
@@ -60,10 +61,12 @@ public:
     RunCycle(const RunCycleConfig& cfg,
              const SensorSlot* slots, size_t slotCount,
              IBattery& battery, IRadio& radio, IClock& clock,
-             ISleeper& sleeper, IRandom& rng, ISeqStore& seq)
+             ISleeper& sleeper, IRandom& rng, ISeqStore& seq,
+             IDownlinkHandler* downlinkHandler = nullptr)
         : cfg_(cfg), slots_(slots), slotCount_(slotCount),
           battery_(battery), radio_(radio), clock_(clock),
-          sleeper_(sleeper), rng_(rng), seq_(seq) {}
+          sleeper_(sleeper), rng_(rng), seq_(seq),
+          downlinkHandler_(downlinkHandler) {}
 
     // One cycle. Terminal on hardware — see the warning above.
     void runOnce();
@@ -97,6 +100,9 @@ private:
     ISleeper&            sleeper_;
     IRandom&             rng_;
     ISeqStore&           seq_;
+    // Optional, and a raw pointer rather than a reference for that reason: a node with no
+    // OTA client bound is a legitimate configuration, and every caller before 3.9c is one.
+    IDownlinkHandler*    downlinkHandler_ = nullptr;
     Downlink             downlink_;
     bool                 downlinkValid_ = false;
 };

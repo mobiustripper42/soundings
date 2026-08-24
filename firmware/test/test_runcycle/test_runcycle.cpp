@@ -10,6 +10,7 @@
 #include "../fakes/fake_random.h"
 #include "../fakes/fake_seqstore.h"
 #include "../fakes/fake_sampler.h"
+#include "../fakes/fake_downlinkhandler.h"
 
 // Phase 3.4 — the run cycle (issue #43). wake → sample → assemble → transmit → sleep.
 //
@@ -47,6 +48,18 @@ struct Rig {
     }
     RunCycle cycle() {
         return RunCycle(cfg(), slots, 1, battery, radio, clock, sleeper, rng, seq);
+    }
+    RunCycle cycleWith(IDownlinkHandler& h) {
+        return RunCycle(cfg(), slots, 1, battery, radio, clock, sleeper, rng, seq, &h);
+    }
+    // Queue a valid downlink for the window this cycle will hold.
+    void pushDownlink(uint8_t node_id, uint16_t flags) {
+        Downlink d;
+        d.node_id = node_id;
+        d.flags   = flags;
+        uint8_t raw[kDownlinkLen] = {};
+        encodeDownlink(d, raw, sizeof(raw));
+        radio.pushReceive(raw, sizeof(raw));
     }
     // What the radio actually received, parsed back.
     ParseResult received(int i, Packet& out) {
@@ -540,6 +553,116 @@ void test_no_window_is_held_when_the_transmit_failed() {
     TEST_ASSERT_EQUAL_INT(1, ok.radio.receiveCalls());
 }
 
+// ---- The downlink handler (issue #76) --------------------------------------
+//
+// The seam the OTA client binds to. RunCycle decides WHETHER a downlink is real and
+// addressed to us; the handler decides what to do about it. These tests pin the
+// whether, because that is the part that stays in core.
+
+void test_a_valid_downlink_reaches_the_handler() {
+    Rig r;
+    r.distance.push(1200);
+    r.rng.push(0);
+    r.pushDownlink(7, 0x0001);
+
+    FakeDownlinkHandler h(r.sleeper);
+    RunCycle c = r.cycleWith(h);
+    c.runOnce();
+
+    TEST_ASSERT_EQUAL_INT(1, h.calls());
+    // The flags arrive intact — the handler's whole input is this field.
+    TEST_ASSERT_EQUAL_UINT16(0x0001, h.last().flags);
+    TEST_ASSERT_EQUAL_UINT8(7, h.last().node_id);
+}
+
+void test_the_handler_runs_before_the_node_sleeps() {
+    // On hardware the sleep RESETS THE MCU, so a handler invoked after it would never
+    // run in the field while passing every host test — FakeSleeper returns. runcycle.h
+    // warns about exactly this shape in capitals; this is the assertion behind the words.
+    Rig r;
+    r.distance.push(1200);
+    r.rng.push(0);
+    r.pushDownlink(7, 0x0001);
+
+    FakeDownlinkHandler h(r.sleeper);
+    RunCycle c = r.cycleWith(h);
+    c.runOnce();
+
+    TEST_ASSERT_EQUAL_INT(1, h.calls());
+    TEST_ASSERT_EQUAL_INT(0, h.sleepsWhenCalled());   // no sleep had happened yet
+    TEST_ASSERT_EQUAL_INT(1, r.sleeper.sleepCount()); // and one has by now
+}
+
+void test_a_quiet_window_does_not_call_the_handler() {
+    // The ordinary case: nothing queued, so the window hears silence. Not a fault, and
+    // nothing for the handler to do.
+    Rig r;
+    r.distance.push(1200);
+    r.rng.push(0);
+
+    FakeDownlinkHandler h(r.sleeper);
+    RunCycle c = r.cycleWith(h);
+    c.runOnce();
+
+    TEST_ASSERT_EQUAL_INT(0, h.calls());
+
+    // POSITIVE CONTROL, same test. Without it this passes against a cycle that never
+    // calls the handler at all — and "asserts a zero" is the false-green shape this repo
+    // keeps producing (nineteen found in the Task 3 audit, five more written after it).
+    Rig r2;
+    r2.distance.push(1200);
+    r2.rng.push(0);
+    r2.pushDownlink(7, 0x0002);
+    FakeDownlinkHandler h2(r2.sleeper);
+    RunCycle c2 = r2.cycleWith(h2);
+    c2.runOnce();
+    TEST_ASSERT_EQUAL_INT(1, h2.calls());
+}
+
+void test_a_downlink_for_another_node_does_not_call_the_handler() {
+    // Two nodes in earshot both hear both replies, so this is the COMMON rejection
+    // rather than a rare error (contracts/downlink-v1.md step 4).
+    Rig r;
+    r.distance.push(1200);
+    r.rng.push(0);
+    r.pushDownlink(9, 0x0001);   // node 9; the rig is node 7
+
+    FakeDownlinkHandler h(r.sleeper);
+    RunCycle c = r.cycleWith(h);
+    c.runOnce();
+
+    TEST_ASSERT_EQUAL_INT(0, h.calls());
+    // ...and the cycle still completed normally rather than treating it as a fault.
+    TEST_ASSERT_EQUAL_INT(1, r.radio.sentCount());
+    TEST_ASSERT_EQUAL_INT(1, r.sleeper.sleepCount());
+
+    // Positive control: the identical downlink addressed to US does reach the handler.
+    Rig r2;
+    r2.distance.push(1200);
+    r2.rng.push(0);
+    r2.pushDownlink(7, 0x0001);
+    FakeDownlinkHandler h2(r2.sleeper);
+    RunCycle c2 = r2.cycleWith(h2);
+    c2.runOnce();
+    TEST_ASSERT_EQUAL_INT(1, h2.calls());
+}
+
+void test_a_cycle_with_no_handler_still_completes() {
+    // The handler is optional. Every existing caller passes none, and a node with no OTA
+    // client bound must transmit and sleep exactly as before.
+    Rig r;
+    r.distance.push(1200);
+    r.rng.push(0);
+    r.pushDownlink(7, 0x0001);
+
+    RunCycle c = r.cycle();
+    c.runOnce();
+
+    TEST_ASSERT_EQUAL_INT(1, r.radio.sentCount());
+    TEST_ASSERT_EQUAL_INT(1, r.sleeper.sleepCount());
+    TEST_ASSERT_TRUE(c.lastDownlinkValid());   // heard it; simply had nowhere to send it
+}
+
 int main(int, char**) {
     UNITY_BEGIN();
     RUN_TEST(test_cycle_transmits_one_frame_carrying_the_reading);
@@ -571,5 +694,10 @@ int main(int, char**) {
     RUN_TEST(test_a_corrupt_downlink_is_ignored_and_the_cycle_completes);
     RUN_TEST(test_a_zero_window_skips_the_listen_entirely);
     RUN_TEST(test_no_window_is_held_when_the_transmit_failed);
+    RUN_TEST(test_a_valid_downlink_reaches_the_handler);
+    RUN_TEST(test_the_handler_runs_before_the_node_sleeps);
+    RUN_TEST(test_a_quiet_window_does_not_call_the_handler);
+    RUN_TEST(test_a_downlink_for_another_node_does_not_call_the_handler);
+    RUN_TEST(test_a_cycle_with_no_handler_still_completes);
     return UNITY_END();
 }
