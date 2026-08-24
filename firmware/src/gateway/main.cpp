@@ -29,10 +29,14 @@ uint8_t g_tx[kMaxPacketLen + kSerialFrameOverhead];
 
 // Inbound from the daemon: a downlink, wrapped in the same serial envelope the outbound
 // direction uses (contracts/serial-framing-v1.md, amended in 3.9b to run both ways).
-// Hand-rolled rather than shared with the Python reader because it is fifteen lines and
-// the alternative is a second implementation of the reader in C++ that nothing else uses.
-uint8_t g_inBuf[kMaxPacketLen + kSerialFrameOverhead];
-size_t  g_inLen = 0;
+//
+// The reader is the one in src/core, NOT a copy. It was hand-rolled here first because it
+// was "only fifteen lines", and the fifteen lines got the invalid-length resync wrong in a
+// way nothing in this file could ever have caught — this sketch is not compiled by any
+// test env. The encoder was put in core one task earlier for exactly this reason; the
+// reader had a better claim and got the worse treatment.
+SerialFrameReader g_reader;
+uint8_t g_inPayload[kMaxPacketLen];
 
 // Listen this long between checks of the serial port. Short enough that a downlink queued
 // by the daemon goes out on the next node window rather than the one after.
@@ -43,32 +47,21 @@ void pumpSerial() {
         const int b = Serial.read();
         if (b < 0) break;
 
-        if (g_inLen == 0 && (uint8_t)b != kSerialSync0) continue;   // hunting
-        if (g_inLen == 1 && (uint8_t)b != kSerialSync1) {
-            // Not a sync pair. Keep the byte only if it could START one — the same
-            // discard-exactly-one rule the Python reader follows, for the same reason.
-            g_inLen = ((uint8_t)b == kSerialSync0) ? 1 : 0;
-            if (g_inLen == 1) g_inBuf[0] = (uint8_t)b;
-            continue;
-        }
+        const size_t len = g_reader.feed((uint8_t)b, g_inPayload, sizeof(g_inPayload));
+        if (len == 0) continue;
 
-        g_inBuf[g_inLen++] = (uint8_t)b;
-
-        if (g_inLen == kSerialFrameOverhead) {
-            const uint8_t len = g_inBuf[2];
-            if (len < kMinFramedPayload || len > kMaxPacketLen) {
-                g_inLen = 0;   // impossible length: not a header after all
-            }
-            continue;
+        // Relayed verbatim. Whether it is a well-formed downlink is the node's question,
+        // not ours — this board does not read payloads.
+        const IRadio::TxResult r = g_radio.send(g_inPayload, len);
+#ifdef SOUNDINGS_BENCH
+        if (r != IRadio::TxResult::Ok) {
+            // Otherwise a downlink that never left the board is indistinguishable, from
+            // the daemon's side, from a node that simply had a quiet window.
+            Serial.printf("downlink relay FAILED (%d bytes)\n", (int)len);
         }
-
-        if (g_inLen > kSerialFrameOverhead &&
-            g_inLen == (size_t)g_inBuf[2] + kSerialFrameOverhead) {
-            // Relayed verbatim. Whether it is a well-formed downlink is the node's
-            // question, not ours — this board does not read payloads.
-            g_radio.send(g_inBuf + kSerialFrameOverhead, g_inBuf[2]);
-            g_inLen = 0;
-        }
+#else
+        (void)r;
+#endif
     }
 }
 
