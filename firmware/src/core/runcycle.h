@@ -41,6 +41,21 @@ constexpr uint32_t kDefaultTxWindowMs = 1000;
 // so it is short. 0 disables the listen entirely.
 constexpr uint32_t kDefaultRxWindowMs = 250;
 
+// Listen on every Nth wake rather than every one. 1 = every wake, which is what a node
+// ships with and what it should carry up a tank.
+//
+// The window costs ~219 mAh over two years at every wake (HARDWARE_BUILD_PLAN.md §6) — a
+// quarter of the margin above break-even — and it is listening to silence on virtually
+// all of the ~70,000 of them. At N=12 (once every three hours) that falls to ~18 mAh
+// while the node stays permanently reachable; an update just waits up to three hours to
+// begin. Commission at 1, then raise it.
+//
+// ⚠ RAISING N REDUCES LISTENING, WHICH IS THE DANGEROUS DIRECTION (DEC-011). It narrows
+// the channel you would use to undo it, and taken far enough — or with rxWindowMs at 0 —
+// it severs it. Lowering N is always safe to ship. Every tightening goes one step at a
+// time with a confirmed packet before the next.
+constexpr uint16_t kDefaultRxEveryNWakes = 1;
+
 struct SensorSlot {
     uint8_t   channelBit;   // index into the packet.h channel registry
     ISampler* sampler;
@@ -54,6 +69,7 @@ struct RunCycleConfig {
     uint8_t  txRetries    = kDefaultTxRetries;
     uint32_t txWindowMs   = kDefaultTxWindowMs;
     uint32_t rxWindowMs   = kDefaultRxWindowMs;
+    uint16_t rxEveryNWakes = kDefaultRxEveryNWakes;
 };
 
 class RunCycle {
@@ -75,10 +91,15 @@ public:
     // Returns intervalMs offset by a jittered amount in [-jitterMs, +jitterMs].
     uint32_t nextSleepMs();
 
+    // Whether this wake holds a receive window at all — rxWindowMs and rxEveryNWakes
+    // together. Public for tests, and for a caller that wants the schedule without
+    // running a cycle.
+    bool            shouldListenThisWake() const;
+
     // The downlink heard in the last window, if any. Valid only until the next runOnce()
     // — and on hardware there is no next one, because the sleep resets the MCU, so this
-    // is read by whatever runs after runOnce() returns in a host test or by the OTA path
-    // that issue #76 will add inside the cycle itself.
+    // is read by whatever runs after runOnce() returns in a host test, or by the OTA
+    // handler that 3.9c added inside the cycle itself.
     bool            lastDownlinkValid() const { return downlinkValid_; }
     const Downlink& lastDownlink()      const { return downlink_; }
 

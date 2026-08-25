@@ -10,6 +10,7 @@
 #include "ibattery.h"
 #include "isleeper.h"
 #include "idistance.h"
+#include "ota_client.h"
 
 // The tank node. Phase 3.9b turns this from the Phase 1.1 skeleton into the real cycle:
 // wake → sample → assemble → transmit → listen → sleep.
@@ -67,22 +68,6 @@ struct UnfittedBattery : IBattery {
     Reading read() override { return Reading{0, false}; }
 };
 
-#ifdef SOUNDINGS_BENCH
-// Bench readout for the downlink round trip (issue #76). The node is the ONLY thing that
-// can answer the question this measures — "did the reply land while the window was still
-// open" — because the daemon knows when it wrote a downlink and nothing else. DEC-010
-// flags that the gateway->node direction has never been measured; this is the instrument.
-//
-// Bench-only. The field binding is the OTA client, and it is not this.
-struct PrintingDownlinkHandler : IDownlinkHandler {
-    void onDownlink(const Downlink& d) override {
-        Serial.printf("DOWNLINK heard at %lu ms: node=%u flags=0x%04X\n",
-                      (unsigned long)::millis(), (unsigned)d.node_id, (unsigned)d.flags);
-    }
-};
-PrintingDownlinkHandler g_downlinkHandler;
-#endif
-
 ArduinoClock     g_clock;
 DeepSleeper      g_sleeper;
 HwRandom         g_rng;
@@ -93,7 +78,32 @@ Sx1262Radio      g_radio(kTxPowerDbm);
 DistanceSampler  g_distanceSampler(g_distance);
 
 constexpr uint8_t  kNodeId     = 7;
-constexpr uint16_t kFwVersion  = 0x0104;   // bumped whenever the wire behaviour changes
+// ⚠ BUMP THIS FOR EVERY IMAGE YOU PUBLISH. The daemon compares it against the manifest's
+// version to decide whether a node is stale, so two different builds sharing a value are
+// indistinguishable and the node will believe it is already current (issue #79).
+constexpr uint16_t kFwVersion  = 0x0106;
+
+// The OTA client — the real IDownlinkHandler (issue #79). Declared after kFwVersion
+// because it needs it: bit 0 means "you are not running what I have", and "what I am
+// running" is this constant.
+OtaClient g_ota(kFwVersion);
+
+#ifdef SOUNDINGS_BENCH
+// Bench readout, chained IN FRONT of the OTA client rather than replacing it. It exists
+// because the node is the only thing that can answer "did the reply land while the window
+// was still open" (DEC-010 flagged that direction as never measured). Swapping it in
+// place of g_ota — which is what the first version of this did — would mean the bench
+// build never exercises the code the field build runs, which is the opposite of what a
+// bench is for.
+struct PrintingDownlinkHandler : IDownlinkHandler {
+    void onDownlink(const Downlink& d) override {
+        Serial.printf("DOWNLINK heard at %lu ms: node=%u flags=0x%04X\n",
+                      (unsigned long)::millis(), (unsigned)d.node_id, (unsigned)d.flags);
+        g_ota.onDownlink(d);
+    }
+};
+PrintingDownlinkHandler g_downlinkHandler;
+#endif
 
 } // namespace
 
@@ -158,9 +168,11 @@ void setup() {
 
     RunCycle cycle(cfg,
                    slots, slotCount,
-                   g_battery, g_radio, g_clock, g_sleeper, g_rng, g_seqStore
+                   g_battery, g_radio, g_clock, g_sleeper, g_rng, g_seqStore,
 #ifdef SOUNDINGS_BENCH
-                   , &g_downlinkHandler
+                   &g_downlinkHandler   // prints, then delegates to g_ota
+#else
+                   &g_ota
 #endif
                    );
 

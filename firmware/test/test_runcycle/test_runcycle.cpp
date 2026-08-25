@@ -663,6 +663,110 @@ void test_a_cycle_with_no_handler_still_completes() {
     TEST_ASSERT_TRUE(c.lastDownlinkValid());   // heard it; simply had nowhere to send it
 }
 
+// ---- Listening on every Nth wake (issue #79) --------------------------------
+
+void test_n_of_one_listens_on_every_wake() {
+    Rig r;
+    RunCycleConfig c = r.cfg();
+    c.rxEveryNWakes = 1;
+    for (uint16_t s = 0; s < 5; ++s) {
+        r.seq.store(s);
+        RunCycle cycle(c, r.slots, 1, r.battery, r.radio, r.clock, r.sleeper, r.rng, r.seq);
+        TEST_ASSERT_TRUE(cycle.shouldListenThisWake());
+    }
+}
+
+void test_n_of_twelve_listens_on_one_wake_in_twelve() {
+    Rig r;
+    RunCycleConfig c = r.cfg();
+    c.rxEveryNWakes = 12;
+
+    int listened = 0;
+    for (uint16_t s = 0; s < 24; ++s) {
+        r.seq.store(s);
+        RunCycle cycle(c, r.slots, 1, r.battery, r.radio, r.clock, r.sleeper, r.rng, r.seq);
+        if (cycle.shouldListenThisWake()) ++listened;
+    }
+    // Exactly two of twenty-four — not "few", not "some". A test that only asserted
+    // "fewer than before" would pass against a node that never listens again, which is
+    // the failure this whole setting is one step away from.
+    TEST_ASSERT_EQUAL_INT(2, listened);
+}
+
+void test_a_freshly_powered_node_listens_immediately() {
+    // seq lives in RTC memory: it survives deep sleep but NOT a power cycle, so a node
+    // someone has just walked out and repowered starts at 0 — and 0 % N == 0. That is the
+    // behaviour you want from the one action a person takes when a node is misbehaving,
+    // and it is why the counter resetting is a feature rather than something to work around.
+    Rig r;
+    RunCycleConfig c = r.cfg();
+    c.rxEveryNWakes = 96;          // once a day: about as deaf as this can legally get
+    r.seq.store(0);
+    RunCycle cycle(c, r.slots, 1, r.battery, r.radio, r.clock, r.sleeper, r.rng, r.seq);
+    TEST_ASSERT_TRUE(cycle.shouldListenThisWake());
+
+    // ...and the very next wake does NOT listen, so this is pinning the reset behaviour
+    // rather than a node that listens unconditionally.
+    r.seq.store(1);
+    RunCycle next(c, r.slots, 1, r.battery, r.radio, r.clock, r.sleeper, r.rng, r.seq);
+    TEST_ASSERT_FALSE(next.shouldListenThisWake());
+}
+
+void test_zero_is_treated_as_every_wake_not_as_never() {
+    // A misconfigured 0 must not mean "never listen" — that is the unreachable-node
+    // failure, and an off-by-one in whatever writes this config should not be able to
+    // strand a node in a tank. rxWindowMs == 0 is the explicit, deliberate way to
+    // disable listening; this field has no such meaning.
+    Rig r;
+    RunCycleConfig c = r.cfg();
+    c.rxEveryNWakes = 0;
+    r.seq.store(7);
+    RunCycle cycle(c, r.slots, 1, r.battery, r.radio, r.clock, r.sleeper, r.rng, r.seq);
+    TEST_ASSERT_TRUE(cycle.shouldListenThisWake());
+}
+
+void test_a_zero_window_still_wins_over_any_n() {
+    Rig r;
+    RunCycleConfig c = r.cfg();
+    c.rxWindowMs    = 0;
+    c.rxEveryNWakes = 1;
+    r.seq.store(0);
+    RunCycle cycle(c, r.slots, 1, r.battery, r.radio, r.clock, r.sleeper, r.rng, r.seq);
+    TEST_ASSERT_FALSE(cycle.shouldListenThisWake());
+
+    // Positive control: the same wake with a non-zero window does listen.
+    c.rxWindowMs = kDefaultRxWindowMs;
+    RunCycle on(c, r.slots, 1, r.battery, r.radio, r.clock, r.sleeper, r.rng, r.seq);
+    TEST_ASSERT_TRUE(on.shouldListenThisWake());
+}
+
+void test_a_skipped_wake_does_not_touch_the_radio() {
+    // The power claim, asserted rather than described: on a non-listening wake the radio
+    // must not be put into receive at all. Counting receive() calls is the only way to
+    // tell "listened and heard nothing" from "never listened".
+    Rig r;
+    r.distance.push(1200);
+    r.rng.push(0);
+    RunCycleConfig c = r.cfg();
+    c.rxEveryNWakes = 12;
+    r.seq.store(5);                       // 5 % 12 != 0
+
+    RunCycle cycle(c, r.slots, 1, r.battery, r.radio, r.clock, r.sleeper, r.rng, r.seq);
+    cycle.runOnce();
+
+    TEST_ASSERT_EQUAL_INT(1, r.radio.sentCount());     // it still transmitted
+    TEST_ASSERT_EQUAL_INT(0, r.radio.receiveCalls());  // and never listened
+
+    // Positive control: a listening wake DOES call receive.
+    Rig r2;
+    r2.distance.push(1200);
+    r2.rng.push(0);
+    r2.seq.store(12);                     // 12 % 12 == 0
+    RunCycle c2(c, r2.slots, 1, r2.battery, r2.radio, r2.clock, r2.sleeper, r2.rng, r2.seq);
+    c2.runOnce();
+    TEST_ASSERT_EQUAL_INT(1, r2.radio.receiveCalls());
+}
+
 int main(int, char**) {
     UNITY_BEGIN();
     RUN_TEST(test_cycle_transmits_one_frame_carrying_the_reading);
@@ -699,5 +803,11 @@ int main(int, char**) {
     RUN_TEST(test_a_quiet_window_does_not_call_the_handler);
     RUN_TEST(test_a_downlink_for_another_node_does_not_call_the_handler);
     RUN_TEST(test_a_cycle_with_no_handler_still_completes);
+    RUN_TEST(test_n_of_one_listens_on_every_wake);
+    RUN_TEST(test_n_of_twelve_listens_on_one_wake_in_twelve);
+    RUN_TEST(test_a_freshly_powered_node_listens_immediately);
+    RUN_TEST(test_zero_is_treated_as_every_wake_not_as_never);
+    RUN_TEST(test_a_zero_window_still_wins_over_any_n);
+    RUN_TEST(test_a_skipped_wake_does_not_touch_the_radio);
     return UNITY_END();
 }
