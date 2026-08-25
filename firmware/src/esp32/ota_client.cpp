@@ -22,10 +22,20 @@ private:
 };
 
 bool configured() {
-    // An empty ssid or host means node_secret.ini was absent at build time. That compiles
-    // clean by design, so this is the check that turns "not configured" into "do nothing"
-    // rather than into a nonsense URL fetched from a green build.
-    return strlen(SOUNDINGS_WIFI_SSID) > 0 && strlen(SOUNDINGS_OTA_HOST) > 0;
+    // An empty field means node_secret.ini was absent or partial at build time. That
+    // compiles clean by design — PlatformIO merges the secret file key-by-key over the
+    // empty defaults in platformio.ini — so this is the check that turns "not configured"
+    // into "do nothing" rather than into a nonsense URL fetched from a green build.
+    //
+    // ⚠ THE PASSWORD IS CHECKED TOO, AND ITS ABSENCE IS THE DANGEROUS ONE. The first
+    // version of this function tested only ssid and host. A node_secret.ini missing its
+    // `pass` line — a typo, or a line commented out during debugging — then compiled to
+    // WiFi.begin(ssid, ""), which ASSOCIATES TO AN OPEN NETWORK of that SSID. Anyone in
+    // RF range could stand up an unsecured AP with the broadcast SSID and answer as the
+    // firmware server. Silent: the node associates and fetches exactly as if configured.
+    return strlen(SOUNDINGS_WIFI_SSID) > 0
+        && strlen(SOUNDINGS_WIFI_PASS) > 0
+        && strlen(SOUNDINGS_OTA_HOST) > 0;
 }
 
 String baseUrl() {

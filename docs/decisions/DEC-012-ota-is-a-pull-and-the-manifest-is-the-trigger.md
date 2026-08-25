@@ -66,3 +66,37 @@ This supersedes issue #76's original NVS-provisioning plan. A password change co
 **Rejected:** a push model (no moment exists at which to push); the `.bin` as trigger (a partial copy is fetchable); JSON for the manifest (four fixed fields do not justify ArduinoJson in the node build); NVS-provisioned credentials (a password change costs a USB trip either way, and this is simpler); rollback (explicitly, and nothing may be complicated to add it later); an ack for the flag (the node's next packet already is one).
 
 **Revisit:** if a node ever fails an update repeatedly, bound the attempts. If the credential-in-image exposure stops being acceptable, NVS provisioning is a swap rather than a redesign. If an image ever approaches the 3,342,336-byte slot, the build gate fails first and the partition table is the next question.
+
+## Amendment, 2026-08-25 (eric) — the security posture, which the original text did not examine
+
+**What this changes, and what still stands.** Every mechanism above is unchanged and the OTA path works as described. What this adds is the analysis the original decision skipped: it weighed *corruption* — a half-finished `scp`, a lossy WiFi link — and never weighed an **adversary**. `/security-review` raised it on the 3.9d PR, and it is right that the word "attacker" appears nowhere in the original.
+
+### The three checks defend against accident, not against malice
+
+The daemon's validation, the node's streaming hash, and `Update.end()` are described above as three lines of defence. Against a hostile party they are **one line, and it is not load-bearing**: all three compare the image against a hash that arrives over the same unauthenticated channel as the image. Anyone answering at `SOUNDINGS_OTA_HOST` serves a manifest whose `sha256` is the hash of their own binary, and every check passes.
+
+**Firmware is fetched over plaintext HTTP with no signature.** There is no TLS, no image signing, and no pinned key anywhere in 3.9d.
+
+### Assigning bit 0 changed the meaning of an existing channel
+
+⚠ **This is the part worth remembering, because it is not visible in this file's diff.** `contracts/downlink-v1.md` accepts a downlink on **CRC-16 alone** — no MAC, no nonce, no shared secret. That was harmless while `flags` carried no assignments: a forged downlink made a node do nothing.
+
+Bit 0 attaches *fetch and execute code* to that frame. **The downlink did not become less authenticated; the consequence of forging one became arbitrary code execution.** Any SX1262 running DEC-010's published modem parameters can transmit one, and the node opens a window every wake.
+
+### What this costs, given no rollback
+
+DEC-006's "bricking-means-USB is accepted" was an **availability** cost — a bad flash we published ourselves. Under this analysis it is also **attacker-triggerable**, and a malicious image can refuse all future OTA, closing the only remote path to fixing it. Recovery is a trip to the tank with a cable, per node.
+
+### The fix, when it is worth doing
+
+**Sign the manifest.** Embed an Ed25519 or ECDSA-P256 public key in the firmware — mbedtls is already linked for SHA-256, so this costs no new dependency — have `publish_firmware.py` sign the four manifest lines with an offline key, add a `sig:` field, and verify before `Update.begin()`. That makes the `sha256` field mean something and leaves the transport in plaintext, which is fine.
+
+**TLS alone is the weaker fix**: it authenticates the server rather than the image, needs certificate management on a battery node, and does nothing about the forgeable trigger. Signing addresses both, because an attacker who forges a downlink then cannot produce an image the node will accept.
+
+### Accepted for now, and the condition for revisiting
+
+**This is a private farm LAN behind a residential router, with one node, in a field.** The attacker must be in RF range of the property *and* on the WiFi, and the payoff is a tank-level sensor. That is a real risk and a small one, and shipping unsigned is a deliberate choice rather than an oversight — now that it is written down, which it was not before.
+
+**Revisit when any of these becomes true:** a node moves somewhere the LAN is not physically controlled; the fleet grows enough that a trip to every node is a real cost; anything on this network stops being sensors; or DEC-012's credential-in-image exposure is closed, since a published `.bin` currently hands out the PSK that is the first step of the chain. **Signing before the fleet grows is much cheaper than signing after** — every deployed node needs the key, and a node that ships without one can only be given it by USB.
+
+⚠ **One thing was fixed rather than accepted.** `configured()` checked the SSID and host but not the password, so a `node_secret.ini` missing its `pass` line compiled to `WiFi.begin(ssid, "")` — associating to an **open** network of that SSID, and turning "attacker needs the PSK" into "attacker needs to broadcast an SSID". Silent from a green build. Now checked.
