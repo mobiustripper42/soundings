@@ -4,10 +4,10 @@ dev: eric
 slug: sync-shell-and-its-alive
 branch: task/sync-shell-and-its-alive
 started: 2026-08-24T15:51:14Z
-ended:
-points:
+ended: 2026-08-25T13:57:33Z
+points: 16
 pr_numbers: [80, 81]
-status: open
+status: closed
 transcript: /home/estoffer/.claude/projects/-home-estoffer-soundings/a98a09ef-75f3-50fa-9fd7-e50cad2a053a.jsonl
 ---
 
@@ -204,5 +204,49 @@ verified via GraphQL to resolve to issue #79 only.
 **Opened at:** 2026-08-25T10:32:00Z
 
 **Next Steps:**
+- **Both PRs merged. Phase 3 is 27 points across 5 open issues, and every one is
+  parts-gated or field work** — 3.8b (#71) and 3.10 (#49) wait on the A02YYUW and the
+  battery pack; 3.11–3.13 (#50–#52) are the enclosure, first light and calibration.
+  **The keyboard-bound part of Phase 3 is done.**
+- ⚠ **Sign the manifest before the fleet grows.** DEC-012's amendment carries the analysis;
+  the cost asymmetry is the point — every deployed node needs the key, and a node shipped
+  without one can only be given it by USB. One node today makes it cheap. It will not stay
+  cheap.
+- ⚠ **Two things the operator owes from the secret leak:** rotate the WiFi password (the
+  rotation now also means editing `firmware/node_secret.ini`), and ask GitHub Support to
+  purge the orphaned commit `eb98539`, which still serves by direct URL.
+- **Unbuilt and named in DEC-012's tradeoffs:** nothing bounds repeated failed OTA
+  attempts, and `publish_firmware.py` cannot verify `--version` matches the built binary.
+- **Boards are on bench firmware, node awake every 20 s.** `pio run -e park -t upload
+  --upload-port /dev/ttyUSB1` from `firmware/` to silence it.
 
 **Context:**
+- ⚠ **Three of this session's four real bugs were invisible to every host test**, and the
+  pattern is now consistent enough to plan around: a duty-cycle bug that looked exactly
+  like RF, a DTR/RTS line parking the ESP32 in its ROM bootloader, and a 404 caused by a
+  test-setup path. **What broke each one open was a diagnostic print that did not exist an
+  hour earlier.** Adding one line to say what a board is doing has paid for itself every
+  time this session; not having it is why "no bytes on the port" was unattributable.
+- ⚠ **Reading the pinned library settled two arguments that reasoning got wrong.** The
+  receive truncation was RadioLib's *software* timeout (`SX126x.cpp:300`), not the chip's;
+  `STOP_TIMER_ON_PREAMBLE` is defined and never issued in 7.7.1. The prediction matched
+  observation for a mechanism I had guessed incorrectly. `.pio/libdeps/` is on disk — read
+  it rather than infer from behaviour.
+- ⚠ **The false-green class appeared again and in a new place: the FAKE, not the test.**
+  `FakeRadio` re-armed but never modelled the disarm `transmit()` performs, so the
+  invariant test asserted nothing. Mutation caught it; reading would not have. **A fake
+  that under-models the hardware makes every test above it a green light for nothing** —
+  which is precisely why `test_adapters` grades fakes.
+- ⚠ **I stated an unverified inference as fact and built paragraphs on it** (the pavilion
+  AP's SSID), having verified the opposite twenty minutes earlier. The operator caught it.
+  Also invented a SHA-256 in a contract, caught only by running the command the vector was
+  chosen to make runnable. **Both are the same failure: asserting instead of checking, in a
+  durable document.**
+- **Declarative downlinks are proven, not just argued.** The OTA flag cleared itself for
+  eleven consecutive cycles with no ack, no retry code and no state. That property is what
+  makes link reliability not load-bearing, and it is the thing to protect when someone
+  wants a quick "reboot now" bit out of the remaining 15.
+- **Measured and worth reusing:** WiFi cold join 999 ms typical / 4150 ms first-after-flash;
+  923 KB fetched, hashed and flashed in 6.2 s; downlink round trip 613 ms with a 1 ms
+  spread; receive-window floor between 100 and 150 ms, set by downlink airtime rather than
+  daemon latency.
