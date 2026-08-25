@@ -55,7 +55,9 @@ bool OtaClient::joinWifi() {
                           (unsigned long)(millis() - start));
             return false;
         }
-        delay(50);   // the one place a delay is right: nothing else runs during a join
+        // Bounded by the deadline above, which is what makes it legal here: the rule is
+        // "nothing unbounded in the run path" (DEC-006), not that delay() never appears.
+        delay(50);
     }
     Serial.printf("ota: wifi up in %lu ms, ip %s, rssi %d dBm\n",
                   (unsigned long)(millis() - start),
@@ -189,7 +191,7 @@ bool OtaClient::fetchAndFlash(const FwManifest& m) {
 }
 
 void OtaClient::onDownlink(const Downlink& d) {
-    if ((d.flags & 0x0001) == 0) return;    // nothing waiting; the ordinary case
+    if ((d.flags & kFlagUpdateWaiting) == 0) return;   // nothing waiting; the usual case
 
     if (!configured()) {
         Serial.println("ota: flagged, but this build has no credentials — ignoring");

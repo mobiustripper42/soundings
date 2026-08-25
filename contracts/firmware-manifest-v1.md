@@ -155,5 +155,7 @@ builds of the same version, and it is not on the wire.
 | Publish tool | `gateway/tools/publish_firmware.py` | Write (atomically, last) |
 | Daemon | `gateway/soundings_gateway/ota.py` | Parse + validate |
 
-⚠ **The paths above are the plan, not the state.** Nothing in this table exists yet —
-this contract is written first, as the brief both ends are built against.
+All three exist as of Phase 3.9d. The contract was written **before** any of them, as
+the brief all three were built against — which is why three independent parsers agree
+without a shared vector file, and why the shared literal below is one a reader can
+regenerate rather than trust.

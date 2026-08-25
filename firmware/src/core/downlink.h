@@ -20,11 +20,20 @@ namespace soundings {
 // packet-v1 already uses (DEC-003).
 
 constexpr size_t  kDownlinkLen     = 6;
+
+// Bit 0 — firmware update waiting (issue #79, contracts/downlink-v1.md). Means "you are
+// not running what I have", never "go do an update": the daemon derives it from a
+// fw_version mismatch, so a lost downlink costs fifteen minutes and no correctness
+// (DEC-011). The daemon's equivalent is FLAG_UPDATE_WAITING in downlink.py.
+//
+// 15 bits remain. Spend them only on states the node reports back — an action bit would
+// need exactly-once delivery, which this link deliberately does not provide.
+constexpr uint16_t kFlagUpdateWaiting = 0x0001;
 constexpr uint8_t kDownlinkProtoV1 = 0x01;
 
 struct Downlink {
     uint8_t  node_id = 0;
-    uint16_t flags   = 0;   // no bits assigned in v1; 0 means "heard, nothing for you"
+    uint16_t flags   = 0;   // 0 means "heard, nothing for you" — still the usual answer
 };
 
 // Decode a downlink addressed to `myNodeId`. Returns false — silently, and this is the

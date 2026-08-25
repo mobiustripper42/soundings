@@ -153,10 +153,15 @@ void setup() {
     // board unattributable: no bytes on the port is what a dead radio, a crashed sketch
     // and an unplugged cable ALL look like. One line tells the three apart, and it cost a
     // bench cycle to notice it was missing.
-    // ⚠ The one delay() in the project, and the exemption is narrow: setup() only, this
-    // board only, bench builds only. The no-delay() rule protects the NODE's run path,
-    // where time spent awake is battery (DEC-006); this board is mains-powered (DEC-009)
-    // and runs no cycle. Without it the first line races the USB bridge and is lost.
+    // ⚠ A deliberate delay(), and the exemption is narrow: setup() only, this board only,
+    // bench builds only, on a board that is mains-powered (DEC-009) and runs no cycle.
+    // Without it the first line races the USB bridge and is lost.
+    //
+    // It is no longer the ONLY one — 3.9d's ota_client.cpp polls with delay(50) and
+    // delay(1) inside the node's own wake. Those are on a battery device, which is what
+    // the rule protects, and they earn it differently: each sits in a loop bounded by a
+    // millis() deadline, so the node cannot be held awake by one (DEC-006). The rule is
+    // "nothing unbounded in the run path", not "the token delay never appears".
     delay(200);
     Serial.printf("\nsoundings gateway: radio.begin -> %s (status %d)\n",
                   radioUp ? "up" : "DOWN", (int)g_radio.lastStatus());
