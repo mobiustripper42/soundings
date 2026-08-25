@@ -6,7 +6,7 @@ branch: task/sync-shell-and-its-alive
 started: 2026-08-24T15:51:14Z
 ended:
 points:
-pr_numbers: [80]
+pr_numbers: [80, 81]
 status: open
 transcript: /home/estoffer/.claude/projects/-home-estoffer-soundings/a98a09ef-75f3-50fa-9fd7-e50cad2a053a.jsonl
 ---
@@ -117,6 +117,91 @@ verified via GraphQL to resolve to issue #76 only; issue #79 stays open.
 **Points:** 8
 **Branch:** task/3.9c-ota-over-wifi
 **Opened at:** 2026-08-24T23:14:00Z
+
+## Housekeeping 3 — 3.9d specced properly before it was built
+
+Four open items from the 3.9c handback were closed with the operator before any code:
+**bit 0** for update-waiting (15 bits left); the **server address joins the secret file**,
+which is renamed `wifi_secret.ini` → **`node_secret.ini`** since it now holds more than
+WiFi; **SHA-256**; and *"make a contract"* → `contracts/firmware-manifest-v1.md`, written
+**before** any of its three parsers.
+
+⚠ **An IP, not a hostname** (operator call). A name means the node needs DNS or mDNS
+working before it can fetch anything — another system in the path on a device whose only
+recovery is a walk to the tank.
+
+⚠ **I invented a hash in the contract's shared test vector.** A plausible 64-hex string
+that was simply wrong. It surfaced only because the vector was chosen to be reproducible
+(`printf 'test' | sha256sum`) and I ran it against my own document. **Third number in this
+repo wrong in prose while the code was fine.** The contract now says so, and its
+illustrative example uses `<64 lowercase hex chars>` rather than a realistic-looking value
+someone would copy.
+
+⚠ **I asserted `node_secret.ini` had the wrong SSID and wrote several paragraphs of
+consequences on top of it.** The pavilion AP shares the mesh SSID; I had inferred a
+separate one from "another AP", never checked, and had *already verified the match twenty
+minutes earlier*. The operator called it out. **The banned move is not the wrong guess —
+it is stating it as fact and then building on it.** One question would have settled it.
+
+## Task 2: Phase 3.9d — OTA over WiFi, proven on hardware
+
+**Completed:**
+- **`contracts/firmware-manifest-v1.md`** — four keys, `": "` separated, bounded at
+  512 B / 32 lines, rejection silent and total. Three independent parsers read it.
+- **`downlink-v1` bit 0 assigned**, with the rule that the remaining 15 go to *states*.
+- **`src/core/fw_manifest.{h,cpp}`** — the node's parser, 24 host tests. First parser here
+  reading input a remote party chose the length of.
+- **`src/esp32/ota_client.{h,cpp}`** — WiFi join, HTTP, streaming mbedtls SHA-256,
+  `Update`, reboot. Verifies **before** `Update.end()`; WiFi off on every path out.
+- **`gateway/ota.py`** + **`tools/publish_firmware.py`** — validate-before-flag, and
+  image-first/manifest-last via `os.replace`.
+- **`rxEveryNWakes`** — ~219 mAh/2yr at N=1 → ~18 mAh at N=12, still reachable. **0 means
+  every wake, never "never"** — an off-by-one must not be able to strand a node.
+- **`tools/fw_build_id.py`** ported from tinkle, retargeted to this board's `0x330000`
+  slot (tinkle's `0x140000` is a 4 MB figure — 2.6× under). Now at 28%.
+- **DEC-012**, `docs/OTA.md`, **SPEC §3 and §8 amended** — the Not-V1 row forbidding OTA
+  struck through with the reason it no longer applies.
+- Suites: **173 native** (was 143), **219 pytest** (was 165), fw_build_id host tests, five
+  envs, gates 3/3 with 12 decisions.
+
+**⚠ It works, and it was measured:** v261 → v262, 923,872 bytes, SHA-256 verified, flashed
+in **6.2 s**, WiFi cold join **999 ms** (first join after a flash: **4150 ms** — the reason
+the timeout is 15 s). Then `flags=0x0000` for **eleven consecutive cycles**: the flag
+cleared itself with no acknowledgement anywhere. **DEC-011's declarative downlink
+demonstrated rather than argued.**
+
+⚠ **The first attempt 404'd and the cause was my test setup, not the code** — I served the
+firmware directory itself while the node asked for `/firmware/manifest.txt`. Everything
+upstream (downlink, flag decode, WiFi join, request issued) was already proven by that run.
+
+**Code review:** 4 findings, all comment/doc staleness *this diff created* — `downlink.h`
+still said "no bits assigned in v1" while the same commit consumed bit 0; the contract
+still called its Implementations table hypothetical; the gateway sketch still claimed the
+only `delay()` in the project. All fixed. Nothing misbehaved on hardware.
+
+**`/security-review` — run because this PR makes a node execute code from the network.**
+One fixed, two accepted in writing:
+- ⚠ **FIXED: `configured()` never checked the WiFi password.** A `node_secret.ini` missing
+  its `pass` line compiled to `WiFi.begin(ssid, "")` — **associating to an OPEN network of
+  that SSID**. Turns "attacker needs the PSK" into "attacker needs to broadcast an SSID",
+  silently, from a green build. PlatformIO's key-by-key merge makes a partial secret file
+  an *expected* case.
+- ⚠ **ACCEPTED: firmware is unsigned over plaintext HTTP.** The three-layer verification
+  defends against corruption, not malice — all three compare against a hash arriving on
+  the same unauthenticated channel. **The part not in the diff:** `downlink-v1` accepts a
+  frame on CRC-16 alone, which was harmless while `flags` carried no assignments. Bit 0
+  attaches *fetch and execute code* to it. **The channel did not get less authenticated;
+  the consequence of forging one became code execution** — and with no rollback that makes
+  bricking-means-USB attacker-triggerable rather than only our own mistake. DEC-012's
+  amendment names the fix (sign the manifest; mbedtls already linked) and the trigger to
+  do it: **before the fleet grows**, since a node shipped without the key can only be given
+  one by USB.
+
+**PR:** [PR #81](https://github.com/mobiustripper42/soundings/pull/81) — `closes #79`
+verified via GraphQL to resolve to issue #79 only.
+**Points:** 8
+**Branch:** task/3.9d-ota-over-wifi
+**Opened at:** 2026-08-25T10:32:00Z
 
 **Next Steps:**
 
