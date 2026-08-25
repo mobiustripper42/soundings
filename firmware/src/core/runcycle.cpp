@@ -72,9 +72,25 @@ uint32_t RunCycle::nextSleepMs() {
     return cfg_.intervalMs - jitter + offset;
 }
 
+bool RunCycle::shouldListenThisWake() const {
+    if (cfg_.rxWindowMs == 0) return false;      // listening disabled outright
+    if (cfg_.rxEveryNWakes <= 1) return true;    // 0 and 1 both mean "every wake"
+
+    // The sequence number IS the wake counter — it advances once per cycle and lives in
+    // RTC memory, which survives deep sleep but not a power cycle. Reusing it rather than
+    // adding a second counter is deliberate: two RTC counters that must stay in step are
+    // two things to get wrong, and this one already exists for issue #30's gap detection.
+    // Reading it for a second purpose does not disturb that.
+    //
+    // A power cycle resets seq to 0, and 0 % N == 0, so a node someone has just walked out
+    // and repowered listens on its very next wake. That is the behaviour you want from the
+    // one action a person takes when a node is misbehaving.
+    return (seq_.load() % cfg_.rxEveryNWakes) == 0;
+}
+
 void RunCycle::listen() {
     downlinkValid_ = false;
-    if (cfg_.rxWindowMs == 0) return;   // listening disabled; do not touch the radio
+    if (!shouldListenThisWake()) return;   // do not touch the radio
 
     uint8_t buf[kDownlinkLen];
     const size_t n = radio_.receive(buf, sizeof(buf), cfg_.rxWindowMs);

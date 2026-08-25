@@ -15,3 +15,31 @@ The GitHub app collapses large diffs and hides the test plan below the fold. The
 ## CHANGELOG format
 
 Written by `/retro` (patch + minor) and `/bump-major`. Keep-a-Changelog shape: `## [X.Y.Z] — YYYY-MM-DD` with `### Added / Changed / Fixed / Removed`. One entry per release, newest first.
+
+## PlatformIO `extra_configs` — merges sections key-by-key (verified 2026-08-24)
+
+`firmware/node_secret.ini` (untracked) supplies WiFi credentials and the firmware-server
+address; `firmware/platformio.ini` carries empty `[wifi]` / `[ota]` defaults and
+`extra_configs = node_secret*.ini`.
+
+**The question was whether a redefined section MERGES or REPLACES**, because a replace
+would silently drop any key the secret file omitted. Settled by three builds rather than
+by reading docs:
+
+| Secret file | `ota.host` | `ota.path` | Build |
+|---|---|---|---|
+| present, complete | `192.168.50.201` | `/firmware/` | ok |
+| **absent** | `""` | `""` | **ok** — empty defaults survive |
+| present, `path` omitted | `192.168.50.201` | `""` | ok — **the default filled the gap** |
+
+**It merges.** A partial secret file is safe, and a missing file compiles to empty strings
+rather than failing.
+
+⚠ **Which makes empty values the thing to guard, not build errors.** An empty `path`
+builds fine and produces `http://host:8080manifest.txt` — a broken URL from a clean build.
+The node must treat an empty ssid or host as *"not configured, never attempt an update"*
+and validate that `path` begins and ends with `/`. The failure this design avoids is a
+build that stops; the failure it creates is a build that succeeds and is wrong.
+
+Test it the same way if the pattern is reused: `pio run -e node -v` and grep the compiler
+line for the `-D` flags. ⚠ That output contains the WiFi password — redact before pasting.

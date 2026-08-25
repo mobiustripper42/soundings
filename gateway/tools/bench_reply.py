@@ -28,10 +28,12 @@ import struct
 import sys
 import termios
 import time
+from pathlib import Path
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 from soundings_gateway.downlink import FLAGS_NONE, SerialDownlinkSink
+from soundings_gateway.ota import UpdatePolicy
 from soundings_gateway.gateway import Gateway
 from soundings_gateway.source import SerialPacketSource
 
@@ -108,6 +110,9 @@ def main() -> int:
     p.add_argument("--port", default="/dev/ttyUSB0", help="the GATEWAY board, not the node")
     p.add_argument("--flags", type=lambda s: int(s, 0), default=FLAGS_NONE,
                    help="downlink flags to send (default 0 — 'heard, nothing for you')")
+    p.add_argument("--ota-dir", default=None, type=Path,
+                   help="serve OTA decisions from this manifest directory instead of "
+                        "sending a fixed --flags value")
     p.add_argument("--count", type=int, default=0, help="stop after N packets (0 = forever)")
     p.add_argument("--log-level", default="INFO")
     args = p.parse_args()
@@ -116,16 +121,20 @@ def main() -> int:
     port = open_port(args.port)
     sink = SerialDownlinkSink(port)
     latencies: list[float] = []
+    # With --ota-dir the flags are DERIVED from the manifest and the node's reported
+    # fw_version, which is the real path; --flags is the fixed-value bench instrument.
+    policy = UpdatePolicy(args.ota_dir) if args.ota_dir else None
 
     def respond(msg: dict) -> None:
         """Reply the instant a packet decodes. No policy — the OTA version compare
         lands later; right now the question is purely whether a reply fits the window."""
+        flags = policy.flags_for(msg) if policy else args.flags
         t0 = time.perf_counter()
-        ok = sink.send(msg["node_id"], args.flags)
+        ok = sink.send(msg["node_id"], flags)
         dt = (time.perf_counter() - t0) * 1000.0
         latencies.append(dt)
-        log.info("node %s seq %s fw %s -> downlink %s in %.1f ms (daemon side only)",
-                 msg["node_id"], msg.get("seq"), msg.get("fw_version"),
+        log.info("node %s seq %s fw %s -> downlink flags=0x%04x %s in %.1f ms",
+                 msg["node_id"], msg.get("seq"), msg.get("fw_version"), flags,
                  "sent" if ok else "FAILED", dt)
         if args.count and len(latencies) >= args.count:
             raise KeyboardInterrupt

@@ -22,10 +22,23 @@ log = logging.getLogger(__name__)
 PROTO_V1 = 0x01
 DOWNLINK_LEN = 6
 
-#: No bits are assigned in v1. A downlink with `flags == 0` means "you are heard,
-#: and there is nothing for you" — which is the only thing v1 can say. Issue #76
-#: assigns the first bit when it has something to say with it.
+#: `flags == 0` means "you are heard, and there is nothing for you" — still the
+#: overwhelmingly common answer, since the node holds a window on every wake and
+#: almost every one of them has nothing waiting.
 FLAGS_NONE = 0x0000
+
+#: **Bit 0 — firmware update waiting** (issue #79, `contracts/downlink-v1.md`).
+#:
+#: Declarative, not imperative (DEC-011): it means *"you are not running what I
+#: have"*, never *"go do an update"*. The daemon derives it by comparing the
+#: `fw_version` the node just reported against the manifest, so a lost downlink
+#: costs fifteen minutes rather than correctness — the mismatch is still true next
+#: cycle and the bit goes out again, with no retry code and no acknowledgement.
+#:
+#: 15 bits remain unassigned. Spend them only on states the node reports back; an
+#: action bit ("reboot now") would need exactly-once delivery, which this design
+#: deliberately does not have.
+FLAG_UPDATE_WAITING = 0x0001
 
 _BODY = struct.Struct("<BBH")   # proto_ver, node_id, flags
 

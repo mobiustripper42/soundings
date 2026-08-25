@@ -12,3 +12,16 @@
 # Deliberately NOT named `.env*`: that namespace is a blanket permission deny fleet-wide
 # (DEC-S043), so a secret living there is one no session can read in order to debug it.
 *secret*.ini
+
+# Per-build firmware archive, written by tools/fw_build_id.py. One .bin per build, named
+# by the sha+timestamp identity so two builds of the same version stay distinguishable —
+# which is the thing kFwVersion cannot do. Clean up by hand whenever.
+#
+# Deliberately re-added here rather than in 3.9c: @code-review flagged it there as an
+# entry for tooling that did not exist yet, and said to bring it back with the PR that
+# lands the tooling. This is that PR.
+build_archive/
+
+# Bytecode from tools/test_fw_build_id.py importing the build script. Caught at staging
+# on the 3.9d commit — nothing else in this repo is a Python package, so no rule existed.
+__pycache__/
