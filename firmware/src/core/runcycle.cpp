@@ -96,7 +96,15 @@ void RunCycle::runOnce() {
     if (n > 0) {
         // The window is held only after a transmit the radio ACCEPTED. Listening after a
         // failed send is airtime spent waiting for a reply to something nobody heard.
-        if (transmit(buf, n)) listen();
+        if (transmit(buf, n)) {
+            listen();
+            // ⚠ HERE, and not after the sleep, because there is no after — the sleep
+            // below resets the MCU on hardware. This is the "OTA path inside the cycle
+            // itself" this file has pointed at since 3.9b.
+            if (downlinkValid_ && downlinkHandler_ != nullptr) {
+                downlinkHandler_->onDownlink(downlink_);
+            }
+        }
         // Advanced whether or not the transmit succeeded. A dropped packet consuming its
         // sequence number is what makes the loss VISIBLE downstream — reusing it would
         // close the gap and hide exactly what issue #30 is meant to detect.

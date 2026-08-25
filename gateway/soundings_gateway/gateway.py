@@ -20,12 +20,21 @@ log = logging.getLogger(__name__)
 # Takes a JSON-friendly reading dict (Reading.to_dict() + received_at).
 Publisher = Callable[[dict], None]
 
+# Called with the same reading, while the node's receive window is still open. What
+# it decides to say (if anything) is its own business; see contracts/downlink-v1.md.
+Responder = Callable[[dict], None]
+
 
 class Gateway:
-    def __init__(self, source: IPacketSource, publish: Publisher, *, clock: Callable[[], float] = time.time):
+    def __init__(self, source: IPacketSource, publish: Publisher, *,
+                 clock: Callable[[], float] = time.time,
+                 respond: Responder | None = None):
         self.source = source
         self.publish = publish
         self.clock = clock
+        # Optional, and the default of None is the whole sim path: nothing that
+        # replays synthetic packets has a node listening for an answer.
+        self.respond = respond
         self.decoded = 0
         self.dropped = 0
 
@@ -40,5 +49,10 @@ class Gateway:
             msg["received_at"] = self.clock()
             self.publish(msg)
             self.decoded += 1
+            # After publishing, never instead of it: a reading that triggers a reply
+            # is still a reading. And only for frames that DECODED — a corrupt frame's
+            # node_id byte just failed its own checksum, so it is not an address.
+            if self.respond is not None:
+                self.respond(msg)
         log.info("gateway done: %d decoded, %d dropped", self.decoded, self.dropped)
         return self.decoded

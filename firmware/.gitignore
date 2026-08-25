@@ -1,2 +1,14 @@
 # PlatformIO build output, downloaded platforms/libs, and IDE metadata.
 .pio/
+
+# Build-time secrets. ⚠ Kept here rather than deferred to issue #79 with the rest of
+# the OTA tooling, because firmware/wifi_secret.ini EXISTS ON DISK NOW: it was written
+# during 3.9c planning, and on 2026-08-24 an earlier copy of it reached a public repo
+# through the GitHub web UI, which honours no .gitignore. Nothing in this commit reads
+# the file yet — `extra_configs` wiring lands with #79 — and the rule still earns its
+# place today, because the window where a secret is untracked and unignored is exactly
+# the window that already cost us a password rotation.
+#
+# Deliberately NOT named `.env*`: that namespace is a blanket permission deny fleet-wide
+# (DEC-S043), so a secret living there is one no session can read in order to debug it.
+*secret*.ini

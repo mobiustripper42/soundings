@@ -1,6 +1,9 @@
 #include <Arduino.h>
 #include "sx1262_radio.h"
 #include "serial_framing.h"
+#include "gateway_bridge.h"
+#include "iclock.h"
+#include "ibytesource.h"
 #include "packet.h"
 #include "downlink.h"
 
@@ -38,31 +41,101 @@ uint8_t g_tx[kMaxPacketLen + kSerialFrameOverhead];
 SerialFrameReader g_reader;
 uint8_t g_inPayload[kMaxPacketLen];
 
-// Listen this long between checks of the serial port. Short enough that a downlink queued
-// by the daemon goes out on the next node window rather than the one after.
-constexpr uint32_t kRxSliceMs = 200;
+// ⚠ THE GATEWAY DOES NOT USE A RECEIVE TIMEOUT AT ALL. It calls startReceive() once and
+// polls (iradio.h). There is no slice, so there is no slice length to tune.
+//
+// It used to run receive(200 ms) in a loop — the NODE-shaped call doing a gateway-shaped
+// job. RadioLib enforces that timeout in software (SX126x.cpp:300) and then forces standby
+// (:307), aborting any packet still in flight; the chip alone would have finished it. A
+// 16-byte packet is 165 ms at SF10 (DEC-010), so only packets starting in the first ~35 ms
+// of a slice survived. Predicted 17.5%, measured 2 of 9 twice, at RSSI -60 dBm and
+// SNR +6 dB — a link with twenty dB of margin, losing four packets in five to a receiver
+// that was not listening.
+//
+// Continuous receive is how a LoRa gateway is normally built. It is not an optimisation,
+// and the previous arrangement was not a conservative default — it was the wrong API.
 
+// How long to poll serial for the daemon's reply after relaying a packet up to it.
+//
+// ⚠ THIS IS NOT THE NODE'S RECEIVE WINDOW and must be at least as long as it. The node
+// holds ~250 ms (runcycle.h kDefaultRxWindowMs); if this were shorter, the board would
+// stop listening for a reply while the node was still listening for one.
+//
+// It replaces the bug this file used to have: after writing a packet to USB, the board
+// re-entered a 200 ms BLOCKING radio receive, so the daemon's answer sat unread for up
+// to 200 ms of the node's 250 ms budget. Nothing else transmits during this window — the
+// node that just sent is asleep for fifteen minutes afterwards — so there is no cost to
+// spending it on the serial port instead of the radio.
+constexpr uint32_t kReplyWindowMs = 400;
+
+struct ArduinoClock : IClock {
+    uint32_t millis() const override { return ::millis(); }
+};
+
+// Serial.read() as an IByteSource. Non-blocking by contract: -1 from a UART with nothing
+// in it is "nothing right now", which is exactly what the seam means by false.
+struct SerialByteSource : IByteSource {
+    bool readByte(uint8_t& out) override {
+        const int b = Serial.read();
+        if (b < 0) return false;
+        out = (uint8_t)b;
+        return true;
+    }
+};
+
+ArduinoClock     g_clock;
+SerialByteSource g_serialBytes;
+
+// Put one payload on the air. Relayed verbatim — whether it is a well-formed downlink is
+// the node's question, not ours; this board does not read payloads.
+void relay(size_t len) {
+    const IRadio::TxResult r = g_radio.send(g_inPayload, len);
+#ifdef SOUNDINGS_BENCH
+    if (r != IRadio::TxResult::Ok) {
+        // Otherwise a downlink that never left the board is indistinguishable, from the
+        // daemon's side, from a node that simply had a quiet window.
+        Serial.printf("downlink relay FAILED (%d bytes)\n", (int)len);
+    }
+#else
+    (void)r;
+#endif
+}
+
+// Idle drain, between node wakes. Nothing is expected here; this exists so a downlink
+// the daemon queues early is not left sitting in the UART buffer for a whole slice.
 void pumpSerial() {
     while (Serial.available() > 0) {
         const int b = Serial.read();
         if (b < 0) break;
 
         const size_t len = g_reader.feed((uint8_t)b, g_inPayload, sizeof(g_inPayload));
-        if (len == 0) continue;
-
-        // Relayed verbatim. Whether it is a well-formed downlink is the node's question,
-        // not ours — this board does not read payloads.
-        const IRadio::TxResult r = g_radio.send(g_inPayload, len);
-#ifdef SOUNDINGS_BENCH
-        if (r != IRadio::TxResult::Ok) {
-            // Otherwise a downlink that never left the board is indistinguishable, from
-            // the daemon's side, from a node that simply had a quiet window.
-            Serial.printf("downlink relay FAILED (%d bytes)\n", (int)len);
-        }
-#else
-        (void)r;
-#endif
+        if (len > 0) relay(len);
     }
+}
+
+// The reply window: a packet has just gone up to the daemon, so the node that sent it is
+// holding its receive window RIGHT NOW. Poll the port instead of going back to the radio.
+// Logic and tests live in src/core/gateway_bridge.{h,cpp} — nothing in this file is
+// compiled by any test env, which is how 3.9b shipped a broken reader from here.
+//
+// ⚠ SINGLE-NODE ASSUMPTION, AND IT IS A BENCH SIMPLIFICATION RATHER THAN A PROPERTY.
+// For up to kReplyWindowMs this does not call radio.poll(). The radio is still listening —
+// RX_TIMEOUT_INF keeps the chip in receive — but it auto-restarts into the SAME buffer, so
+// a packet arriving while an unread one sits there OVERWRITES it rather than queueing.
+//
+// With one node that cannot happen: the only node in earshot is the one holding its window
+// and it sleeps for fifteen minutes afterwards. SPEC.md §13 schedules 2-3 nodes in Red
+// Tunnel as the NEXT rollout step, and at that point this becomes a real software drain
+// gap — distinct from, and earlier than, the RF collision DEC-011's Revisit already flags.
+// Resolve it before the multi-node bench: poll the radio inside the wait, shrink the
+// window, or accept a measured loss rate deliberately.
+void awaitAndRelayReply() {
+    const size_t len = awaitFramedPayload(g_serialBytes, g_reader, g_clock,
+                                          kReplyWindowMs, g_inPayload, sizeof(g_inPayload));
+    if (len > 0) relay(len);
+#ifdef SOUNDINGS_BENCH
+    else Serial.println("no downlink from daemon this window");
+#endif
 }
 
 } // namespace
@@ -74,18 +147,46 @@ void setup() {
     // ⚠ No retry loop and no abort. If the radio does not come up, the sketch still runs
     // and still pumps serial — a bridge that refuses to boot is indistinguishable, from
     // the daemon's side, from an unplugged cable.
-    g_radio.begin();
+    const bool radioUp = g_radio.begin();
+#ifdef SOUNDINGS_BENCH
+    // The node has said this since 3.9b and the gateway never did, which made a silent
+    // board unattributable: no bytes on the port is what a dead radio, a crashed sketch
+    // and an unplugged cable ALL look like. One line tells the three apart, and it cost a
+    // bench cycle to notice it was missing.
+    // ⚠ The one delay() in the project, and the exemption is narrow: setup() only, this
+    // board only, bench builds only. The no-delay() rule protects the NODE's run path,
+    // where time spent awake is battery (DEC-006); this board is mains-powered (DEC-009)
+    // and runs no cycle. Without it the first line races the USB bridge and is lost.
+    delay(200);
+    Serial.printf("\nsoundings gateway: radio.begin -> %s (status %d)\n",
+                  radioUp ? "up" : "DOWN", (int)g_radio.lastStatus());
+#else
+    (void)radioUp;
+#endif
+
+    // Enter receive and stay there for the life of the program. This is the ONLY call —
+    // send() re-arms itself (sx1262_radio.cpp), which is what keeps the invariant out of
+    // this file, the one file no test env compiles.
+    g_radio.startReceive();
 }
 
 void loop() {
     pumpSerial();
 
-    const size_t n = g_radio.receive(g_rx, sizeof(g_rx), kRxSliceMs);
-    if (n == 0) return;    // silence between node wakes: the ordinary case, 15 min of it
+    // Non-blocking. Returns 0 on almost every call — that is fifteen minutes of silence
+    // between node wakes, not a fault. The radio is listening the entire time, including
+    // during this call and every one that returns nothing.
+    const size_t n = g_radio.poll(g_rx, sizeof(g_rx));
+    if (n == 0) return;
 
     const size_t framed = frameForSerial(g_rx, n, g_tx, sizeof(g_tx));
     // frameForSerial refuses a length outside [6, 46] rather than truncating. A refusal
     // here means the radio handed us something that cannot be either payload type, so
     // dropping it is correct — and it never reaches the daemon to confuse the parser.
-    if (framed > 0) Serial.write(g_tx, framed);
+    if (framed == 0) return;
+
+    Serial.write(g_tx, framed);
+    // Immediately, with no radio receive in between. The node's window is open now and
+    // every millisecond spent elsewhere is one it spends listening to nothing.
+    awaitAndRelayReply();
 }

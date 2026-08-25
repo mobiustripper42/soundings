@@ -54,6 +54,12 @@ constexpr int8_t kPinBusy = 13;
 // never starts, and it looks exactly like a dead antenna or a wiring fault.
 constexpr float kTcxoVoltage = 1.6f;
 
+// Scratch for draining an over-length frame in poll(). Sized to the SX1262's own maximum
+// rather than to packet-v1's, because the number that matters here is what the RADIO can
+// hand back — anything larger than our contract still has to be read out of the chip's
+// buffer to clear it, or poll() re-reads the same stale packet forever.
+constexpr size_t kMaxRadioFrame = 255;
+
 class Sx1262Radio : public IRadio {
 public:
     explicit Sx1262Radio(int8_t txPowerDbm = kTxPowerFieldDbm) : txPower_(txPowerDbm) {}
@@ -75,6 +81,12 @@ public:
 
     size_t receive(uint8_t* buf, size_t cap, uint32_t timeoutMs) override;
 
+    // Continuous receive — the gateway's mode (iradio.h). RadioLib's no-arg startReceive()
+    // uses RADIOLIB_SX126X_RX_TIMEOUT_INF (SX126x.cpp:474), so there is no deadline in
+    // either hardware or software and nothing to truncate an in-flight packet against.
+    void   startReceive() override;
+    size_t poll(uint8_t* buf, size_t cap) override;
+
     // Put the radio into its own sleep state. Not part of IRadio — nothing in the core
     // run cycle needs it, and a seam method that only one platform implements is a seam
     // method that will be stubbed everywhere else.
@@ -95,6 +107,13 @@ private:
     int8_t  txPower_;
     bool    up_ = false;
     int16_t status_ = 0;
+    // Set by startReceive() and never cleared. send() consults it to decide whether to
+    // re-arm, which is the half-duplex invariant iradio.h states: RadioLib's transmit()
+    // forces standby (SX126x.cpp:214) and leaves it there (:271), so a gateway that does
+    // not put itself back is deaf from its first downlink onward — silently, and looking
+    // exactly like a node that stopped transmitting. The node never sets this and must
+    // stay able to sleep (DEC-006).
+    bool    continuous_ = false;
 };
 
 } // namespace soundings

@@ -15,6 +15,7 @@ from __future__ import annotations
 import pytest
 
 from soundings_gateway import downlink
+from soundings_gateway.downlink import SerialDownlinkSink
 from soundings_gateway.framing import MIN_PAYLOAD, OVERHEAD, SerialFramer
 from soundings_gateway.packet import crc16_ccitt_false
 
@@ -92,3 +93,80 @@ def test_a_six_byte_payload_was_rejected_before_the_amendment():
     assert list(SerialFramer().feed(b"\xa5\x5a" + bytes([len(raw)]) + raw)) == [raw]
     # One byte below the new floor is still refused.
     assert list(SerialFramer().feed(b"\xa5\x5a" + bytes([5]) + b"\x00" * 5)) == []
+
+
+# ---- SerialDownlinkSink ----------------------------------------------------
+#
+# The write half of the USB link. Until now the daemon could encode a downlink and
+# had nowhere to put it: `framing.py` decoded only, and `Gateway.run()` never wrote.
+
+
+class ScriptedWriter:
+    """A serial port that records what was written to it.
+
+    `fail_after` makes write() raise from that call onward — a port that went away
+    mid-run (cable pulled, board reset, /dev node vanished), which is the failure the
+    daemon has to survive rather than die of.
+    """
+
+    def __init__(self, fail_after: int | None = None):
+        self.written: list[bytes] = []
+        self.fail_after = fail_after
+
+    def write(self, data: bytes) -> int:
+        if self.fail_after is not None and len(self.written) >= self.fail_after:
+            raise OSError("port went away")
+        self.written.append(bytes(data))
+        return len(data)
+
+
+def test_sink_writes_a_framed_downlink():
+    port = ScriptedWriter()
+    assert SerialDownlinkSink(port).send(7, 0x1234) is True
+    # Framed, not raw — the board's reader is looking for the envelope.
+    assert port.written == [b"\xa5\x5a\x06" + SHARED_VECTOR]
+
+
+def test_what_the_sink_writes_is_what_the_board_reads_back():
+    """Round trip through the framer, so this is graded against the decode half
+    rather than against a literal this test built itself."""
+    port = ScriptedWriter()
+    SerialDownlinkSink(port).send(7, 0x1234)
+    assert list(SerialFramer().feed(port.written[0])) == [SHARED_VECTOR]
+
+
+def test_sink_survives_a_port_that_went_away():
+    """The daemon must not die because the cable was pulled. It keeps decoding
+    packets; it just cannot answer them."""
+    port = ScriptedWriter(fail_after=0)
+    sink = SerialDownlinkSink(port)
+    assert sink.send(7) is False
+    assert sink.failed == 1
+    # Positive control, in the same test: a healthy port DOES return True and
+    # increments `sent`. Without this the test passes against a sink that always
+    # fails, which is exactly the shape the Task 3 audit found nineteen of.
+    ok = SerialDownlinkSink(ScriptedWriter())
+    assert ok.send(7) is True
+    assert ok.sent == 1 and ok.failed == 0
+
+
+def test_sink_refuses_a_node_id_that_does_not_fit():
+    """The encoder raises on an out-of-range node_id and the sink does not swallow
+    it. A misaddressed downlink is silently ignored by every node, so it would look
+    exactly like a quiet window — unfalsifiable from this end."""
+    port = ScriptedWriter()
+    sink = SerialDownlinkSink(port)
+    with pytest.raises(ValueError):
+        sink.send(999)
+    assert port.written == []
+    # The adjacent legal address is accepted and does reach the port.
+    assert sink.send(255) is True
+    assert len(port.written) == 1
+
+
+def test_sink_counts_across_many_sends():
+    port = ScriptedWriter(fail_after=2)
+    sink = SerialDownlinkSink(port)
+    results = [sink.send(n) for n in range(4)]
+    assert results == [True, True, False, False]
+    assert sink.sent == 2 and sink.failed == 2
