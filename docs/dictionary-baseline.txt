@@ -1,0 +1,119 @@
+# Grandfathered vocabulary — the corpus as it stood when the dictionary gate shipped.
+#
+# Generated ONCE by scripts/gen-dictionary-baseline.mjs and committed. Terms listed here do
+# not have to be registered; new vocabulary from this point forward does. Registering a
+# grandfathered term is always welcome — it is how that term's alternates start being caught.
+#
+# Re-running the generator would grandfather whatever crept in since, which is the gate
+# disarming itself. Add a term to docs/dictionary.yml instead.
+#
+#   <TERM>                    grandfathered acronym
+#   shout:<WORD>              ordinary English this repo shouts for emphasis (**NOT**, GET)
+#   alt:<alternate>@<file>=N  a forbidden alternate already present N times in that file.
+#                             Those N are warned; the N+1th is a failure, wherever it lands.
+
+AA
+AC
+ADC
+AP
+API
+BAT
+BOM
+BSSID
+BW
+CCITT
+CHRG
+CR
+CRC
+DB
+DC
+DHCP
+DIY
+DMM
+EC
+ECDSA
+ETL
+FAQ
+FCC
+FET
+FL
+GA
+GND
+HAF
+HTTP
+HW
+IBC
+IC
+IDE
+IP
+IRQ
+JSN
+JSON
+KB
+LAN
+LDO
+LE
+LVC
+MAC
+MCU
+MOQ
+MQ
+MQTT
+NNN
+NVS
+OD
+OK
+OLED
+OTA
+PA
+PAR
+PCB
+PCM
+PHY
+PR
+PROG
+PSK
+PVC
+RF
+RH
+RSSI
+SF
+SHA
+SMA
+SNR
+SPI
+SQL
+SSID
+TBD
+TLS
+TLV
+TSDB
+TX
+UART
+UL
+URL
+USB
+USB-C
+UV
+VBAT
+VCC
+VM
+VPD
+VPS
+XTAR
+
+shout:ACK
+shout:CO
+shout:DEPTH
+shout:FALSE
+shout:FLOOR
+shout:ID
+shout:JOIN
+shout:MUST
+shout:US
+
+alt:frame@docs/decisions/DEC-005-the-tank-node-goes-first-a-hardware-first.md=1
+alt:frame@docs/decisions/DEC-011-the-gateway-listens-continuously-and-downlinks.md=1
+alt:frame@docs/decisions/DEC-012-ota-is-a-pull-and-the-manifest-is-the-trigger.md=1
+alt:profile@docs/SPEC.md=1
+alt:soil moisture@docs/SPEC.md=2

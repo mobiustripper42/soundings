@@ -1,5 +1,14 @@
 .sessions-worktree/
 
+# The doc gates are the only Node code in this repo, and js-yaml is their only
+# dependency. Nothing needed ignoring here until the v6 gates arrived.
+node_modules/
+
+# `settings-policy.mjs --write` drops a timestamped backup beside the file it edits.
+# Nothing ignored them in seeds, so every write left another one staged for commit.
+*.bak
+*.bak.*
+
 # Env / secrets — everything matching .env* is a secret, no exceptions (DEC-S043).
 # The template, if this repo ever needs one, is `env.example` — outside the namespace,
 # so there is no negation to keep in sync.

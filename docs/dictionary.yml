@@ -1,0 +1,65 @@
+# The dictionary. Three keys per entry, no others.
+#
+#   term  the canonical name. Unique across the file.
+#   says  plain English, max 160 characters. May not lean on an unregistered term —
+#         definitions bottom out in ordinary English or they do not pass.
+#   not   forbidden alternates. Using one fails the build, naming the canonical term.
+#
+# `docs/DICTIONARY.md` is generated from this file by `npm run gen:dictionary`. This is the
+# source; the markdown is what a person reads. Never edit the markdown.
+#
+# THERE IS A BASELINE HERE, AND THAT IS THE DIFFERENCE FROM JIG. jig started empty the day its
+# gate shipped, so it grandfathers nothing and runs at full strength. Soundings did not: the
+# spec, twelve decisions and the hardware plan were all written before the gate existed, and the
+# rule fired 288 times against text nobody is going to rewrite. `docs/dictionary-baseline.txt`
+# freezes that corpus as it stood at adoption on 2026-08-27. It is generated once and never
+# again — re-running `gen-dictionary-baseline.mjs` would grandfather whatever crept in since,
+# which is the gate quietly disarming itself.
+#
+# So a term below is one of two things: written after the gate existed, or old vocabulary worth
+# defining anyway.
+#
+# THE BAR IS "WOULD A COMPETENT READER NEED THIS EXPLAINED", NOT "IS IT AN ACRONYM."
+#
+# Most acronyms in an embedded repo are ordinary to anyone reading it and want no entry — I2C,
+# UART, USB and LAN explain nothing when spelled out. Registration is for a term with a specific
+# local meaning a reader could otherwise guess wrong, and for the handful of farm and
+# soil-physics words that are genuinely not general knowledge.
+
+- term: tension
+  says: how hard a plant must pull to get water out of the soil, in kilopascals — higher means drier. The anchor measurement; a Watermark sensor reads it directly
+  not: [soil moisture, moisture level]
+
+- term: VPD
+  says: vapour pressure deficit — how much more water the air could hold, derived from canopy temperature and humidity. Drives when to irrigate
+  not: []
+
+- term: node
+  says: one battery-powered field unit. Wakes, samples its declared sensors, transmits one packet, sleeps. Never actuates anything
+  not: [sensor unit, mote]
+
+- term: gateway
+  says: the always-on box on the farm network that receives packets, decodes them and publishes. Holds the antenna; stores nothing itself
+  not: [base station, hub]
+
+- term: packet
+  says: the binary record a node transmits — the contract between the firmware serializer and the gateway parser, pinned by shared test vectors
+  # `message` is deliberately NOT forbidden: it appears in the jig-owned `CLAUDE.md`, which this
+  # repo cannot edit, and "message bus" is the right name for the thing in the server stack.
+  not: [frame]
+
+- term: manifest
+  says: the per-node declaration of which sensors that node has. Identity is data, not code — every node runs the same firmware
+  not: [profile, node config]
+
+- term: LVC
+  says: low-voltage cutoff — the battery level at which a node stops transmitting to avoid draining a cell past recovery
+  not: [low voltage cut-off]
+
+- term: bench
+  says: a breadboard node with a real radio and stand-in sensors, on a desk. The tier above simulation and below a real tunnel
+  not: []
+
+- term: wet confirm
+  says: the final gate — real parts in a tunnel, in the ground, reporting. What no test suite can stand in for
+  not: [field test]

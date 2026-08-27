@@ -1,6 +1,6 @@
 # soundings — Project Context
 
-Everything specific to **this** project. The seeds-managed `CLAUDE.md` shell reads this file at session start and treats it as authoritative for project-specific facts (DEC-S019). This is a **`tool`** project (embedded firmware + a Python gateway + dashboards), so the shell's webapp defaults — Playwright/pgTAP, Supabase migrations, 375px screenshots, `<VersionTag />`, `@ui-reviewer` — are overridden or N/A below. Nothing here syncs from seeds.
+Everything specific to **this** project. The jig-managed `CLAUDE.md` shell reads this file at session start and treats it as authoritative for project-specific facts (DEC-S019). This is a **`tool`** project (embedded firmware + a Python gateway + dashboards), so the shell's webapp defaults — Playwright/pgTAP, Supabase migrations, 375px screenshots, `<VersionTag />`, `@ui-reviewer` — are overridden or N/A below. Nothing here syncs from jig.
 
 ## What We're Building
 
@@ -154,12 +154,19 @@ not come back.
 
 Follows the shell. **No `production` branch** unless a deployable surface appears — PRs ship to `main`; only `/promote-production` cares and it gates on `origin/production` (DEC-S022). Stacking PRs is preferred for dependent tasks.
 
-## Model Selection
+## Median gaps
 
-Soundings follows the shell's `## Model Selection` (DEC-S027) **as-is** — Opus 4.8 the standing model, Sonnet for cheap/scoped work, Fable an on-demand bundle escalation. `@architect` is pinned to **Opus 4.8** (`.claude/agents/architect.md` frontmatter, matching the shell default — no override). Project-flavored Fable-bundle candidates: the whole simulation spine, or the node firmware core end to end.
+Where a competent default does the wrong thing in this repo.
 
-## Approach to Action (project override)
+| Gap | Why the default is wrong here |
+|---|---|
+| A green test suite is not evidence about the device | Everything above the bench runs against fakes — fake sensors, a fake clock, a synthetic packet source. That tier is load-bearing for logic and says nothing about whether a real node wakes, reads and transmits. The packet is the truth about the device; the repo is not |
+| A test that only asserts a refusal passes against an implementation that does nothing | Covered at length under `## Testing` below, because it kept happening — including on the clamp that stops a node deep-sleeping for 49 days, pinned by three tests that all asserted a sleep of 0 |
+| The node-secret file is untracked on purpose | firmware/node\_secret.ini carries WiFi credentials and the firmware-server address. Its absence from a fresh clone is the design, not a broken checkout, and the build compiles without it by design (empty strings). Written without backticks deliberately — `check:context` reads a backticked path as a claim that it resolves |
+| There is no store here to migrate | Persistence, dashboards and their schema belong to Poop Deck. A schema instinct that fires in this repo is aimed at the wrong one |
 
-**This overrides the shell's `## Approval Before Action` / `## Bug Reports & Questions` gates.** Soundings defaults to action: for non-trivial or destructive work, say what you're about to do and why in a sentence, then proceed — **don't stall for approval on local, reversible, diagnostic steps** (builds, tests, sim runs, file edits). Reserve explicit confirmation for the genuinely consequential: **flashing hardware, force-pushes, anything touching shared/remote state, anything hard to reverse.**
+## Workflow Notes (project)
 
-Check `docs/SPEC.md` "Not V1" before adding scope. If a task feels bigger than its estimate: stop, re-estimate; if it's scope creep, flag and move on. Still break genuine 13s.
+- **Two toolchains, neither of them Node.** Firmware is PlatformIO (`pio test -e native`), the gateway is Python + pytest in `gateway/.venv`. The `package.json` at the root builds nothing — it hangs the doc gates and holds the version the workflow bumps, and `js-yaml` is its only dependency.
+- **The wire contract has two ends and they fail apart silently.** A change to the C++ serializer or the Python parser that isn't matched in `contracts/` shows up as decoded garbage, not as a build error. The shared golden vectors are what catch it; run the round-trip whenever either side moves.
+- **Poop Deck is a separate repo on disk** at `/home/eric/poop-deck`. Claims about what it stores or graphs come from opening its files, not from what soundings publishes.

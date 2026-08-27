@@ -1,68 +1,69 @@
-# soundings — Claude Code Agents & Skills
+# jig — Agents and Skills
 
-Agents and session skills support the development workflow. They run as Claude
-Code sessions, subagents, or slash commands. None are blocking — if one creates
-friction, drop it and revisit.
+Canonical specs for what jig ships. The shell's `## Session Skills` and `## Agents` tables are the
+summary a session reads; this is the detail.
 
-This is a `tool`-type project, so `@ui-reviewer` (webapp-only) is not used.
+**Status, 2026-08-27:** the roster below is decided and none of it has been carried over yet —
+Phase 2 in `docs/PROJECT_PLAN.md`. What ships is what appears here; a file in `.claude/skills/`
+that has no entry is an unclassified file, which is the state this repo keeps finding defects in.
 
----
+## Skills — seven
 
-## Agents
+| Skill | When | What |
+|-------|------|------|
+| `/its-alive` | Session start | Open the per-session file on the orphan `sessions` branch, read context, run the drift and permission-policy checks, recommend a task |
+| `/kill-this` | Per task | Build check, commit, `@code-review`, open the PR with `closes #<issue>`, append a `## Task <N>` block. Step 3.5 reads Blast-Radius Triggers and runs `/security-review` when the diff hits one |
+| `/its-dead` | Session end, once | Stamp `ended:`, tally points, display wall clock, close the session file. No time math, no version bump |
+| `/start-phase` | Phase start | Materialize the phase as GitHub Issues with `phase:N` and `points:X` labels |
+| `/retro` | Phase end | Throughput + estimate calibration from issue dates and labels. Marks `[x]`, writes `RETROSPECTIVES.md`, runs version bumps |
+| `/bump-major` | Breaking change | Major bump with a supplied rationale, CHANGELOG entry, tag on `main` |
+| `/promote-production` | Ship | ff-merge `main` → `production`, push. Projects with that branch only |
+
+### Not carried
+
+| Skill | Why |
+|-------|-----|
+| `read-the-tape` | ~$2 a session and produced little anyone could use. Its input — the `SessionEnd` capture hook — is removed |
+| `@workout` | Output was 20k characters nobody read |
+| `doc-consistency-check` | **0 invocations** across 60 retained transcripts, 2026-07-26 → 2026-08-26 |
+| `pause-this`, `restart-this` | Sat marked "review" through the whole first pass and were never resolved in either direction |
+
+## Agents — four
 
 | Agent | Model | When | Purpose |
 |-------|-------|------|---------|
-| `@architect` | Opus 4.8 | Before design decisions, new dependencies, scope creep, any unresolved decision | Keep architecture coherent against SPEC + DECISIONS. Runs Opus; escalate to a Fable run for genuinely hard or bundled design work (DEC-S027). Output: proceed/modify/reject + reasoning, draft DEC entry. |
-| `@code-review` | Sonnet | After commits (wired into `/kill-this`) | Lightweight post-commit review — bugs, inconsistencies, convention drift. Output: findings ranked by severity, or clean bill. |
-| `@pm` | Sonnet | Session start/end | Tracks state — done, next, blocked. Flags timeline risk, recommends order, suggests scope cuts. |
-| `@tape-reader` | Sonnet | Via `/read-the-tape` | Reads a session transcript and writes one cited observation to seeds' `observations` branch. Modifies nothing in this repo (DEC-S040). |
-| `@doc-consistency` | Sonnet | Via `/doc-consistency-check`, ad-hoc | Cross-references factual claims across the doc set; flags mismatches and unfilled placeholders. Report-only. |
-| `@ideas` | Sonnet | Park an idea, re-rank, audit the parking lot | Curates docs/FUTURE_IDEAS.md — capture, dedupe, cross-ref. Edits only that file, and creates it on first use, which is why that path is unbackticked: it does not exist yet and the checker reads markup as a claim that it does. |
+| `@architect` | Opus 5 | Before design decisions, new dependencies, scope creep | Coherence against SPEC and the decision record |
+| `@code-review` | Sonnet | After every commit, wired into `/kill-this` | Catch issues early. Advisory — flags, does not block |
+| `@pm` | Sonnet | Session start and end, via skills | Progress, timeline risk, scope cuts |
+| `@ui-reviewer` | Sonnet | After UI work, phase boundaries | Design quality against the project's design system, read from `.claude/ui-context.md` |
 
-**There is no sync agent.** The sync-config agent and the push-seeds and pull-seeds skills were retired (DEC-S040) — named without slashes here because either would read as a claim they still exist. Moving a file between seeds and this repo is a manual `cp`; check seeds' `.claude/routine-config.yaml` § `file-classes` first.
+Three of these — `@architect`, `@code-review`, `@ui-reviewer` — plus `@pm` are `context` class: jig
+ships them as install-time starting points and each project owns its copy afterwards. They reason
+about a project's *substance*, so a good one is necessarily project-specific and cannot be derived
+from a template. The accepted cost is that a good idea emerging in one project's reviewer never
+auto-surfaces for backporting; harvesting it into jig is a deliberate act.
 
-Agent specs live in `.claude/agents/`.
+**Descriptions are project-agnostic.** Seeds' templates carried `[Project]` in the `description:`
+frontmatter, filled in per install, which made every agent permanently differ from its template and
+forced the mirror check to normalize that one line before comparing. Under one copy there is no
+substitution step, so the placeholder goes: "Post-commit code reviewer for this project." Nothing
+is lost, because the agent already reads project facts from the context file.
 
----
+### Not carried
 
-## Session Skills
+| Agent | Why |
+|-------|-----|
+| `@doc-consistency` | 1,450 words shipped into every project. **0 invocations in a month** |
+| `@ideas` | 1,138 words. **0 invocations in a month** — and its file was missing from seeds' own `.claude/` from the day it was written, so `@ideas` never resolved there either |
+| `@tape-reader` | Read the tape, which is gone |
 
-| Skill | When | What it does |
-|-------|------|--------------|
-| `/its-alive` | Session start | Ensures `.sessions-worktree/`, opens a per-session file on the orphan `sessions` branch, captures the active JSONL transcript path, reads last session + the plan, recommends a task, waits for confirmation. |
-| `/pause-this` | Mid-session break | Build check, commits WIP on the task branch, notes the pause in the session file. |
-| `/restart-this` | Resume from pause | Reloads context from the open session file — no new session. |
-| `/kill-this` | Per task (DEC-S013) | Build check, commits code on the task branch, runs `@code-review`, opens a PR (`closes #N`), appends a `## Task <N>` block to the session file. May run multiple times per window. |
-| `/its-dead` | Session end (once per window) | Stamps `ended:`, tallies points from the per-task blocks, displays wall-clock, commits + pushes the sessions branch. No time math or version bump — those moved to `/retro`. |
-| `/start-phase` | Phase boundary (start) | Reads the next phase from PROJECT_PLAN.md, creates one Issue per task with `phase:N` + `points:X` labels, writes issue numbers back. |
-| `/retro` | Phase boundary (end) | Computes phase throughput (points per calendar week from issue `closedAt` + `points:` labels, DEC-S026) + an estimate-calibration tally. Marks tasks `[x]`, writes RETROSPECTIVES.md, runs version bumps. Optionally chains into `/start-phase`. |
-| `/bump-major` | Breaking change | Manual major bump — CHANGELOG entry + tag on `main`. |
-| `/promote-production` | Ship trunk to prod | ff-merges `main` → `production`. Requires `origin/production`; not set up here yet. |
-| `/read-the-tape` | After a notable session | Audits the JSONL transcript for anti-patterns via `@tape-reader`. |
-| `/doc-consistency-check` | Before phase boundaries | Cross-references doc claims via `@doc-consistency` (report-only). |
+**The test that produced those zeros is mechanical and reusable:** count invocations across
+retained transcripts. It beats judgment about what feels useful, and it will work on jig later.
+Zero is the meaningful number — `/retro` at 1 and `/promote-production` at 3 are low but plausible,
+because they fire at phase boundaries.
 
-**Dev identity:** skills resolve `DEV` from `~/.claude/devname` (with `$USER`
-fallback). Used in session filenames.
+## Model selection
 
----
-
-## Task Model (post phase-rituals)
-
-- `PROJECT_PLAN.md` is **read at planning, written at retro** — untouched
-  mid-phase.
-- The **current phase's tasks live as GitHub Issues** (created by `/start-phase`,
-  closed by PRs).
-- Phase boundaries are work-defined, not time-boxed: a phase ends when its issues
-  close.
-
----
-
-## Session Workflow
-
-**Start:** `/its-alive` → briefing + task recommendation → confirm.
-**During:** Spec → Build → Test (native + contract round-trip; sim where
-relevant). Hit an architectural question → `@architect`. Long session →
-`/pause-this` … `/restart-this`.
-**Per task:** `/kill-this` → commit, review, PR.
-**End of window:** `/its-dead` once.
-**Phase boundary:** `/retro` (→ optionally `/start-phase`).
+Agents pin their model in frontmatter. `@architect` is Opus 5; the reviewers stay Sonnet. New
+agents default to Sonnet and pin `model: opus` only when the standing job needs it — the alias
+resolves forward on its own, so no per-release edit is needed.
