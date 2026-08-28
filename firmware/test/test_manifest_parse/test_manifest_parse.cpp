@@ -1,8 +1,9 @@
 #include <unity.h>
+#include <stdio.h>
 #include <string.h>
 #include "fw_manifest.h"
 
-// Phase 3.9d — the firmware manifest parser (contracts/firmware-manifest-v1.md).
+// Phase 3.9e — the firmware manifest parser (contracts/firmware-manifest-v2.md).
 //
 // The node fetches this over HTTP before it fetches an image, so every byte here came
 // from the network. It is the first thing in this project that parses something a
@@ -13,11 +14,26 @@
 // node sleeps. There is no partial application and no error path, matching downlink-v1 —
 // a node that cannot read a manifest is indistinguishable, from the field, from a node
 // with no update waiting.
+//
+// This file covers PARSING only, including the shape of `sig` but never its validity.
+// Whether a signature actually verifies is test_manifest_sig, graded against the shared
+// golden vectors. The split is deliberate: a parser that accepts 128 lowercase hex chars
+// and a verifier that checks a curve equation fail for different reasons and should say
+// so separately.
 
 using namespace soundings;
 
 void setUp() {}
 void tearDown() {}
+
+// The real signature over the shared literal, by the published TEST key
+// (contracts/vectors/manifest-sig-v1.json). Real rather than 128 arbitrary hex chars so
+// that kGood is a manifest which both parses AND verifies — a fixture that parsed but
+// could never verify would quietly stop being a positive control the day someone added
+// verification to this file.
+#define SIG_LINE \
+    "sig: 6039b503a526fc8ee5a574da60a0e09f3cae0ab8625376564540af9d9882785e" \
+    "4dccdd86bcef4c029d475b5022ef9680baa06909554da402e0738fab5d55310b\n"
 
 // The shared literal from the contract. SHA-256 of the four ASCII bytes "test", which is
 // reproducible with `printf 'test' | sha256sum` rather than trusted — the first draft of
@@ -26,7 +42,8 @@ static const char* kGood =
     "version: 261\n"
     "size: 4\n"
     "sha256: 9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08\n"
-    "file: t.bin\n";
+    "file: t.bin\n"
+    SIG_LINE;
 
 static const uint8_t kGoodSha[32] = {
     0x9f,0x86,0xd0,0x81,0x88,0x4c,0x7d,0x65,0x9a,0x2f,0xea,0xa0,0xc5,0x5a,0xd0,0x15,
@@ -56,11 +73,14 @@ void test_parses_the_shared_literal() {
     TEST_ASSERT_EQUAL_UINT32(4, m.size);
     TEST_ASSERT_EQUAL_UINT8_ARRAY(kGoodSha, m.sha256, 32);
     TEST_ASSERT_EQUAL_STRING("t.bin", m.file);
+    TEST_ASSERT_EQUAL_HEX8(0x60, m.sig[0]);
+    TEST_ASSERT_EQUAL_HEX8(0x0b, m.sig[63]);
 }
 
 void test_key_order_does_not_matter() {
     FwManifest m;
     TEST_ASSERT_TRUE(parseStr(
+        SIG_LINE
         "file: t.bin\n"
         "sha256: 9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08\n"
         "size: 4\n"
@@ -70,17 +90,20 @@ void test_key_order_does_not_matter() {
 }
 
 void test_unknown_keys_are_ignored() {
-    // The only forward compatibility this format has: v2 may add a field and a v1 node
-    // keeps working. One-way, and the contract says so — a v2 key carrying a REQUIREMENT
-    // would be silently skipped, so anything mandatory needs a version bump.
+    // The only forward compatibility this format has, and it is one-way: a v3 key
+    // carrying a REQUIREMENT would be silently skipped, so anything mandatory needs a
+    // version bump. `sig` is exactly that case, which is why it arrived as v2 rather than
+    // as a new key on v1 (DEC-013). Note `signature:` below is NOT `sig:` — a near-miss
+    // key is ignored like any other, and does not satisfy the requirement.
     FwManifest m;
     TEST_ASSERT_TRUE(parseStr(
         "version: 261\n"
         "released_by: eric\n"
         "size: 4\n"
-        "signature: not-implemented\n"
+        "signature: not-the-key-you-are-looking-for\n"
         "sha256: 9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08\n"
-        "file: t.bin\n", m));
+        "file: t.bin\n"
+        SIG_LINE, m));
     TEST_ASSERT_EQUAL_UINT16(261, m.version);
 }
 
@@ -94,6 +117,7 @@ void test_blank_lines_and_comments_are_ignored() {
         "size: 4\n"
         "sha256: 9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08\n"
         "file: t.bin\n"
+        SIG_LINE
         "\n", m));
     TEST_ASSERT_EQUAL_UINT16(261, m.version);
 }
@@ -104,6 +128,7 @@ void test_trailing_newline_is_optional() {
         "version: 261\n"
         "size: 4\n"
         "sha256: 9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08\n"
+        SIG_LINE
         "file: t.bin", m));
     TEST_ASSERT_EQUAL_STRING("t.bin", m.file);
 }
@@ -112,14 +137,18 @@ void test_crlf_line_endings_parse() {
     // The manifest is written on a Linux box today, but it arrives over HTTP and nothing
     // stops a future tool or an editor from using CRLF. A stray \r would otherwise land
     // inside the filename and turn every fetch into a 404 — silently, since a failed
-    // fetch just sleeps.
+    // fetch just sleeps. Since 3.9e it would also land inside the signature, where the
+    // symptom is a refusal that looks like a forged manifest.
     FwManifest m;
     TEST_ASSERT_TRUE(parseStr(
         "version: 261\r\n"
         "size: 4\r\n"
         "sha256: 9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08\r\n"
-        "file: t.bin\r\n", m));
+        "file: t.bin\r\n"
+        "sig: 6039b503a526fc8ee5a574da60a0e09f3cae0ab8625376564540af9d9882785e"
+        "4dccdd86bcef4c029d475b5022ef9680baa06909554da402e0738fab5d55310b\r\n", m));
     TEST_ASSERT_EQUAL_STRING("t.bin", m.file);
+    TEST_ASSERT_EQUAL_HEX8(0x0b, m.sig[63]);
 }
 
 // ---- Missing required keys -------------------------------------------------
@@ -129,7 +158,8 @@ void test_a_missing_version_is_rejected() {
     TEST_ASSERT_FALSE(parseStr(
         "size: 4\n"
         "sha256: 9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08\n"
-        "file: t.bin\n", m));
+        "file: t.bin\n"
+        SIG_LINE, m));
     assertGoodStillParses();
 }
 
@@ -138,13 +168,14 @@ void test_a_missing_size_is_rejected() {
     TEST_ASSERT_FALSE(parseStr(
         "version: 261\n"
         "sha256: 9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08\n"
-        "file: t.bin\n", m));
+        "file: t.bin\n"
+        SIG_LINE, m));
     assertGoodStillParses();
 }
 
 void test_a_missing_sha_is_rejected() {
     FwManifest m;
-    TEST_ASSERT_FALSE(parseStr("version: 261\nsize: 4\nfile: t.bin\n", m));
+    TEST_ASSERT_FALSE(parseStr("version: 261\nsize: 4\nfile: t.bin\n" SIG_LINE, m));
     assertGoodStillParses();
 }
 
@@ -153,7 +184,20 @@ void test_a_missing_file_is_rejected() {
     TEST_ASSERT_FALSE(parseStr(
         "version: 261\n"
         "size: 4\n"
-        "sha256: 9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08\n", m));
+        "sha256: 9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08\n"
+        SIG_LINE, m));
+    assertGoodStillParses();
+}
+
+void test_a_missing_sig_is_rejected() {
+    // The v1 manifest, unchanged and unsigned. It was valid before 3.9e and must not be
+    // now — this is the assertion that makes signing mandatory rather than advisory.
+    FwManifest m;
+    TEST_ASSERT_FALSE(parseStr(
+        "version: 261\n"
+        "size: 4\n"
+        "sha256: 9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08\n"
+        "file: t.bin\n", m));
     assertGoodStillParses();
 }
 
@@ -168,7 +212,7 @@ void test_an_empty_manifest_is_rejected() {
 void test_a_short_hash_is_rejected() {
     FwManifest m;
     TEST_ASSERT_FALSE(parseStr(
-        "version: 261\nsize: 4\nsha256: 9f86d081\nfile: t.bin\n", m));
+        "version: 261\nsize: 4\nsha256: 9f86d081\nfile: t.bin\n" SIG_LINE, m));
     assertGoodStillParses();
 }
 
@@ -180,7 +224,7 @@ void test_an_uppercase_hash_is_rejected() {
     TEST_ASSERT_FALSE(parseStr(
         "version: 261\nsize: 4\n"
         "sha256: 9F86D081884C7D659A2FEAA0C55AD015A3BF4F1B2B0B822CD15D6C15B0F00A08\n"
-        "file: t.bin\n", m));
+        "file: t.bin\n" SIG_LINE, m));
     assertGoodStillParses();
 }
 
@@ -189,7 +233,44 @@ void test_a_non_hex_hash_is_rejected() {
     TEST_ASSERT_FALSE(parseStr(
         "version: 261\nsize: 4\n"
         "sha256: zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz\n"
-        "file: t.bin\n", m));
+        "file: t.bin\n" SIG_LINE, m));
+    assertGoodStillParses();
+}
+
+// ---- The signature, as a FIELD ---------------------------------------------
+// Shape only. Whether it verifies is test_manifest_sig's job.
+
+void test_a_short_sig_is_rejected() {
+    FwManifest m;
+    TEST_ASSERT_FALSE(parseStr(
+        "version: 261\nsize: 4\n"
+        "sha256: 9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08\n"
+        "file: t.bin\n"
+        "sig: 6039b503\n", m));
+    assertGoodStillParses();
+}
+
+void test_an_uppercase_sig_is_rejected() {
+    // Same rule as sha256, and for the same reason: one canonical spelling, so two
+    // implementations cannot agree to differ about a field that gates flashing.
+    FwManifest m;
+    TEST_ASSERT_FALSE(parseStr(
+        "version: 261\nsize: 4\n"
+        "sha256: 9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08\n"
+        "file: t.bin\n"
+        "sig: 6039B503A526FC8EE5A574DA60A0E09F3CAE0AB8625376564540AF9D9882785E"
+        "4DCCDD86BCEF4C029D475B5022EF9680BAA06909554DA402E0738FAB5D55310B\n", m));
+    assertGoodStillParses();
+}
+
+void test_a_non_hex_sig_is_rejected() {
+    FwManifest m;
+    TEST_ASSERT_FALSE(parseStr(
+        "version: 261\nsize: 4\n"
+        "sha256: 9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08\n"
+        "file: t.bin\n"
+        "sig: zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz"
+        "zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz\n", m));
     assertGoodStillParses();
 }
 
@@ -203,7 +284,7 @@ void test_a_filename_containing_a_slash_is_rejected() {
     TEST_ASSERT_FALSE(parseStr(
         "version: 261\nsize: 4\n"
         "sha256: 9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08\n"
-        "file: sub/t.bin\n", m));
+        "file: sub/t.bin\n" SIG_LINE, m));
     assertGoodStillParses();
 }
 
@@ -212,7 +293,7 @@ void test_a_filename_containing_dotdot_is_rejected() {
     TEST_ASSERT_FALSE(parseStr(
         "version: 261\nsize: 4\n"
         "sha256: 9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08\n"
-        "file: ..bin\n", m));
+        "file: ..bin\n" SIG_LINE, m));
     assertGoodStillParses();
 }
 
@@ -221,7 +302,7 @@ void test_an_absolute_url_as_filename_is_rejected() {
     TEST_ASSERT_FALSE(parseStr(
         "version: 261\nsize: 4\n"
         "sha256: 9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08\n"
-        "file: http://elsewhere/evil.bin\n", m));
+        "file: http://elsewhere/evil.bin\n" SIG_LINE, m));
     assertGoodStillParses();
 }
 
@@ -230,7 +311,7 @@ void test_an_empty_filename_is_rejected() {
     TEST_ASSERT_FALSE(parseStr(
         "version: 261\nsize: 4\n"
         "sha256: 9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08\n"
-        "file: \n", m));
+        "file: \n" SIG_LINE, m));
     assertGoodStillParses();
 }
 
@@ -243,7 +324,7 @@ void test_a_version_beyond_u16_is_rejected() {
     TEST_ASSERT_FALSE(parseStr(
         "version: 65536\nsize: 4\n"
         "sha256: 9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08\n"
-        "file: t.bin\n", m));
+        "file: t.bin\n" SIG_LINE, m));
     assertGoodStillParses();
 
     // ...and the largest legal value IS accepted, so this pins the boundary rather than
@@ -252,7 +333,7 @@ void test_a_version_beyond_u16_is_rejected() {
     TEST_ASSERT_TRUE(parseStr(
         "version: 65535\nsize: 4\n"
         "sha256: 9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08\n"
-        "file: t.bin\n", ok));
+        "file: t.bin\n" SIG_LINE, ok));
     TEST_ASSERT_EQUAL_UINT16(65535, ok.version);
 }
 
@@ -261,7 +342,7 @@ void test_a_zero_size_is_rejected() {
     TEST_ASSERT_FALSE(parseStr(
         "version: 261\nsize: 0\n"
         "sha256: 9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08\n"
-        "file: t.bin\n", m));
+        "file: t.bin\n" SIG_LINE, m));
     assertGoodStillParses();
 }
 
@@ -270,11 +351,34 @@ void test_a_non_numeric_size_is_rejected() {
     TEST_ASSERT_FALSE(parseStr(
         "version: 261\nsize: lots\n"
         "sha256: 9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08\n"
-        "file: t.bin\n", m));
+        "file: t.bin\n" SIG_LINE, m));
     assertGoodStillParses();
 }
 
 // ---- Bounds ----------------------------------------------------------------
+
+void test_the_signed_manifest_fits_the_byte_cap_with_room() {
+    // The cap did not move when `sig` arrived, so this is the test that says the new
+    // field actually fits rather than that someone widened the bound to make it fit.
+    // Every field at its maximum width, which is the worst case a real publish can make.
+    char worst[kMaxManifestBytes + 128] = {};
+    size_t at = 0;
+    at += (size_t)snprintf(worst + at, sizeof(worst) - at,
+                           "version: 65535\nsize: 4294967295\nsha256: ");
+    for (int i = 0; i < 64; ++i) worst[at++] = 'a';
+    at += (size_t)snprintf(worst + at, sizeof(worst) - at, "\nfile: ");
+    for (size_t i = 0; i < kMaxManifestFileLen; ++i) worst[at++] = 'x';
+    at += (size_t)snprintf(worst + at, sizeof(worst) - at, "\nsig: ");
+    for (int i = 0; i < 128; ++i) worst[at++] = 'b';
+    worst[at++] = '\n';
+
+    TEST_ASSERT_TRUE_MESSAGE(at <= kMaxManifestBytes,
+        "a maximum-width signed manifest no longer fits the 512-byte cap");
+
+    FwManifest m;
+    TEST_ASSERT_TRUE(parseManifest(worst, at, m));
+    TEST_ASSERT_EQUAL_UINT16(65535, m.version);
+}
 
 void test_a_manifest_over_the_byte_cap_is_rejected() {
     // The node reads this over HTTP before it can trust anything about it. An unbounded
@@ -306,14 +410,11 @@ void test_a_manifest_at_exactly_the_byte_cap_is_accepted() {
     char buf[kMaxManifestBytes + 1] = {};
     const size_t bodyLen = strlen(kGood);
     memcpy(buf, kGood, bodyLen);
-    size_t at = bodyLen;
-    while (at < kMaxManifestBytes) buf[at++] = '\n';   // pad with ignorable blank lines
-    buf[kMaxManifestBytes] = '\0';
+    // Pad with spaces: they form one trailing line with no ": " separator, which is
+    // skipped, so this exercises the BYTE cap without also pushing the line count up.
+    memset(buf + bodyLen, ' ', kMaxManifestBytes - bodyLen);
 
     FwManifest m;
-    // Padding is blank lines, so it stays under the LINE cap only if that cap is generous;
-    // this test cares about the byte cap, so assert on a body padded with spaces instead.
-    memset(buf + bodyLen, ' ', kMaxManifestBytes - bodyLen);
     TEST_ASSERT_TRUE(parseManifest(buf, kMaxManifestBytes, m));
     TEST_ASSERT_EQUAL_UINT16(261, m.version);
 }
@@ -330,10 +431,14 @@ int main(int, char**) {
     RUN_TEST(test_a_missing_size_is_rejected);
     RUN_TEST(test_a_missing_sha_is_rejected);
     RUN_TEST(test_a_missing_file_is_rejected);
+    RUN_TEST(test_a_missing_sig_is_rejected);
     RUN_TEST(test_an_empty_manifest_is_rejected);
     RUN_TEST(test_a_short_hash_is_rejected);
     RUN_TEST(test_an_uppercase_hash_is_rejected);
     RUN_TEST(test_a_non_hex_hash_is_rejected);
+    RUN_TEST(test_a_short_sig_is_rejected);
+    RUN_TEST(test_an_uppercase_sig_is_rejected);
+    RUN_TEST(test_a_non_hex_sig_is_rejected);
     RUN_TEST(test_a_filename_containing_a_slash_is_rejected);
     RUN_TEST(test_a_filename_containing_dotdot_is_rejected);
     RUN_TEST(test_an_absolute_url_as_filename_is_rejected);
@@ -341,6 +446,7 @@ int main(int, char**) {
     RUN_TEST(test_a_version_beyond_u16_is_rejected);
     RUN_TEST(test_a_zero_size_is_rejected);
     RUN_TEST(test_a_non_numeric_size_is_rejected);
+    RUN_TEST(test_the_signed_manifest_fits_the_byte_cap_with_room);
     RUN_TEST(test_a_manifest_over_the_byte_cap_is_rejected);
     RUN_TEST(test_a_manifest_over_the_line_cap_is_rejected);
     RUN_TEST(test_a_manifest_at_exactly_the_byte_cap_is_accepted);

@@ -14,5 +14,19 @@ node_modules/
 # so there is no negation to keep in sync.
 .env*
 
+# The offline firmware-signing key (DEC-013). It belongs OUTSIDE this checkout entirely —
+# ~/.soundings/ota-signing-key is what the tooling suggests — and this rule is a seatbelt
+# for the day someone drops a copy here "just while testing".
+#
+# ⚠ Worse than a leaked WiFi password, which is the precedent that earned firmware/'s
+# *secret*.ini rule. A rotated password costs a USB trip per node; a leaked SIGNING key
+# lets anyone publish firmware every node in the fleet will accept and execute, and the
+# fix is a new key flashed over USB to every node — the exact cost the whole task exists
+# to avoid. Nothing detects the leak in between.
+#
+# Deliberately NOT named `.env*`: that namespace is a blanket permission deny fleet-wide
+# (DEC-S043), so a secret living there is one no session can read in order to debug it.
+*ota-signing-key*
+
 # Per-machine, never shared — the output style and any local permission overrides.
 .claude/settings.local.json

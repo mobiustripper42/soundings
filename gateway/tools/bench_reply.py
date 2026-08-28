@@ -113,6 +113,10 @@ def main() -> int:
     p.add_argument("--ota-dir", default=None, type=Path,
                    help="serve OTA decisions from this manifest directory instead of "
                         "sending a fixed --flags value")
+    p.add_argument("--ota-pubkey", default=None,
+                   help="fleet signing public key, 64 hex chars — the same value as "
+                        "SOUNDINGS_OTA_PUBKEY in firmware/platformio.ini. Required with "
+                        "--ota-dir; there is no unverified mode (DEC-013)")
     p.add_argument("--count", type=int, default=0, help="stop after N packets (0 = forever)")
     p.add_argument("--log-level", default="INFO")
     args = p.parse_args()
@@ -123,7 +127,12 @@ def main() -> int:
     latencies: list[float] = []
     # With --ota-dir the flags are DERIVED from the manifest and the node's reported
     # fw_version, which is the real path; --flags is the fixed-value bench instrument.
-    policy = UpdatePolicy(args.ota_dir) if args.ota_dir else None
+    policy = None
+    if args.ota_dir:
+        if not args.ota_pubkey:
+            p.error("--ota-dir requires --ota-pubkey; the bench must verify what the "
+                    "field verifies, or it is not proving the field path")
+        policy = UpdatePolicy(args.ota_dir, bytes.fromhex(args.ota_pubkey))
 
     def respond(msg: dict) -> None:
         """Reply the instant a packet decodes. No policy — the OTA version compare

@@ -16,13 +16,44 @@ bool hexNibble(char c, uint8_t& out) {
     return false;
 }
 
-// Decode exactly 64 hex chars into 32 bytes. Any other length, or any non-hex char, fails.
-bool parseSha(const char* v, size_t len, uint8_t out[32]) {
-    if (len != 64) return false;
-    for (size_t i = 0; i < 32; ++i) {
+// Decode exactly `bytes` bytes from exactly 2*`bytes` hex chars. Any other length, or any
+// non-hex char, fails. Shared by `sha256` (32 bytes) and `sig` (64) so the two fields
+// cannot drift into disagreeing about case or padding.
+bool parseHex(const char* v, size_t len, uint8_t* out, size_t bytes) {
+    if (len != bytes * 2) return false;
+    for (size_t i = 0; i < bytes; ++i) {
         uint8_t hi = 0, lo = 0;
         if (!hexNibble(v[i * 2], hi) || !hexNibble(v[i * 2 + 1], lo)) return false;
         out[i] = (uint8_t)((hi << 4) | lo);
+    }
+    return true;
+}
+
+// Append a decimal integer. Returns false if it would not fit — the caller turns that
+// into a total failure rather than a short message.
+bool appendUint(uint32_t v, char* buf, size_t cap, size_t& n) {
+    char tmp[10];
+    size_t d = 0;
+    do { tmp[d++] = (char)('0' + (v % 10)); v /= 10; } while (v > 0);
+    if (n + d > cap) return false;
+    while (d > 0) buf[n++] = tmp[--d];
+    return true;
+}
+
+bool appendLit(const char* s, char* buf, size_t cap, size_t& n) {
+    const size_t len = strlen(s);
+    if (n + len > cap) return false;
+    memcpy(buf + n, s, len);
+    n += len;
+    return true;
+}
+
+bool appendHex(const uint8_t* b, size_t bytes, char* buf, size_t cap, size_t& n) {
+    static const char* kHex = "0123456789abcdef";
+    if (n + bytes * 2 > cap) return false;
+    for (size_t i = 0; i < bytes; ++i) {
+        buf[n++] = kHex[b[i] >> 4];
+        buf[n++] = kHex[b[i] & 0x0F];
     }
     return true;
 }
@@ -71,6 +102,7 @@ bool parseManifest(const char* text, size_t len, FwManifest& out) {
 
     FwManifest m;
     bool haveVersion = false, haveSize = false, haveSha = false, haveFile = false;
+    bool haveSig = false;
     size_t lines = 0;
     size_t i = 0;
 
@@ -122,21 +154,51 @@ bool parseManifest(const char* text, size_t len, FwManifest& out) {
             m.size = v;
             haveSize = true;
         } else if (keyIs(key, klen, "sha256")) {
-            if (!parseSha(val, vlen, m.sha256)) return false;
+            if (!parseHex(val, vlen, m.sha256, 32)) return false;
             haveSha = true;
         } else if (keyIs(key, klen, "file")) {
             if (!validFilename(val, vlen)) return false;
             memcpy(m.file, val, vlen);
             m.file[vlen] = '\0';
             haveFile = true;
+        } else if (keyIs(key, klen, "sig")) {
+            if (!parseHex(val, vlen, m.sig, 64)) return false;
+            haveSig = true;
         }
         // Unknown key: ignored. See the header for why this is one-way.
     }
 
-    if (!haveVersion || !haveSize || !haveSha || !haveFile) return false;
+    if (!haveVersion || !haveSize || !haveSha || !haveFile || !haveSig) return false;
 
     out = m;
     return true;
+}
+
+size_t canonicalMessage(const FwManifest& m, char* buf, size_t cap) {
+    if (buf == nullptr) return 0;
+    size_t n = 0;
+
+    // Fixed order, regardless of how the fields appeared in the file. Every step is
+    // capacity-checked and any failure aborts the whole thing: a short buffer must
+    // produce NO message rather than a shorter one.
+    if (!appendLit("version: ", buf, cap, n))            return 0;
+    if (!appendUint(m.version, buf, cap, n))             return 0;
+    if (!appendLit("\nsize: ", buf, cap, n))             return 0;
+    if (!appendUint(m.size, buf, cap, n))                return 0;
+    if (!appendLit("\nsha256: ", buf, cap, n))           return 0;
+    if (!appendHex(m.sha256, 32, buf, cap, n))           return 0;
+    if (!appendLit("\nfile: ", buf, cap, n))             return 0;
+    if (!appendLit(m.file, buf, cap, n))                 return 0;
+    if (!appendLit("\n", buf, cap, n))                   return 0;
+
+    return n;
+}
+
+bool verifyManifest(const FwManifest& m, const uint8_t pubkey[32]) {
+    char msg[kMaxSignedMessageBytes];
+    const size_t n = canonicalMessage(m, msg, sizeof(msg));
+    if (n == 0) return false;
+    return verifyEd25519((const uint8_t*)msg, n, m.sig, pubkey);
 }
 
 } // namespace soundings
