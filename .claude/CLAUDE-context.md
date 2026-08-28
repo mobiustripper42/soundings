@@ -1,6 +1,6 @@
 # soundings — Project Context
 
-Everything specific to **this** project. The jig-managed `CLAUDE.md` shell reads this file at session start and treats it as authoritative for project-specific facts (DEC-S019). This is a **`tool`** project (embedded firmware + a Python gateway + dashboards), so the shell's webapp defaults — Playwright/pgTAP, Supabase migrations, 375px screenshots, `<VersionTag />`, `@ui-reviewer` — are overridden or N/A below. Nothing here syncs from jig.
+Everything specific to **this** project. The jig-managed `CLAUDE.md` shell reads this file at session start and treats it as authoritative for project-specific facts (DEC-S019). Nothing here syncs from jig.
 
 ## What We're Building
 
@@ -9,10 +9,6 @@ Everything specific to **this** project. The jig-managed `CLAUDE.md` shell reads
 Soundings is **one component of a larger farm recording/analysis tool** (daily log, harvest records, crop diagnosis, labor stats) under separate development. Cross-over gets raised as it arises — notably the time-series DB choice (see SPEC §12 D6).
 
 **Sibling project — tinkle.** tinkle is the farm's irrigation controller (separate repo, firmware built, hardware build next). Soundings never controls anything; tinkle may eventually *consume* Soundings data (tank level for a pump-lockout; a future VPD advisory). The boundary is one-way and tinkle stays autonomous if Soundings is dark. Be aware tinkle exists; don't couple to it.
-
-## Project Type
-
-`tool` — embedded firmware (ESP32 field nodes) + a Python gateway/ingestion service + dashboards. **Not a webapp.** No Supabase, Next.js, React, RLS, or Playwright. `@ui-reviewer` and `VersionTag.tsx` are intentionally absent (gated out for `tool` type, DEC-S011 in seeds).
 
 ## Build Philosophy
 
@@ -24,50 +20,37 @@ Soundings is **one component of a larger farm recording/analysis tool** (daily l
 
 ## Stack
 
-- **Field node:** Heltec WiFi LoRa 32 V3 (ESP32-S3 + SX1262 radio, one board), 2× 18650 (no solar), WiFi disabled, deep sleep. **[settled]**
-- **Radio:** raw LoRa point-to-point (not LoRaWAN), US 902–928 MHz, tx every 10–15 min with ±30 s wake jitter. **[settled]**
+- **Field node:** Heltec WiFi LoRa 32 V3 (ESP32-S3 + SX1262 radio, one board), 2× 18650 (no solar), deep sleep. **[settled]**
+- **WiFi is on the board and now used.** This said "WiFi disabled" until the OTA work shipped — see `firmware/src/esp32/ota_client.cpp` and `docs/OTA.md`. The radio is still LoRa; WiFi wakes only to pull firmware.
+- **Radio:** raw LoRa point-to-point (not LoRaWAN), US 902–928 MHz, on a duty cycle with wake jitter. **[settled]** — the interval and jitter are firmware constants, not facts this file can pin; read them from the source.
 - **Sensors:** Watermark soil tension (DIY AC excitation), DS18B20 soil temp (1-Wire), SHT45 air T/RH → VPD (I2C), A02YYUW ultrasonic tank level (UART).
 - **Gateway:** a small always-on box near the farm center, on the LAN, holding the LoRa antenna; runs a Python decoder daemon (box choice deferred — D4).
-- **Server stack:** existing headless Linux box. Message bus + time-series DB + Grafana — **all [proposed], unvalidated** (D6: TimescaleDB vs VictoriaMetrics unresolved). `mill-dev` (Tailscale VPS) is where we develop/simulate.
+- **Server stack:** not soundings'. **D6 was resolved by DEC-004** — persistence and dashboards belong to Poop Deck. This entry said "[proposed], unvalidated, D6 unresolved" while the Migration Protocol section below said it was settled, in the same always-loaded file. `mill-dev` (Tailscale VPS) is where we develop and simulate.
 - **Toolchain:** **PlatformIO** (D5 resolved, Phase 1.1) — `node` (Heltec V3) + `native` (Unity host tests) envs in `firmware/platformio.ini`, mirroring tinkle.
 
 See `docs/SPEC.md` for the full picture and the §12 deferred-decision register.
-
-## Repo Layout (documented now; directories created in Phase 1 with the toolchain)
-
-```
-firmware/    ESP32 node firmware. Platform-independent core (host-testable
-             sensor math, packet (de)serialization, run cycle) split from
-             board-specific drivers, behind adapters with fakes for simulation.
-gateway/     Python decoder daemon + ingestion: LoRa receive → decode → node→
-             location map → message bus → time-series DB. Fakeable packet source.
-contracts/   The binary packet schema — the contract between firmware (C++
-             serializer) and gateway (Python parser), pinned by shared test
-             vectors. The single source of truth both sides build against.
-deploy/      docker-compose for the server stack (broker / DB / Grafana).
-dashboards/  Grafana dashboard definitions.
-```
 
 ## Architecture
 
 Two code domains plus a wire contract between them:
 
-- **Node firmware** — wake → sample sensors → assemble packet → transmit → sleep. Fully non-blocking; long actions time against `millis()`. Sensor drivers and the radio live behind adapter interfaces (`ISoilMoisture`, `ITemp`, `IHumidity`, `IRadio`, `IClock`) so fakes drive them in host tests / Wokwi and real drivers swap in at the bench. Platform-independent logic lives in the core so it compiles for both the ESP32 and the native test runner.
-- **Gateway/ingestion** — the LoRa source is an adapter too (`IPacketSource`), faked with synthetic/replayed packets so the whole pipeline runs on a laptop with zero hardware.
+- **Node firmware** — wake → sample sensors → assemble packet → transmit → sleep. Fully non-blocking; long actions time against `millis()`. Sensor drivers and the radio live behind adapter interfaces so fakes drive them in host tests / Wokwi and real drivers swap in at the bench — `ls firmware/src/core/i*.h` is the current set. Platform-independent logic lives in the core so it compiles for both the ESP32 and the native test runner.
+- **Gateway/ingestion** — the packet source is an adapter too, faked with synthetic or replayed packets so the whole pipeline runs on a laptop with zero hardware.
 - **The packet schema is the contract.** A C++ serializer and a Python parser that must never drift — pinned by shared golden-vector round-trip tests. Versioned (every packet carries a firmware-version field).
 
 ## Commands
-
-Firmware is PlatformIO (D5 resolved). Gateway and server-stack commands firm up as those layers land in Phase 1.
 
 ```bash
 # Firmware (run from firmware/)
 pio test -e native           # host unit tests (core sensor/packet logic) — the load-bearing tier
 pio run  -e node             # build node firmware (Heltec WiFi LoRa 32 V3)
 
-# Gateway (Python, run from gateway/) — Phase 1.4 landed
+# Gateway (Python, run from gateway/)
 #   venv:  python3 -m venv .venv && .venv/bin/pip install pytest
 .venv/bin/python -m pytest   # gateway parser + contract round-trip tests
+
+# Doc gates (run from the repo root)
+npm run verify               # decisions, dictionary, denied commands, context, docs
 
 # Dev-sim stack only — NOT production (DEC-004: the store and broker are Poop Deck's)
 docker compose -f deploy/dev-sim/docker-compose.yml up   # broker + DB + Grafana
