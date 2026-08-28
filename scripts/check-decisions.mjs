@@ -15,7 +15,7 @@
 // Like its generator, this file is byte-identical across projects — every project-specific
 // knob is in `docs/decisions/_config.json`.
 
-import { readFileSync, readdirSync, existsSync, statSync } from 'node:fs'
+import { readFileSync, readdirSync, existsSync } from 'node:fs'
 import { createHash } from 'node:crypto'
 // Named import, not default: js-yaml is CommonJS, and `import yaml from 'js-yaml'` resolves
 // under vitest's transform but throws under plain node — which is how this script actually
@@ -123,6 +123,48 @@ export const sizeOf = (text) => Buffer.byteLength(text, 'utf8')
  * now: a fact about its corpus rather than a branch hardcoded to one repo's history.
  */
 export const BASELINE_PATH = 'docs/decisions-baseline.txt'
+
+/**
+ * Every directory holding records. BOTH scripts read this, and that is the point.
+ *
+ * The checker swept `docs/decisions/` and `docs/decisions/archive/`; the generator read only the
+ * first. So an archived legacy record — untouched, genuinely historical — got no baseline line
+ * and then failed as `not-listed`, permanently, on a file nobody had opened. Exactly the corpus
+ * this gate exists to let a project adopt.
+ */
+export const RECORD_DIRS = [DIR, `${DIR}/archive`]
+
+/**
+ * The frontmatter block, or `''` if there is none.
+ *
+ * ALSO SHARED BECAUSE THE TWO SCRIPTS DISAGREED. The checker required `---\n` at byte 0, so a
+ * CRLF file or a leading BOM produced an empty block: `idOf` returned undefined and the record
+ * failed as `not-listed` forever — while the generator's lenient split had written a correct
+ * baseline line for the very same file. The same strict guard also made `hasSchemaKey` false on a
+ * CRLF v1 record, routing something modern into the legacy path.
+ *
+ * Line endings are normalized before anything looks at the text, so a corpus written on Windows
+ * reads the same as one written here.
+ */
+const normalize = (text) => text.replace(/^﻿/, '').replace(/\r\n/g, '\n')
+
+export function frontmatterBlock(text) {
+  const t = normalize(text)
+  if (!t.startsWith('---\n')) return ''
+  const end = t.indexOf('\n---\n', 3)
+  return end === -1 ? '' : t.slice(4, end)
+}
+
+/** Everything after the frontmatter, off the SAME normalized text the block came from.
+ *
+ *  Half-normalizing was the first bug one layer down: `frontmatterBlock` normalized while the
+ *  body slice still ran on raw bytes, so a CRLF record's `indexOf('\n---\n')` missed and the
+ *  "body" handed to the prose rules was very nearly the whole file, frontmatter included. */
+export function recordBody(text) {
+  const t = normalize(text)
+  const end = t.indexOf('\n---\n', 3)
+  return end === -1 ? t : t.slice(end + 5)
+}
 
 export const fingerprint = (text) => createHash('md5').update(text, 'utf8').digest('hex')
 
@@ -278,7 +320,7 @@ export function check() {
     for (const f of readdirSync(dir).filter((f) => f.endsWith('.md') && f !== '_preamble.md')) {
       const path = `${dir}/${f}`
       const text = readFileSync(path, 'utf8')
-      const block = text.startsWith('---\n') ? text.slice(4, text.indexOf('\n---\n', 3)) : ''
+      const block = frontmatterBlock(text)
 
       // One id may exist in exactly one file. `load()` catches a duplicate within its own
       // directory and stops there; an archived copy alongside the live record is the case it
@@ -330,30 +372,25 @@ export function check() {
         fail(path, `declares \`schema: 1\` but ${SCHEMA_PATH} does not exist`)
         continue
       }
-      const body = text.slice(text.indexOf('\n---\n', 3) + 5)
       /**
-       * THE CAP MEASURES THE DECISION, NOT THE FILE. Two of this record's own rules collided the
-       * first time anything tried to amend one:
+       * THE CAP MEASURES THE WHOLE FILE, and the comment that used to sit here argued the
+       * opposite at length — that the cap must exclude amendments, or the 2,000-byte limit and
+       * the amendment rule together meant a record could be amended roughly never.
        *
-       *   "a decision that will not fit is more than one decision"  — the 2000-byte cap
-       *   "a change to what a decision decided goes IN that file"   — the amendment rule
+       * That was a fair reading of a real collision, and DEC-J005 resolved it the other way:
+       * amendments are retired, so nothing accumulates under a record and there is nothing for
+       * the cap to forgive. A change of mind is a new record carrying `supersedes`.
        *
-       * Together they mean a record can be amended roughly never. DEC-J001 sat at 1,986 bytes of
-       * 2,000, so its first amendment would have failed the gate, and the only ways out are the
-       * two this record explicitly forbids: open a second decision on the same subject, or delete
-       * argued reasoning to make room for later reasoning.
-       *
-       * The cap's own sentence says what it is for, and it is scope — one decision, one subject.
-       * That is a claim about the decision, not about how much history has accumulated under it.
-       * Amendments are the history, they are dated and append-only by design, and a cap on them
-       * would be a cap on recording what changed.
+       * The argument is kept here in past tense on purpose. It was correct given its premise,
+       * and someone will reach for it again the first time a record won't fit.
        */
-      for (const problem of validateSchemaRecord(meta, body, sizeOf(text), schemaFile)) fail(path, problem)
+      for (const problem of validateSchemaRecord(meta, recordBody(text), sizeOf(text), schemaFile)) fail(path, problem)
       rewritten.set(meta.id, { ...meta, path })
     }
   }
-  sweep(DIR, '')
-  sweep(`${DIR}/archive`, 'archive/')
+  // Same list the generator baselines. Drifting these apart is the bug that made an archived
+  // legacy record fail as `not-listed` on a file nobody had touched.
+  for (const dir of RECORD_DIRS) sweep(dir, dir === DIR ? '' : 'archive/')
 
   // `superseded_by` must land on a record that exists and is still the live one. Pointing at
   // a record that is itself superseded is a chain a reader has to walk, and pointing at

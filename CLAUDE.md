@@ -56,9 +56,11 @@ Project coding conventions — typing, structure, data fetching, auth, error han
 
 Two things the gate cannot check, which is why they are here:
 
-**Search before you write, every time.** Name the subject, run `grep -rli "<subject>" docs/decisions/`, and **say what came back** in the pull request — *"returned DEC-<id>; this changes its posture, so it amends"*, or *"nothing on rate limiting; new id."* That sentence is the whole control: a session that would have to write "DEC-<id> covers deposits and this is not that" cannot do it when it's false.
+**Search before you write, every time.** Name the subject, run `grep -rli "<subject>" docs/decisions/`, and **say what came back** in the pull request — *"returned DEC-<id>; this supersedes it"*, or *"nothing on rate limiting; new id."* That sentence is the whole control: a session that would have to write "DEC-<id> covers deposits and this is not that" cannot do it when it's false.
 
-**A change to what a decision decided goes in that decision's file**, appended as a dated `## Amendment` section saying what still stands. There is no new decision that amends an old one — a new id is for a subject worth writing even if nothing before it existed. Two decisions that merely relate carry a plain **see also**.
+**A change of mind is a new record, not an edit to the old one** (DEC-J004). The new record carries `supersedes: [DEC-<id>]`; the old one flips to `status: superseded`. Amending in place is retired — records grow, the cap is 2,000 bytes, and the carve-out that let amendments escape it also let a record quoting the convention escape every other rule. Two decisions that merely relate carry a plain **see also**.
+
+**Records written before schema v1 are frozen**, listed by fingerprint in `docs/decisions-baseline.txt`. Editing one fails the build; the fix is to convert it to v1, splitting it if it turns out to be several decisions. The list is generated once at adoption by `scripts/gen-decisions-baseline.mjs` and never regenerated.
 
 **Don't cite a decision you only saw in the index.** The index carries titles, not holdings.
 
@@ -130,7 +132,7 @@ All tags land on `main` at bump time; `production` only ever receives an already
 ## Workflow Notes
 
 - **Diagnostic commands** (build, lint, typecheck, test): run them directly.
-- **Environment-changing commands** (installs, migrations, pushes, deploys): output them for the user to run.
+- **Environment-changing commands** (installs, migrations, pushes, deploys): output them for the user to run — **except where a skill owns the action.** Invoking a skill is the approval for the pushes inside its own ritual: `/its-alive` bootstrapping the `sessions` branch, `/kill-this` pushing the task branch and opening the pull request, `/promote-production` pushing the ff-merge. A skill that stops to ask permission for the push it exists to perform has not run. Anything outside a skill's own ritual is still yours.
 - **On a surprise or mismatch, reconcile before diagnosing.** Pin the assumption and the environment first — dev vs prod, which database, is the server even up. One environmental check beats a multi-step debug built on an unchecked premise.
 - **A denied command is a decision, not a syntax error.** Re-issuing the same intent in a new shell shape is routing around the answer. Once is a fair guess; twice on materially the same command, stop and ask what the denial means.
 - **A scripted edit must fail loudly when its anchor doesn't match — and a one-line `sed -i` is a scripted edit.** That clause is not padding: one session wrote a `python3` script with `assert n == 1`, correctly, and ninety minutes later ran a bare `sed -i` with no check at all. The rule reads as being about *scripts*, and a one-liner doesn't feel like one. Assert the match count per file and exit non-zero on zero matches, or "done" means the script ran, not that the change landed — and the file it silently skipped looks reviewed.

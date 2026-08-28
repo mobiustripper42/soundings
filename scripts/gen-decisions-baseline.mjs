@@ -14,28 +14,35 @@
 // Records ALREADY carrying `schema:` are skipped, so this can never grandfather a v1 record — the
 // generator has no way to weaken a record that already opted in.
 
+// EVERY SHARED NAME BELOW IS SHARED ON PURPOSE. Review found this script and the checker
+// disagreeing twice — on which directories hold records, and on how to find the frontmatter — and
+// both disagreements rejected an untouched legacy record as `not-listed`. `RECORD_DIRS` and
+// `frontmatterBlock` come from the checker so the two cannot drift again.
 import { readFileSync, readdirSync, existsSync, writeFileSync } from 'node:fs'
-import { BASELINE_PATH, fingerprint, hasSchemaKey, idOf } from './check-decisions.mjs'
+import { BASELINE_PATH, RECORD_DIRS, fingerprint, frontmatterBlock, hasSchemaKey, idOf } from './check-decisions.mjs'
 
-const DIR = 'docs/decisions'
-if (!existsSync(DIR)) {
-  console.error(`✗ ${DIR} does not exist — nothing to baseline`)
+if (!RECORD_DIRS.some((d) => existsSync(d))) {
+  console.error(`✗ ${RECORD_DIRS[0]} does not exist — nothing to baseline`)
   process.exit(1)
 }
 
 const lines = []
 let skipped = 0
-for (const f of readdirSync(DIR).filter((f) => /^DEC-.*\.md$/.test(f)).sort()) {
-  const text = readFileSync(`${DIR}/${f}`, 'utf8')
-  const block = text.split('\n---')[0].replace(/^---\n/, '')
-  if (hasSchemaKey(block)) { skipped++; continue }
-  const id = idOf(block)
-  if (!id) {
-    console.error(`✗ ${DIR}/${f} — no \`id:\` in frontmatter, so it cannot be baselined`)
-    process.exit(1)
+for (const dir of RECORD_DIRS) {
+  if (!existsSync(dir)) continue
+  for (const f of readdirSync(dir).filter((f) => f.endsWith('.md') && f !== '_preamble.md').sort()) {
+    const text = readFileSync(`${dir}/${f}`, 'utf8')
+    const block = frontmatterBlock(text)
+    if (hasSchemaKey(block)) { skipped++; continue }
+    const id = idOf(block)
+    if (!id) {
+      console.error(`✗ ${dir}/${f} — no \`id:\` in frontmatter, so it cannot be baselined`)
+      process.exit(1)
+    }
+    lines.push(`${id}  ${fingerprint(text)}`)
   }
-  lines.push(`${id}  ${fingerprint(text)}`)
 }
+lines.sort()
 
 const header = [
   '# Legacy decision records, frozen at adoption of the schema v1 gate.',
