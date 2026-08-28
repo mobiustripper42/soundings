@@ -1,11 +1,11 @@
-# jig — Agents and Skills
+# Agents and Skills
 
-Canonical specs for what jig ships. The shell's `## Session Skills` and `## Agents` tables are the
-summary a session reads; this is the detail.
+Canonical specs for the shared roster. The shell's `## Session Skills` and `## Agents` tables are
+the summary a session reads; this is the detail.
 
-**Status, 2026-08-27:** the roster below is decided and none of it has been carried over yet —
-Phase 2 in `docs/PROJECT_PLAN.md`. What ships is what appears here; a file in `.claude/skills/`
-that has no entry is an unclassified file, which is the state this repo keeps finding defects in.
+This file is installed byte-identical in every project, so it describes the roster and never one
+repo's progress through it. What ships is what appears here: a file in `.claude/skills/` with no
+entry is an unclassified file, which is the state this workflow keeps finding defects in.
 
 ## Skills — seven
 
@@ -37,30 +37,49 @@ that has no entry is an unclassified file, which is the state this repo keeps fi
 | `@pm` | Sonnet | Session start and end, via skills | Progress, timeline risk, scope cuts |
 | `@ui-reviewer` | Sonnet | After UI work, phase boundaries | Design quality against the project's design system, read from `.claude/ui-context.md` |
 
-Three of these — `@architect`, `@code-review`, `@ui-reviewer` — plus `@pm` are `context` class: jig
-ships them as install-time starting points and each project owns its copy afterwards. They reason
-about a project's *substance*, so a good one is necessarily project-specific and cannot be derived
-from a template. The accepted cost is that a good idea emerging in one project's reviewer never
-auto-surfaces for backporting; harvesting it into jig is a deliberate act.
+All four are `context` class: they arrive as install-time starting points and each project owns its
+copy afterwards. They reason about a project's *substance*, so a good one is necessarily
+project-specific and cannot be derived from a template. The accepted cost is that a good idea
+emerging in one project's reviewer never auto-surfaces for backporting; harvesting it upstream is a
+deliberate act.
 
-**Descriptions are project-agnostic.** Seeds' templates carried `[Project]` in the `description:`
-frontmatter, filled in per install, which made every agent permanently differ from its template and
-forced the mirror check to normalize that one line before comparing. Under one copy there is no
-substitution step, so the placeholder goes: "Post-commit code reviewer for this project." Nothing
-is lost, because the agent already reads project facts from the context file.
+**Descriptions are project-agnostic.** An earlier generation carried `[Project]` in the
+`description:` frontmatter, filled in per install, which made every agent permanently differ from
+its template and forced the drift check to normalize that one line before comparing. There is no
+substitution step now, so the placeholder goes: "Post-commit code reviewer for this project."
+Nothing is lost, because the agent already reads project facts from the context file.
 
 ### Not carried
 
 | Agent | Why |
 |-------|-----|
 | `@doc-consistency` | 1,450 words shipped into every project. **0 invocations in a month** |
-| `@ideas` | 1,138 words. **0 invocations in a month** — and its file was missing from seeds' own `.claude/` from the day it was written, so `@ideas` never resolved there either |
+| `@ideas` | 1,138 words. **0 invocations in a month** — and its file was missing from the library's own `.claude/` from the day it was written, so `@ideas` never resolved there either |
 | `@tape-reader` | Read the tape, which is gone |
 
 **The test that produced those zeros is mechanical and reusable:** count invocations across
-retained transcripts. It beats judgment about what feels useful, and it will work on jig later.
-Zero is the meaningful number — `/retro` at 1 and `/promote-production` at 3 are low but plausible,
-because they fire at phase boundaries.
+retained transcripts. It beats judgment about what feels useful, and it works anywhere transcripts
+are kept. Zero is the meaningful number — `/retro` at 1 and `/promote-production` at 3 are low but
+plausible, because they fire at phase boundaries.
+
+## Output styles — one
+
+Styles ship in `.claude/output-styles/`, `logic` class like the skills: every project carries
+every one. Which is **on** is a per-machine choice in `.claude/settings.local.json`, gitignored and
+never travelling — `{ "outputStyle": "One piece" }`, deleted to fall back to the machine default.
+Read once at launch, so a change applies at the next session start.
+
+| Style | What it adds |
+|-------|--------------|
+| `One piece` | Turn-taking and density, neither of which brevity alone covers. One idea per turn, ending where the reader would have an opinion, naming the next piece and stopping there — and one fact per sentence, because "make it shorter" removes sentences while keeping facts, which is how a short reply becomes an unreadable one. Written after a session stacked four decisions into one reply and the reader lost the thread |
+
+The machine default is set outside this repo and is not listed here — it is a preference, not part
+of the roster.
+
+**A style with no entry here is an unclassified file**, same as a skill. Nothing checks that
+automatically: `.claude/doc-check.json` defines roster comparisons for `skills` and `agents` only,
+and `check-docs.mjs` has no styles concept, so this table and the directory can drift apart
+silently. It is written down because the gate cannot.
 
 ## Model selection
 

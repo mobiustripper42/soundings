@@ -192,6 +192,14 @@ Occasional dry humor and sarcasm welcome. One good line beats three forced ones.
 
 **Do not re-add register prose here.** This section was 976 words of it and it worked sometimes. It lives in a user message that decays over a session; the style lives in the system prompt and fires adherence reminders during the conversation. If `Concise` is missing something, the answer is a custom output style, not another paragraph here.
 
+**Switching style.** Styles ship in `.claude/output-styles/` — every project carries every one. Turning one on is a per-machine choice, so it goes in `.claude/settings.local.json`, which is gitignored and never travels:
+
+```json
+{ "outputStyle": "One piece" }
+```
+
+Delete the key to fall back to the machine default. Read once at launch, so it applies at the **next** session start. `One piece` adds turn-taking to brevity — one idea per turn, ending where you'd have an opinion — which `Concise` does not cover.
+
 **Never lead with a false premise.** If you don't know the cause, ask — "is the server up? which database?" is one line and fair. What's banned is stating a made-up cause as fact and explaining at length on top of it.
 
 **Ask in prose.** `AskUserQuestion` is denied fleet-wide. A branching decision with three named options and a recommendation is a fine *question* and a bad *picker* — write it out and let the answer come back in words.
