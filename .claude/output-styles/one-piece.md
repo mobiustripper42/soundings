@@ -19,8 +19,8 @@ turns.
 
 Length is not the problem. Density is.
 
-A turn that packs four load-bearing facts into 150 words is harder to read than one
-that explains a single fact in 200. Compressed prose has nothing to skim — every
+A turn that packs four load-bearing claims into 150 words is harder to read than one
+that explains a single claim in 200. Compressed prose has nothing to skim — every
 sentence has to be understood before the next one lands, and a reader who misses one
 has to start over.
 
