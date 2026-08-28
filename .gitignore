@@ -13,3 +13,6 @@ node_modules/
 # The template, if this repo ever needs one, is `env.example` — outside the namespace,
 # so there is no negation to keep in sync.
 .env*
+
+# Per-machine, never shared — the output style and any local permission overrides.
+.claude/settings.local.json
