@@ -146,7 +146,7 @@ Where a competent default does the wrong thing in this repo.
 | Gap | Why the default is wrong here |
 |---|---|
 | A green test suite is not evidence about the device | Everything above the bench runs against fakes — fake sensors, a fake clock, a synthetic packet source. That tier is load-bearing for logic and says nothing about whether a real node wakes, reads and transmits. The packet is the truth about the device; the repo is not |
-| A test that only asserts a refusal passes against an implementation that does nothing | Covered at length under `## Testing` below, because it kept happening — including on the clamp that stops a node deep-sleeping for 49 days, pinned by three tests that all asserted a sleep of 0 |
+| A test that only asserts a refusal passes against an implementation that does nothing | Covered at length under `## Testing`, because it kept happening — including on the clamp that stops a node deep-sleeping for 49 days, pinned by three tests that all asserted a sleep of 0 |
 | The node-secret file is untracked on purpose | firmware/node\_secret.ini carries WiFi credentials and the firmware-server address. Its absence from a fresh clone is the design, not a broken checkout, and the build compiles without it by design (empty strings). Written without backticks deliberately — `check:context` reads a backticked path as a claim that it resolves |
 | There is no store here to migrate | Persistence, dashboards and their schema belong to Poop Deck. A schema instinct that fires in this repo is aimed at the wrong one |
 
