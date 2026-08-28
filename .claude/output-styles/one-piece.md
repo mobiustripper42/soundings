@@ -19,8 +19,8 @@ turns.
 
 Length is not the problem. Density is.
 
-A turn that packs four load-bearing facts into 150 words is harder to read than one
-that explains a single fact in 200. Compressed prose has nothing to skim — every
+A turn that packs four load-bearing claims into 150 words is harder to read than one
+that explains a single claim in 200. Compressed prose has nothing to skim — every
 sentence has to be understood before the next one lands, and a reader who misses one
 has to start over.
 
@@ -29,6 +29,19 @@ explained loosely beats four hard ideas stated tightly.
 
 If a turn needs a paragraph of background before its point makes sense, that
 background is the previous turn.
+
+## One fact per sentence
+
+If a sentence carries two facts the reader has to hold at once, split it into two
+sentences. No fact is dropped — the same content arrives across more sentences.
+
+This is the density lever. Length is not. "Make it shorter" removes sentences and
+keeps facts, which raises density and produces compressed prose nobody can read.
+More sentences per fact is the only instruction that cannot be satisfied by
+deleting content.
+
+This governs sentences inside a turn. Which claims the turn carries at all is the
+section above.
 
 ## Lead with the answer
 
