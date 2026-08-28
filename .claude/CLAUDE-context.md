@@ -6,7 +6,7 @@ Everything specific to **this** project. The jig-managed `CLAUDE.md` shell reads
 
 **Soundings** is a LoRa wireless sensor mesh for Bay Branch Farm. Battery field nodes measure soil-moisture tension (the anchor measurement), soil temperature, canopy air temp/humidity (for VPD), and catchment tank level, and report over raw point-to-point radio to a gateway on the farm LAN. The gateway decodes the packets and stores them on an existing headless server for viewing in a dashboard. **V1 is read-only telemetry** — sensors observe and report, nothing actuates. A failed node means missing data, nothing worse.
 
-Soundings is **one component of a larger farm recording/analysis tool** (daily log, harvest records, crop diagnosis, labor stats) under separate development. Cross-over gets raised as it arises — notably the time-series DB choice (see SPEC §12 D6).
+Soundings is **one component of a larger farm recording/analysis tool** (daily log, harvest records, crop diagnosis, labor stats) under separate development. Cross-over gets raised as it arises; where storage was the open question, DEC-004 settled it.
 
 **Sibling project — tinkle.** tinkle is the farm's irrigation controller (separate repo, firmware built, hardware build next). Soundings never controls anything; tinkle may eventually *consume* Soundings data (tank level for a pump-lockout; a future VPD advisory). The boundary is one-way and tinkle stays autonomous if Soundings is dark. Be aware tinkle exists; don't couple to it.
 
@@ -25,8 +25,8 @@ Soundings is **one component of a larger farm recording/analysis tool** (daily l
 - **Radio:** raw LoRa point-to-point (not LoRaWAN), US 902–928 MHz, on a duty cycle with wake jitter. **[settled]** — the interval and jitter are firmware constants, not facts this file can pin; read them from the source.
 - **Sensors:** Watermark soil tension (DIY AC excitation), DS18B20 soil temp (1-Wire), SHT45 air T/RH → VPD (I2C), A02YYUW ultrasonic tank level (UART).
 - **Gateway:** a small always-on box near the farm center, on the LAN, holding the LoRa antenna; runs a Python decoder daemon (box choice deferred — D4).
-- **Server stack:** not soundings'. **D6 was resolved by DEC-004** — persistence and dashboards belong to Poop Deck. This entry said "[proposed], unvalidated, D6 unresolved" while the Migration Protocol section below said it was settled, in the same always-loaded file. `mill-dev` (Tailscale VPS) is where we develop and simulate.
-- **Toolchain:** **PlatformIO** (D5 resolved, Phase 1.1) — `node` (Heltec V3) + `native` (Unity host tests) envs in `firmware/platformio.ini`, mirroring tinkle.
+- **Server stack:** not soundings'. Persistence and dashboards belong to Poop Deck (DEC-004). `mill-dev` (Tailscale VPS) is where we develop and simulate.
+- **Toolchain:** **PlatformIO** — `node` (Heltec V3) + `native` (Unity host tests) envs in `firmware/platformio.ini`, mirroring tinkle.
 
 See `docs/SPEC.md` for the full picture and the §12 deferred-decision register.
 
@@ -65,7 +65,7 @@ docker compose -f deploy/dev-sim/docker-compose.yml up   # broker + DB + Grafana
 | `docs/CHAT_HANDOFF.md` | The chat ↔ Claude Code interchange. Hand-synced question ledger (`HW-nn`) — CC owns the repo, Claude chat owns live web research (prices, datasheets, availability). **Anything that matters and lives only in a chat window is lost.** §3.3 carries CC's review of each promoted round. |
 | `docs/FUTURE_IDEAS.md` | Parking lot for ideas worth keeping but not building yet. Curated by `@ideas`; nothing in it is committed scope. |
 
-Notes on the baseline docs: `docs/SPEC.md` carries the **§12 deferred-decision register** (D1–D6) — the home for every not-yet-locked choice (DEC-001). `docs/RETROSPECTIVES.md` uses **throughput velocity (DEC-S026)**. `docs/USER_STORIES.md`, `docs/CHEATSHEET.md` and `docs/DEV_REFERENCE.md` are installed as of the v5 pass — USER_STORIES still holds template placeholders and wants a real pass. The one baseline doc that genuinely does not apply is BRAND.md: it is webapp-shaped (voice, visual direction, component styling) and this is an embedded tool with no UI. Written without backticks on purpose — the context checker reads a backticked path as a claim that it resolves, and would flag this sentence for being correct.
+Notes on the baseline docs: `docs/SPEC.md` carries the **§12 deferred-decision register** — the home for every not-yet-locked choice (DEC-001). Resolved entries are struck through in place, so the register says its own status; do not cite a `D<n>` from memory. `docs/RETROSPECTIVES.md` uses **throughput velocity (DEC-S026)**. The one baseline doc that genuinely does not apply is BRAND.md: it is webapp-shaped (voice, visual direction, component styling) and this is an embedded tool with no UI. Written without backticks on purpose — the context checker reads a backticked path as a claim that it resolves, and would flag this sentence for being correct.
 
 ## Workflow Mechanisms
 
@@ -83,13 +83,15 @@ Soundings is firmware + a Python gateway + a wire contract. The mechanism is a *
 
 ## Migration Protocol (project)
 
-**N/A — no Supabase, and no database at all.** D6 was **resolved by DEC-004**: soundings does not run a store. Persistence and dashboards belong to Poop Deck (`/home/eric/poop-deck`, TimescaleDB + Grafana, fed over MQTT); soundings publishes `contracts/publish-v1.md` documents and stops. `deploy/dev-sim/` is a local simulation stack, not production. The shell's Supabase toolchain, `safe-supabase.sh` guard (DEC-S009), and Vercel env-sync don't apply, and neither does any migration protocol — the schema soundings' data lands in is Poop Deck's to migrate.
+**N/A — no database.**
+
+Persistence and dashboards belong to Poop Deck (`/home/eric/poop-deck`, TimescaleDB + Grafana, fed over MQTT); soundings publishes `contracts/publish-v1.md` documents and stops (DEC-004). `deploy/dev-sim/` is a local simulation stack, not production.
 
 ## Conventions
 
 - **Adapters everywhere a sensor or radio touches the world.** Real hardware behind an interface; a fake behind the same interface for simulation. Swapping one for the other is the entire point of the software-first approach.
 - **Platform-independent logic lives in the core** so it compiles for both the ESP32 and the native test runner. Board-specific code stays out of it.
-- **Raw readings are the durable record.** Default to putting raw values on the wire and deriving (kPa, VPD, gallons) downstream, so the math stays re-revisable against stored raw data without reflashing (D1).
+- **Raw readings are the durable record.** Default to putting raw values on the wire and deriving (kPa, VPD, gallons) downstream, so the math stays re-revisable against stored raw data without reflashing (DEC-004).
 - **Declared, not auto-detected (DEC-002).** A node knows its sensor set from a manifest; a missing expected reading is a fault, not a silent gap.
 - **Constants in one place; bench-confirm the physical ones** (excitation timing, calibration coefficients, flow/volume curves) — spec defaults are seeds, not gospel.
 - **C++ style:** prefer `constexpr` over `#define` for typed constants; comments explain *why*, not *what*. **Python style:** type hints, stdlib-first, handle malformed packets gracefully and log them — never crash the daemon on bad input.
