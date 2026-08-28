@@ -44,17 +44,21 @@ CH_TANK_DISTANCE = "TANK_DISTANCE"
 CH_HEADSPACE_TEMP = "SOIL_TEMP_0"
 TEMP_COUNTS_PER_C = 16.0
 
-# Which soil-temp channel compensates which Watermark. SPEC §5.1 stacks the sensors at
-# 6" and 12" with a DS18B20 co-located at each depth, and deploys the commercial and
-# homemade sensors as matched pairs SIDE BY SIDE — so bits 0 and 2 share the 6" probe
-# and bits 1 and 3 share the 12" one. A pair that shared a node but not a depth would be
-# compensated with the wrong temperature, which is the error the compensation exists to
-# remove.
+# Which soil-temp channel compensates which Watermark. This is **pinned in
+# contracts/packet-v1.md § Channel registry**, not chosen here: SPEC §5.1 stacks the
+# sensors at two depths with a DS18B20 co-located at each, and deploys the commercial and
+# homemade sensors as matched pairs SIDE BY SIDE, so one probe serves both sensors at its
+# depth.
+#
+# ⚠ A manifest that breaks that co-location produces no fault and no dropped reading — it
+# produces a confidently wrong number, compensated from the wrong depth. Every field on
+# the wire is individually valid, so nothing downstream can detect it. That is why the
+# pairing lives in the wire contract rather than in this comment.
 TENSION_TEMP_PAIR = {
-    0: "SOIL_TEMP_0",   # 6"  commercial Watermark
-    1: "SOIL_TEMP_1",   # 12" commercial Watermark
-    2: "SOIL_TEMP_0",   # 6"  homemade, alongside bit 0
-    3: "SOIL_TEMP_1",   # 12" homemade, alongside bit 1
+    0: "SOIL_TEMP_0",   # shallow, commercial
+    1: "SOIL_TEMP_1",   # deep,    commercial
+    2: "SOIL_TEMP_0",   # shallow, homemade — beside bit 0
+    3: "SOIL_TEMP_1",   # deep,    homemade — beside bit 1
 }
 
 

@@ -73,12 +73,12 @@ channel can differ. Bit position is fixed forever once assigned.
 
 | Bit | Channel | Type | Raw encoding |
 |-----|---------|------|--------------|
-| 0 | `SOIL_TENSION_0` | u16 | Watermark raw resistance, **0.1 kΩ/LSB** (0–6553.4 kΩ). Conversion to kPa (temp-compensated, SPEC §5.1) happens downstream (D1). |
-| 1 | `SOIL_TENSION_1` | u16 | second Watermark (e.g. 12") |
-| 2 | `SOIL_TENSION_2` | u16 | third (homemade pair) |
-| 3 | `SOIL_TENSION_3` | u16 | fourth |
-| 4 | `SOIL_TEMP_0` | i16 | DS18B20 raw, **1/16 °C/LSB**, signed (native DS18B20 format) |
-| 5 | `SOIL_TEMP_1` | i16 | second DS18B20 (e.g. 12") |
+| 0 | `SOIL_TENSION_0` | u16 | Watermark raw resistance, **0.1 kΩ/LSB** (0–6553.4 kΩ). Conversion to kPa (temp-compensated, SPEC §5.1) happens downstream (D1). **Shallow depth, commercial.** |
+| 1 | `SOIL_TENSION_1` | u16 | second Watermark. **Deep depth, commercial.** |
+| 2 | `SOIL_TENSION_2` | u16 | **Shallow depth, homemade** — the block installed beside bit 0. |
+| 3 | `SOIL_TENSION_3` | u16 | **Deep depth, homemade** — the block installed beside bit 1. |
+| 4 | `SOIL_TEMP_0` | i16 | DS18B20 raw, **1/16 °C/LSB**, signed (native DS18B20 format). On a bed node, **the probe co-located with bits 0 and 2**; on a tank node it is the headspace probe (DEC-007). |
+| 5 | `SOIL_TEMP_1` | i16 | second DS18B20. On a bed node, **the probe co-located with bits 1 and 3.** |
 | 6 | `AIR_TEMP` | u16 | SHT45 raw ticks; `T_°C = -45 + 175·ticks/65535` |
 | 7 | `AIR_RH` | u16 | SHT45 raw ticks; `RH_% = -6 + 125·ticks/65535` |
 | 8 | `TANK_DISTANCE` | u16 | A02YYUW raw distance, **1 mm/LSB**. Gallons/percent derived downstream (SPEC §5.4). |
@@ -133,6 +133,21 @@ spare sentinel value.
   gateway is updated centrally (and ships with the registry), node and gateway
   move together; an updated gateway parses both old and new packets.
 - Bit positions are **permanent** once assigned — never reuse a retired bit.
+
+**Co-location is part of the registry, not a convention.** The soil-tension and soil-temp
+bits above pin *which probe sits beside which sensor*, and a gateway derivation depends on
+it: `derive_bed` compensates bits 0 and 2 with bit 4, and bits 1 and 3 with bit 5
+(`gateway/soundings_gateway/derive.py`, `TENSION_TEMP_PAIR`). SPEC §5.1 makes that
+compensation mandatory because the same Watermark reads 24.3 cb at 10 °C and 34.2 cb at
+30 °C, which straddles the irrigation trigger.
+
+So a manifest that wires the deep homemade block onto bit 2 does not produce a fault or a
+dropped reading — it produces a **confidently wrong number**, compensated with the
+temperature from the wrong depth. Nothing on the wire can detect it, because every field
+is individually valid. Depths are written as *shallow* and *deep* rather than 6" and 12"
+on purpose: the numbers are SPEC §5.1's current choice, and what the derivation actually
+requires is only that bit 4 is beside bits 0 and 2 and bit 5 is beside bits 1 and 3. Move
+the depths if a bed needs it; do not move the pairing.
 
 **Forward-compat assumption (load-bearing).** Because layout depends on
 `channel_mask` + the registry, a parser that meets a set bit it doesn't recognize
