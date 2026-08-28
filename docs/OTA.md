@@ -3,8 +3,13 @@
 Update a field node over WiFi without walking to the tank. First done successfully
 **2026-08-25 at the bench**: v261 → v262, 923,872 bytes verified and flashed in 6.2 s.
 
-Mechanics: `contracts/firmware-manifest-v1.md` (the format),
-`contracts/downlink-v1.md` (bit 0, the trigger), DEC-011 (why the trigger is declarative).
+Mechanics: `contracts/firmware-manifest-v2.md` (the format),
+`contracts/downlink-v1.md` (bit 0, the trigger), DEC-011 (why the trigger is declarative),
+DEC-013 (why the manifest is signed).
+
+⚠ **Since 3.9e every manifest is signed and an unsigned one is refused.** Publishing needs
+`--key`; the node carries the matching public key and will fetch nothing without it. Set
+that up once — see "The signing key" below — before your first publish.
 
 **The node's WiFi is off at every other moment of its life.** It comes up only when the
 gateway has told it there is something to fetch, and it goes down before the node sleeps.
@@ -45,17 +50,23 @@ fw_build_id: archived build -> build_archive/soundings-node-<sha>-<timestamp>.bi
 cd ~/soundings/gateway
 .venv/bin/python tools/publish_firmware.py \
     --bin ../firmware/.pio/build/node/firmware.bin \
-    --version 262 \
-    --dir /srv/soundings-firmware/firmware
+    --version 263 \
+    --dir /srv/soundings-firmware/firmware \
+    --key ~/.soundings/ota-signing-key
 ```
 
-It copies the image in first, then writes the manifest **last and atomically**. Until that
-final rename the release is invisible: a node polling mid-copy sees the previous one, which
-is correct rather than merely safe.
+It copies the image in first, signs, then writes the manifest **last and atomically**.
+Until that final rename the release is invisible: a node polling mid-copy sees the previous
+one, which is correct rather than merely safe. The signature is computed before the rename,
+so there is no instant at which an unsigned manifest is reachable.
 
 ⚠ **`--version` must match the `kFwVersion` you just built.** Nothing checks this — the
 tool cannot read a constant out of a compiled binary. Get it wrong and either nothing
 updates, or nodes update and then immediately look stale again.
+
+⚠ **`--key` has no default and there is no unsigned mode.** A tool that could publish
+unsigned by accident would produce a fleet that quietly stopped updating, which looks
+exactly like a fleet that is already current.
 
 ## 4. Serve it
 
@@ -88,12 +99,18 @@ manifest, so it reads the **manifest directory**, not the document root:
 
 ```bash
 cd ~/soundings/gateway
-.venv/bin/python tools/bench_reply.py --port /dev/ttyUSB0 --ota-dir /srv/soundings-firmware/firmware
+.venv/bin/python tools/bench_reply.py --port /dev/ttyUSB0 \
+    --ota-dir /srv/soundings-firmware/firmware \
+    --ota-pubkey 09836bf42695478e223e4742cb9230e8b2b21f8bb988b584f3158f31ec50a07e
 ```
 
-⚠ **The daemon validates before it flags.** If the named image is absent, the wrong
-length, or fails its hash, **no flag is sent** and it logs why. A node is never woken onto
-WiFi for an image the gateway could already see was broken.
+⚠ **The daemon validates before it flags.** If the signature does not verify, or the named
+image is absent, the wrong length, or fails its hash, **no flag is sent** and it logs why.
+A node is never woken onto WiFi for an image the gateway could already see was broken.
+
+`--ota-pubkey` is required alongside `--ota-dir` — it is the same value as
+`SOUNDINGS_OTA_PUBKEY` in `firmware/platformio.ini`, and a bench that skipped verification
+would not be proving the field path.
 
 ## 6. Wait
 
@@ -138,6 +155,14 @@ matter; the 15 s join timeout exists because of that 4150 ms outlier.
 - **`ota: flagged, but this build has no credentials`.** Built without
   firmware/node\_secret.ini. That compiles by design (empty strings), and this is the
   node refusing to act on it rather than fetching a nonsense URL.
+- **`ota: flagged, but this build carries no signing key`.** `SOUNDINGS_OTA_PUBKEY` in
+  `firmware/platformio.ini` is empty or not 64 lowercase hex characters. Checked before
+  the radio comes on: a node that cannot verify anything has no reason to spend a join
+  finding that out. There is no skip-verification path — see "The signing key".
+- **`ota: manifest SIGNATURE INVALID — nothing fetched, nothing flashed`.** The manifest
+  did not verify against the node's public key. Nothing was requested; the image was never
+  touched. Either the wrong signing key published it, or something rewrote the manifest
+  after it was signed.
 - **`SHA-256 MISMATCH — image discarded, not flashed`.** What arrived over the air did not
   match the manifest. The image is discarded **before** `Update.end()` makes anything the
   boot target, so the running firmware is untouched. It retries next cycle.
@@ -146,6 +171,37 @@ matter; the 15 s join timeout exists because of that 4150 ms outlier.
 
 **Every failure ends the same way: WiFi off, sleep, try again in fifteen minutes.** The
 flag persists because it is derived from a version mismatch that is still true.
+
+## The signing key
+
+One key signs every release; every node carries its public half, compiled in.
+
+```bash
+cd ~/soundings/gateway
+.venv/bin/python tools/publish_firmware.py --gen-key ~/.soundings/ota-signing-key
+```
+
+It writes 32 bytes at mode 0600 and prints the public half. Paste that into
+`firmware/platformio.ini` as `SOUNDINGS_OTA_PUBKEY` and rebuild. The public half is
+tracked in git deliberately — it is not a secret, and having it in a reviewable diff is
+the record of which key the fleet trusts.
+
+⚠ **Back the private half up somewhere that survives this machine.** There is no way to
+give a deployed node a new public key except over USB, so losing the private half means a
+fleet that can never be updated again. `--gen-key` refuses to overwrite an existing file
+for that reason.
+
+⚠ **Never put it in this repo.** `.gitignore` matches `*ota-signing-key*` as a seatbelt,
+not as permission. A leaked signing key is worse than a leaked WiFi password: the password
+costs a USB trip per node to rotate, the signing key lets anyone publish firmware every
+node will accept and execute — and the fix is also a USB trip per node, having spent the
+window in between unable to tell.
+
+### Rotating it
+
+Generate a new key, update `SOUNDINGS_OTA_PUBKEY`, then **flash every node over USB**.
+There is no over-the-air path: a node signed with the old key cannot be persuaded to trust
+a new one, which is the property that makes the whole scheme worth having.
 
 ## Downgrading
 

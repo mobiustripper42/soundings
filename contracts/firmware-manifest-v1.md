@@ -1,8 +1,21 @@
 # Firmware manifest v1 — what the node fetches before it fetches firmware
 
-**Status:** v1, Phase 3.9d
+**Status:** SUPERSEDED by `firmware-manifest-v2.md` (Phase 3.9e, DEC-013).
 **Direction:** static HTTP server → node, over WiFi. The only part of soundings that
 is not LoRa, and the only time a node's WiFi radio is ever on.
+
+> ⚠ **This document is kept as written, and its promise still holds: a v1 manifest is
+> these four fields.** v2 adds a required `sig` field and requires the node to verify
+> it. That is a new *required* field, which is precisely the change rule 3 below says
+> needs a version bump rather than a new key — so v1 was not amended, and "v1" still
+> means today what it meant when this was written.
+>
+> Nothing on the wire distinguishes the two. Which parser runs is decided at compile
+> time by which firmware is on the chip, and a node still running v1 firmware ignores
+> `sig` as an unknown key. That is what made the fleet transition free, and it is the
+> hazard rule 3 warns about being useful exactly once.
+>
+> **Nothing implements this document any more.** Read v2.
 
 ## Why there is a manifest at all
 

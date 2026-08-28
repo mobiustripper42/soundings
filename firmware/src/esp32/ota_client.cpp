@@ -21,6 +21,31 @@ private:
     mbedtls_sha256_context ctx_;
 };
 
+// Decode SOUNDINGS_OTA_PUBKEY into 32 bytes. Anything other than exactly 64 lowercase
+// hex chars fails — including the empty default, which is the state a build has before
+// anyone has pasted a key into platformio.ini.
+//
+// ⚠ A MISSING KEY MEANS REFUSE, NEVER ACCEPT. This is the same posture as the empty-SSID
+// check below and it matters more: an unconfigured credential costs an update, an
+// unconfigured key would cost the entire reason this file exists. There is deliberately
+// no "no key configured, skip verification" path anywhere.
+bool publicKey(uint8_t out[32]) {
+    const char* p = SOUNDINGS_OTA_PUBKEY;
+    if (strlen(p) != 64) return false;
+    for (size_t i = 0; i < 32; ++i) {
+        uint8_t hi = 0, lo = 0;
+        const char a = p[i * 2], b = p[i * 2 + 1];
+        if      (a >= '0' && a <= '9') hi = (uint8_t)(a - '0');
+        else if (a >= 'a' && a <= 'f') hi = (uint8_t)(a - 'a' + 10);
+        else return false;
+        if      (b >= '0' && b <= '9') lo = (uint8_t)(b - '0');
+        else if (b >= 'a' && b <= 'f') lo = (uint8_t)(b - 'a' + 10);
+        else return false;
+        out[i] = (uint8_t)((hi << 4) | lo);
+    }
+    return true;
+}
+
 bool configured() {
     // An empty field means node_secret.ini was absent or partial at build time. That
     // compiles clean by design — PlatformIO merges the secret file key-by-key over the
@@ -215,11 +240,34 @@ void OtaClient::onDownlink(const Downlink& d) {
         return;
     }
 
+    uint8_t pubkey[32];
+    if (!publicKey(pubkey)) {
+        // Checked BEFORE the radio comes on. A node that cannot verify anything has no
+        // reason to spend a WiFi join finding that out.
+        Serial.println("ota: flagged, but this build carries no signing key — ignoring");
+        return;
+    }
+
     Serial.println("ota: update flagged; bringing WiFi up");
     if (!joinWifi()) { dropWifi(); return; }
 
     FwManifest m;
     if (!fetchManifest(m)) { dropWifi(); return; }
+
+    // ⚠ THE SIGNATURE IS CHECKED BEFORE THE IMAGE IS EVEN REQUESTED — earlier than
+    // Update.begin(), earlier than the streaming hash, earlier than a single byte of
+    // firmware crosses the link. Everything downstream compares the image against a
+    // sha256 that arrives in this same manifest, so until the manifest is authentic
+    // those checks answer a question an attacker got to write (DEC-013).
+    //
+    // This is also the check that makes the forgeable downlink survivable: anyone can
+    // transmit a frame that sets bit 0 and wake this node onto WiFi, but nobody without
+    // the offline key can produce a manifest it will act on.
+    if (!verifyManifest(m, pubkey)) {
+        Serial.println("ota: manifest SIGNATURE INVALID — nothing fetched, nothing flashed");
+        dropWifi();
+        return;
+    }
 
     // Inequality, not ordering — republishing an older manifest is the only downgrade
     // path there is, because there is no rollback (operator call, 2026-08-23).

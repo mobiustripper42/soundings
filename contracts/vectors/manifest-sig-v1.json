@@ -1,0 +1,101 @@
+{
+  "format": "soundings-manifest-sig",
+  "manifest_ver": 2,
+  "algorithm": {
+    "name": "Ed25519",
+    "signed_message": "A canonical reconstruction from the four parsed values, in the fixed order version, size, sha256, file \u2014 each rendered as '<key>: <value>' and terminated by a single \\n. NOT the bytes of the file as received.",
+    "sig_encoding": "128 lowercase hex chars (the 64-byte detached signature)"
+  },
+  "test_key": {
+    "warning": "TEST KEY, PUBLISHED DELIBERATELY. Never signs a real release. Regenerate: printf 'soundings manifest-sig-v1 TEST KEY -- not for production' | sha256sum",
+    "seed_phrase": "soundings manifest-sig-v1 TEST KEY -- not for production",
+    "private_key_hex": "afcde667225dae797f0a11f0d5e26b34af6f3e0f92dce8f2538bb802fbd41d5a",
+    "public_key_hex": "4478c9918a9d43b907326e83bc34f2aabe91294ebbd99f81b2c551775b0f6f02"
+  },
+  "vectors": [
+    {
+      "name": "valid",
+      "description": "The shared literal, signed. Parses and verifies.",
+      "manifest": "version: 261\nsize: 4\nsha256: 9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08\nfile: t.bin\nsig: 6039b503a526fc8ee5a574da60a0e09f3cae0ab8625376564540af9d9882785e4dccdd86bcef4c029d475b5022ef9680baa06909554da402e0738fab5d55310b\n",
+      "expect_parse": true,
+      "expect_verify": true
+    },
+    {
+      "name": "layout_varies_signature_holds",
+      "description": "Same four values, reordered, with a comment, a blank line, trailing spaces and CRLF endings. The signature is unchanged and still verifies \u2014 this is what canonical reconstruction buys.",
+      "manifest": "file: t.bin\r\nsha256: 9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08\r\nsize: 4\r\nversion: 261\r\nsig: 6039b503a526fc8ee5a574da60a0e09f3cae0ab8625376564540af9d9882785e4dccdd86bcef4c029d475b5022ef9680baa06909554da402e0738fab5d55310b\r\n# published by hand\r\n\r\nsize: 4   \r\n",
+      "expect_parse": true,
+      "expect_verify": true
+    },
+    {
+      "name": "tampered_sha256",
+      "description": "sha256 edited after signing. The attack the whole field exists to stop.",
+      "manifest": "version: 261\nsize: 4\nsha256: 0000000000000000000000000000000000000000000000000000000000000000\nfile: t.bin\nsig: 6039b503a526fc8ee5a574da60a0e09f3cae0ab8625376564540af9d9882785e4dccdd86bcef4c029d475b5022ef9680baa06909554da402e0738fab5d55310b\n",
+      "expect_parse": true,
+      "expect_verify": false
+    },
+    {
+      "name": "tampered_file",
+      "description": "file edited after signing \u2014 points the node at another image.",
+      "manifest": "version: 261\nsize: 4\nsha256: 9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08\nfile: evil.bin\nsig: 6039b503a526fc8ee5a574da60a0e09f3cae0ab8625376564540af9d9882785e4dccdd86bcef4c029d475b5022ef9680baa06909554da402e0738fab5d55310b\n",
+      "expect_parse": true,
+      "expect_verify": false
+    },
+    {
+      "name": "tampered_version",
+      "description": "version edited after signing.",
+      "manifest": "version: 262\nsize: 4\nsha256: 9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08\nfile: t.bin\nsig: 6039b503a526fc8ee5a574da60a0e09f3cae0ab8625376564540af9d9882785e4dccdd86bcef4c029d475b5022ef9680baa06909554da402e0738fab5d55310b\n",
+      "expect_parse": true,
+      "expect_verify": false
+    },
+    {
+      "name": "tampered_size",
+      "description": "size edited after signing.",
+      "manifest": "version: 261\nsize: 5\nsha256: 9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08\nfile: t.bin\nsig: 6039b503a526fc8ee5a574da60a0e09f3cae0ab8625376564540af9d9882785e4dccdd86bcef4c029d475b5022ef9680baa06909554da402e0738fab5d55310b\n",
+      "expect_parse": true,
+      "expect_verify": false
+    },
+    {
+      "name": "signature_over_another_manifest",
+      "description": "A genuine signature by the real key, over a DIFFERENT manifest. Verifies against its own message and must not verify against this one.",
+      "manifest": "version: 261\nsize: 4\nsha256: 9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08\nfile: t.bin\nsig: 042d0386ecebdedd13d01248fb24e381208226670919931fe7f56b3bec69d33df49dd62bd6f335e3f4af583490d495a2b70efea931f0bc81b34bffe049ce8807\n",
+      "expect_parse": true,
+      "expect_verify": false
+    },
+    {
+      "name": "missing_sig",
+      "description": "No sig line. Required in v2, so the parse fails outright.",
+      "manifest": "version: 261\nsize: 4\nsha256: 9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08\nfile: t.bin\n",
+      "expect_parse": false,
+      "expect_verify": false
+    },
+    {
+      "name": "sig_wrong_length",
+      "description": "127 hex chars. Exactly 128 or nothing.",
+      "manifest": "version: 261\nsize: 4\nsha256: 9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08\nfile: t.bin\nsig: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\n",
+      "expect_parse": false,
+      "expect_verify": false
+    },
+    {
+      "name": "sig_not_hex",
+      "description": "Right length, non-hex characters.",
+      "manifest": "version: 261\nsize: 4\nsha256: 9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08\nfile: t.bin\nsig: zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz\n",
+      "expect_parse": false,
+      "expect_verify": false
+    },
+    {
+      "name": "sig_uppercase",
+      "description": "The real signature uppercased. Lowercase only, matching sha256 \u2014 a parser that accepts both is two implementations agreeing to differ.",
+      "manifest": "version: 261\nsize: 4\nsha256: 9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08\nfile: t.bin\nsig: 6039B503A526FC8EE5A574DA60A0E09F3CAE0AB8625376564540AF9D9882785E4DCCDD86BCEF4C029D475B5022EF9680BAA06909554DA402E0738FAB5D55310B\n",
+      "expect_parse": false,
+      "expect_verify": false
+    },
+    {
+      "name": "oversized",
+      "description": "Padded past the 512-byte cap with comment lines. Bounds are checked before anything is interpreted, so this dies before the signature.",
+      "manifest": "version: 261\nsize: 4\nsha256: 9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08\nfile: t.bin\nsig: 6039b503a526fc8ee5a574da60a0e09f3cae0ab8625376564540af9d9882785e4dccdd86bcef4c029d475b5022ef9680baa06909554da402e0738fab5d55310b\n# pad\n# pad\n# pad\n# pad\n# pad\n# pad\n# pad\n# pad\n# pad\n# pad\n# pad\n# pad\n# pad\n# pad\n# pad\n# pad\n# pad\n# pad\n# pad\n# pad\n# pad\n# pad\n# pad\n# pad\n# pad\n# pad\n# pad\n# pad\n# pad\n# pad\n# pad\n# pad\n# pad\n# pad\n# pad\n# pad\n# pad\n# pad\n# pad\n# pad\n# pad\n# pad\n# pad\n# pad\n# pad\n# pad\n# pad\n# pad\n# pad\n# pad\n# pad\n# pad\n# pad\n# pad\n# pad\n# pad\n# pad\n# pad\n# pad\n# pad\n",
+      "expect_parse": false,
+      "expect_verify": false
+    }
+  ]
+}

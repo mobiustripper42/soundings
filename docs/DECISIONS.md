@@ -34,6 +34,7 @@ so several placeholders would collide. Consult @architect before building on one
 ### Firmware architecture
 - DEC-002 — One configurable firmware, declared sensor manifest
 - DEC-012 — OTA is a pull, and the manifest is the trigger
+- DEC-013 — The manifest is signed, and that is why the format got a v2
 
 ### Radio, wire contract & gateway
 - DEC-003 — Packet v1 wire contract (resolves §12 D2)

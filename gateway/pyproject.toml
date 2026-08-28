@@ -11,7 +11,16 @@ name = "soundings-gateway"
 version = "0.0.1"
 description = "Soundings LoRa gateway: decode packets into structured readings."
 requires-python = ">=3.10"
-dependencies = ["paho-mqtt>=2"]   # MQTT client for the spine; the contract parser itself is stdlib-only
+# paho-mqtt: MQTT client for the spine. cryptography: Ed25519 for the signed firmware
+# manifest (DEC-013) — the daemon verifies, tools/publish_firmware.py signs. The packet
+# and framing parsers are still stdlib-only; this dependency is confined to the OTA path.
+#
+# ⚠ Taken deliberately rather than hand-rolling Ed25519 in Python. The node vendors its
+# own verifier because nothing it could link is reachable from the host test tier; here
+# there is an audited library one import away, and this is the side that holds the private
+# key. A wrong verifier gives a wrong answer that tests catch; a wrong signer leaks a key
+# and nothing catches it.
+dependencies = ["paho-mqtt>=2", "cryptography>=41"]
 
 [project.optional-dependencies]
 dev = ["pytest"]
