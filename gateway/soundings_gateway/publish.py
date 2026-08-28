@@ -103,16 +103,17 @@ def envelope(msg: dict, cfg, derived: dict | None = None) -> dict | None:
 def _derived_map(msg: dict, cfg) -> dict:
     """The derived values as a flat map, keyed by metric name.
 
-    Reuses derive_tank so there is exactly one derivation in the codebase: the scalars a
-    dashboard subscribes to and the numbers Poop Deck stores come from the same call, and
-    cannot drift into disagreeing about the same tank.
+    Reuses derive_reading so there is exactly one derivation in the codebase: the scalars
+    a dashboard subscribes to and the numbers Poop Deck stores come from the same call,
+    and cannot drift into disagreeing about the same tank. The role dispatch lives in
+    derive.py, so a bed node lands here without this function knowing bed nodes exist.
 
     Keys are OMITTED when not derivable — never nulled, never zeroed. A null reads as "we
     measured nothing"; a zero reads as a real measurement of zero. Absence is the only
     encoding that says "could not be computed this cycle".
     """
     out: dict = {}
-    for topic, payload in derive.derive_tank(msg, cfg):
+    for topic, payload in derive.derive_reading(msg, cfg):
         # derive.metric_name, not a split here: that module owns the topic shape, so the
         # parse belongs next to the construction rather than guessing at it from outside.
         out[derive.metric_name(topic)] = float(payload)

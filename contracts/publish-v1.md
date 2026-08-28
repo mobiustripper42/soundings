@@ -72,8 +72,19 @@ alert rules; it is **not** this contract and is not storable — it carries no t
 
 Keys are **omitted when not derivable**, never nulled or zeroed. An absent key means "this
 could not be computed this cycle"; a present one is a real number. The refusals are listed
-in DEC-008 and enforced in `gateway/soundings_gateway/derive.py` — an unmeasured tank
-geometry, a missing headspace temperature, an out-of-range distance.
+in DEC-008 and enforced in `gateway/soundings_gateway/derive.py`.
+
+Which keys appear depends on the node's `role` in the node→location map (D7):
+
+| role | keys | refuses when |
+|---|---|---|
+| `tank` | `distance_mm`, `headspace_temp_c`, `level_gal`, `percent` | tank geometry unmeasured; no headspace temperature; distance outside the sensor's range |
+| `bed` | `soil_temp_<bit>_c`, `tension_<bit>_kpa`, `tension_<bit>_wet_end` | no soil-temp probe at that Watermark's depth (SPEC §5.1 makes the compensation mandatory); resistance past the curve's temperature-dependent pole |
+
+`tension_<bit>_wet_end` is present and `1` only below 10 kPa, where the Watermark stops
+being quantitative. The tension is published alongside it rather than withheld: it is a
+true "far wetter than you would irrigate at", and a dropped reading is indistinguishable
+downstream from a dead sensor.
 
 Nothing here is recomputed downstream. Poop Deck stores raw **and** derived (DEC-004) and
 never derives; if a curve is re-fitted, it re-derives from the stored `channels[].raw`.
