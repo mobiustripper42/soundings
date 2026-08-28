@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "decision-record.schema.json",
   "title": "Decision record frontmatter, schema v1",
-  "$comment": "Validated by scripts/check-decisions.mjs, and only for records carrying `schema: 1`. Records without that key are grandfathered and skipped — jig has no such records and should never acquire one, since it started with an empty corpus by DEC-J001's sibling reasoning. The `topic` enum is injected at validate time from docs/decisions/_config.json — it is deliberately absent here, because a topic list baked into a shared schema is a project-specific fact in a file that is not. jig's one divergence from muster's copy: `revisit_if` is required. 78% of muster's reservations corpus was dead because nothing retired anything, and a field that is optional is a field the corpus rots without.",
+  "$comment": "Validated by scripts/check-decisions.mjs, and only for records carrying `schema: 1`. A record without that key is skipped ONLY when docs/decisions-baseline.txt lists it, unchanged — it predates the schema and is frozen; changing it means converting it to v1 first. Not listed, or listed and edited, fails. The `topic` enum is injected at validate time from docs/decisions/_config.json — deliberately absent here, because a topic list baked into a shared schema is a project-specific fact in a file that is not. Same reason nothing here names a repo: this file is byte-identical everywhere it is installed, so a sentence about one project's corpus is false in all the others.",
   "type": "object",
   "additionalProperties": false,
   "required": ["schema", "id", "title", "topic", "status", "date", "ruling", "claims", "revisit_if"],
@@ -53,7 +53,7 @@
       "type": "string",
       "minLength": 10,
       "maxLength": 160,
-      "$comment": "Required in jig, optional in muster. The condition that makes this record worth re-opening, written so a person can tell whether it has fired. Expiry is the gap schema v1 does not close: nothing in the schema retires a record, so records accumulate until the corpus is 78% dead and nobody trusts any of it."
+      "$comment": "The condition that makes this record worth re-opening, written so a person can tell whether it has fired. Required, and that is the whole point. `status` and `superseded_by` are how a record is *marked* retired; nothing but this field says what would *cause* anyone to go and mark it. An optional expiry is one nobody writes, and the corpus then accumulates until most of it is dead and none of it is trusted. Measured once at 78%, still being cited."
     },
     "amends_spec": {
       "type": "array",
