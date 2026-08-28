@@ -1,18 +1,14 @@
 # soundings — Project Context
 
-Everything specific to **this** project. The seeds-managed `CLAUDE.md` shell reads this file at session start and treats it as authoritative for project-specific facts (DEC-S019). This is a **`tool`** project (embedded firmware + a Python gateway + dashboards), so the shell's webapp defaults — Playwright/pgTAP, Supabase migrations, 375px screenshots, `<VersionTag />`, `@ui-reviewer` — are overridden or N/A below. Nothing here syncs from seeds.
+Everything specific to **this** project. The jig-managed `CLAUDE.md` shell reads this file at session start and treats it as authoritative for project-specific facts (DEC-S019). Nothing here syncs from jig.
 
 ## What We're Building
 
 **Soundings** is a LoRa wireless sensor mesh for Bay Branch Farm. Battery field nodes measure soil-moisture tension (the anchor measurement), soil temperature, canopy air temp/humidity (for VPD), and catchment tank level, and report over raw point-to-point radio to a gateway on the farm LAN. The gateway decodes the packets and stores them on an existing headless server for viewing in a dashboard. **V1 is read-only telemetry** — sensors observe and report, nothing actuates. A failed node means missing data, nothing worse.
 
-Soundings is **one component of a larger farm recording/analysis tool** (daily log, harvest records, crop diagnosis, labor stats) under separate development. Cross-over gets raised as it arises — notably the time-series DB choice (see SPEC §12 D6).
+Soundings is **one component of a larger farm recording/analysis tool** (daily log, harvest records, crop diagnosis, labor stats) under separate development. Cross-over gets raised as it arises; where storage was the open question, DEC-004 settled it.
 
 **Sibling project — tinkle.** tinkle is the farm's irrigation controller (separate repo, firmware built, hardware build next). Soundings never controls anything; tinkle may eventually *consume* Soundings data (tank level for a pump-lockout; a future VPD advisory). The boundary is one-way and tinkle stays autonomous if Soundings is dark. Be aware tinkle exists; don't couple to it.
-
-## Project Type
-
-`tool` — embedded firmware (ESP32 field nodes) + a Python gateway/ingestion service + dashboards. **Not a webapp.** No Supabase, Next.js, React, RLS, or Playwright. `@ui-reviewer` and `VersionTag.tsx` are intentionally absent (gated out for `tool` type, DEC-S011 in seeds).
 
 ## Build Philosophy
 
@@ -24,50 +20,37 @@ Soundings is **one component of a larger farm recording/analysis tool** (daily l
 
 ## Stack
 
-- **Field node:** Heltec WiFi LoRa 32 V3 (ESP32-S3 + SX1262 radio, one board), 2× 18650 (no solar), WiFi disabled, deep sleep. **[settled]**
-- **Radio:** raw LoRa point-to-point (not LoRaWAN), US 902–928 MHz, tx every 10–15 min with ±30 s wake jitter. **[settled]**
+- **Field node:** Heltec WiFi LoRa 32 V3 (ESP32-S3 + SX1262 radio, one board), 2× 18650 (no solar), deep sleep. **[settled]**
+- **WiFi is on the board and now used.** This said "WiFi disabled" until the OTA work shipped — see `firmware/src/esp32/ota_client.cpp` and `docs/OTA.md`. The radio is still LoRa; WiFi wakes only to pull firmware.
+- **Radio:** raw LoRa point-to-point (not LoRaWAN), US 902–928 MHz, on a duty cycle with wake jitter. **[settled]** — the interval and jitter are firmware constants, not facts this file can pin; read them from the source.
 - **Sensors:** Watermark soil tension (DIY AC excitation), DS18B20 soil temp (1-Wire), SHT45 air T/RH → VPD (I2C), A02YYUW ultrasonic tank level (UART).
 - **Gateway:** a small always-on box near the farm center, on the LAN, holding the LoRa antenna; runs a Python decoder daemon (box choice deferred — D4).
-- **Server stack:** existing headless Linux box. Message bus + time-series DB + Grafana — **all [proposed], unvalidated** (D6: TimescaleDB vs VictoriaMetrics unresolved). `mill-dev` (Tailscale VPS) is where we develop/simulate.
-- **Toolchain:** **PlatformIO** (D5 resolved, Phase 1.1) — `node` (Heltec V3) + `native` (Unity host tests) envs in `firmware/platformio.ini`, mirroring tinkle.
+- **Server stack:** not soundings'. Persistence and dashboards belong to Poop Deck (DEC-004). `mill-dev` (Tailscale VPS) is where we develop and simulate.
+- **Toolchain:** **PlatformIO** — `node` (Heltec V3) + `native` (Unity host tests) envs in `firmware/platformio.ini`, mirroring tinkle.
 
 See `docs/SPEC.md` for the full picture and the §12 deferred-decision register.
-
-## Repo Layout (documented now; directories created in Phase 1 with the toolchain)
-
-```
-firmware/    ESP32 node firmware. Platform-independent core (host-testable
-             sensor math, packet (de)serialization, run cycle) split from
-             board-specific drivers, behind adapters with fakes for simulation.
-gateway/     Python decoder daemon + ingestion: LoRa receive → decode → node→
-             location map → message bus → time-series DB. Fakeable packet source.
-contracts/   The binary packet schema — the contract between firmware (C++
-             serializer) and gateway (Python parser), pinned by shared test
-             vectors. The single source of truth both sides build against.
-deploy/      docker-compose for the server stack (broker / DB / Grafana).
-dashboards/  Grafana dashboard definitions.
-```
 
 ## Architecture
 
 Two code domains plus a wire contract between them:
 
-- **Node firmware** — wake → sample sensors → assemble packet → transmit → sleep. Fully non-blocking; long actions time against `millis()`. Sensor drivers and the radio live behind adapter interfaces (`ISoilMoisture`, `ITemp`, `IHumidity`, `IRadio`, `IClock`) so fakes drive them in host tests / Wokwi and real drivers swap in at the bench. Platform-independent logic lives in the core so it compiles for both the ESP32 and the native test runner.
-- **Gateway/ingestion** — the LoRa source is an adapter too (`IPacketSource`), faked with synthetic/replayed packets so the whole pipeline runs on a laptop with zero hardware.
+- **Node firmware** — wake → sample sensors → assemble packet → transmit → sleep. Fully non-blocking; long actions time against `millis()`. Sensor drivers and the radio live behind adapter interfaces so fakes drive them in host tests / Wokwi and real drivers swap in at the bench — `ls firmware/src/core/i*.h` is the current set. Platform-independent logic lives in the core so it compiles for both the ESP32 and the native test runner.
+- **Gateway/ingestion** — the packet source is an adapter too, faked with synthetic or replayed packets so the whole pipeline runs on a laptop with zero hardware.
 - **The packet schema is the contract.** A C++ serializer and a Python parser that must never drift — pinned by shared golden-vector round-trip tests. Versioned (every packet carries a firmware-version field).
 
 ## Commands
-
-Firmware is PlatformIO (D5 resolved). Gateway and server-stack commands firm up as those layers land in Phase 1.
 
 ```bash
 # Firmware (run from firmware/)
 pio test -e native           # host unit tests (core sensor/packet logic) — the load-bearing tier
 pio run  -e node             # build node firmware (Heltec WiFi LoRa 32 V3)
 
-# Gateway (Python, run from gateway/) — Phase 1.4 landed
+# Gateway (Python, run from gateway/)
 #   venv:  python3 -m venv .venv && .venv/bin/pip install pytest
 .venv/bin/python -m pytest   # gateway parser + contract round-trip tests
+
+# Doc gates (run from the repo root)
+npm run verify               # decisions, dictionary, denied commands, context, docs
 
 # Dev-sim stack only — NOT production (DEC-004: the store and broker are Poop Deck's)
 docker compose -f deploy/dev-sim/docker-compose.yml up   # broker + DB + Grafana
@@ -82,7 +65,7 @@ docker compose -f deploy/dev-sim/docker-compose.yml up   # broker + DB + Grafana
 | `docs/CHAT_HANDOFF.md` | The chat ↔ Claude Code interchange. Hand-synced question ledger (`HW-nn`) — CC owns the repo, Claude chat owns live web research (prices, datasheets, availability). **Anything that matters and lives only in a chat window is lost.** §3.3 carries CC's review of each promoted round. |
 | `docs/FUTURE_IDEAS.md` | Parking lot for ideas worth keeping but not building yet. Curated by `@ideas`; nothing in it is committed scope. |
 
-Notes on the baseline docs: `docs/SPEC.md` carries the **§12 deferred-decision register** (D1–D6) — the home for every not-yet-locked choice (DEC-001). `docs/RETROSPECTIVES.md` uses **throughput velocity (DEC-S026)**. `docs/USER_STORIES.md`, `docs/CHEATSHEET.md` and `docs/DEV_REFERENCE.md` are installed as of the v5 pass — USER_STORIES still holds template placeholders and wants a real pass. The one baseline doc that genuinely does not apply is BRAND.md: it is webapp-shaped (voice, visual direction, component styling) and this is an embedded tool with no UI. Written without backticks on purpose — the context checker reads a backticked path as a claim that it resolves, and would flag this sentence for being correct.
+Notes on the baseline docs: `docs/SPEC.md` carries the **§12 deferred-decision register** — the home for every not-yet-locked choice (DEC-001). Resolved entries are struck through in place, so the register says its own status; do not cite a `D<n>` from memory. `docs/RETROSPECTIVES.md` uses **throughput velocity (DEC-S026)**. The one baseline doc that genuinely does not apply is BRAND.md: it is webapp-shaped (voice, visual direction, component styling) and this is an embedded tool with no UI. Written without backticks on purpose — the context checker reads a backticked path as a claim that it resolves, and would flag this sentence for being correct.
 
 ## Workflow Mechanisms
 
@@ -100,13 +83,15 @@ Soundings is firmware + a Python gateway + a wire contract. The mechanism is a *
 
 ## Migration Protocol (project)
 
-**N/A — no Supabase, and no database at all.** D6 was **resolved by DEC-004**: soundings does not run a store. Persistence and dashboards belong to Poop Deck (`/home/eric/poop-deck`, TimescaleDB + Grafana, fed over MQTT); soundings publishes `contracts/publish-v1.md` documents and stops. `deploy/dev-sim/` is a local simulation stack, not production. The shell's Supabase toolchain, `safe-supabase.sh` guard (DEC-S009), and Vercel env-sync don't apply, and neither does any migration protocol — the schema soundings' data lands in is Poop Deck's to migrate.
+**N/A — no database.**
+
+Persistence and dashboards belong to Poop Deck (`/home/eric/poop-deck`, TimescaleDB + Grafana, fed over MQTT); soundings publishes `contracts/publish-v1.md` documents and stops (DEC-004). `deploy/dev-sim/` is a local simulation stack, not production.
 
 ## Conventions
 
 - **Adapters everywhere a sensor or radio touches the world.** Real hardware behind an interface; a fake behind the same interface for simulation. Swapping one for the other is the entire point of the software-first approach.
 - **Platform-independent logic lives in the core** so it compiles for both the ESP32 and the native test runner. Board-specific code stays out of it.
-- **Raw readings are the durable record.** Default to putting raw values on the wire and deriving (kPa, VPD, gallons) downstream, so the math stays re-revisable against stored raw data without reflashing (D1).
+- **Raw readings are the durable record.** Default to putting raw values on the wire and deriving (kPa, VPD, gallons) downstream, so the math stays re-revisable against stored raw data without reflashing (DEC-004).
 - **Declared, not auto-detected (DEC-002).** A node knows its sensor set from a manifest; a missing expected reading is a fault, not a silent gap.
 - **Constants in one place; bench-confirm the physical ones** (excitation timing, calibration coefficients, flow/volume curves) — spec defaults are seeds, not gospel.
 - **C++ style:** prefer `constexpr` over `#define` for typed constants; comments explain *why*, not *what*. **Python style:** type hints, stdlib-first, handle malformed packets gracefully and log them — never crash the daemon on bad input.
@@ -154,12 +139,19 @@ not come back.
 
 Follows the shell. **No `production` branch** unless a deployable surface appears — PRs ship to `main`; only `/promote-production` cares and it gates on `origin/production` (DEC-S022). Stacking PRs is preferred for dependent tasks.
 
-## Model Selection
+## Median gaps
 
-Soundings follows the shell's `## Model Selection` (DEC-S027) **as-is** — Opus 4.8 the standing model, Sonnet for cheap/scoped work, Fable an on-demand bundle escalation. `@architect` is pinned to **Opus 4.8** (`.claude/agents/architect.md` frontmatter, matching the shell default — no override). Project-flavored Fable-bundle candidates: the whole simulation spine, or the node firmware core end to end.
+Where a competent default does the wrong thing in this repo.
 
-## Approach to Action (project override)
+| Gap | Why the default is wrong here |
+|---|---|
+| A green test suite is not evidence about the device | Everything above the bench runs against fakes — fake sensors, a fake clock, a synthetic packet source. That tier is load-bearing for logic and says nothing about whether a real node wakes, reads and transmits. The packet is the truth about the device; the repo is not |
+| A test that only asserts a refusal passes against an implementation that does nothing | Covered at length under `## Testing`, because it kept happening — including on the clamp that stops a node deep-sleeping for 49 days, pinned by three tests that all asserted a sleep of 0 |
+| The node-secret file is untracked on purpose | firmware/node\_secret.ini carries WiFi credentials and the firmware-server address. Its absence from a fresh clone is the design, not a broken checkout, and the build compiles without it by design (empty strings). Written without backticks deliberately — `check:context` reads a backticked path as a claim that it resolves |
+| There is no store here to migrate | Persistence, dashboards and their schema belong to Poop Deck. A schema instinct that fires in this repo is aimed at the wrong one |
 
-**This overrides the shell's `## Approval Before Action` / `## Bug Reports & Questions` gates.** Soundings defaults to action: for non-trivial or destructive work, say what you're about to do and why in a sentence, then proceed — **don't stall for approval on local, reversible, diagnostic steps** (builds, tests, sim runs, file edits). Reserve explicit confirmation for the genuinely consequential: **flashing hardware, force-pushes, anything touching shared/remote state, anything hard to reverse.**
+## Workflow Notes (project)
 
-Check `docs/SPEC.md` "Not V1" before adding scope. If a task feels bigger than its estimate: stop, re-estimate; if it's scope creep, flag and move on. Still break genuine 13s.
+- **Two toolchains, neither of them Node.** Firmware is PlatformIO (`pio test -e native`), the gateway is Python + pytest in `gateway/.venv`. The `package.json` at the root builds nothing — it hangs the doc gates and holds the version the workflow bumps, and `js-yaml` is its only dependency.
+- **The wire contract has two ends and they fail apart silently.** A change to the C++ serializer or the Python parser that isn't matched in `contracts/` shows up as decoded garbage, not as a build error. The shared golden vectors are what catch it; run the round-trip whenever either side moves.
+- **Poop Deck is a separate repo on disk** at `/home/eric/poop-deck`. Claims about what it stores or graphs come from opening its files, not from what soundings publishes.

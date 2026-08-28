@@ -136,7 +136,7 @@ matter; the 15 s join timeout exists because of that 4150 ms outlier.
 - **404 on the manifest.** The document root does not contain the `path` from
   `node_secret.ini`. See step 4.
 - **`ota: flagged, but this build has no credentials`.** Built without
-  `firmware/node_secret.ini`. That compiles by design (empty strings), and this is the
+  firmware/node\_secret.ini. That compiles by design (empty strings), and this is the
   node refusing to act on it rather than fetching a nonsense URL.
 - **`SHA-256 MISMATCH — image discarded, not flashed`.** What arrived over the air did not
   match the manifest. The image is discarded **before** `Update.end()` makes anything the

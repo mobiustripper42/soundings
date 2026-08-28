@@ -18,7 +18,9 @@ Written by `/retro` (patch + minor) and `/bump-major`. Keep-a-Changelog shape: `
 
 ## PlatformIO `extra_configs` — merges sections key-by-key (verified 2026-08-24)
 
-`firmware/node_secret.ini` (untracked) supplies WiFi credentials and the firmware-server
+firmware/node\_secret.ini (untracked — written without backticks on purpose, since the
+context checker reads a backticked path as a claim that it resolves) supplies WiFi
+credentials and the firmware-server
 address; `firmware/platformio.ini` carries empty `[wifi]` / `[ota]` defaults and
 `extra_configs = node_secret*.ini`.
 

@@ -16,6 +16,11 @@
 // knob is in `docs/decisions/_config.json`.
 
 import { readFileSync, readdirSync, existsSync } from 'node:fs'
+import { createHash } from 'node:crypto'
+// Named import, not default: js-yaml is CommonJS, and `import yaml from 'js-yaml'` resolves
+// under vitest's transform but throws under plain node — which is how this script actually
+// runs. The test suite passing is not evidence the gate runs.
+import { load as parseYaml } from 'js-yaml'
 import {
   DIR,
   OUT,
@@ -33,15 +38,383 @@ import {
  *  that references elsewhere are safe — only that this script's subject is the record. */
 export const REFERENCE = referencePattern()
 
+// ── Schema v1 ────────────────────────────────────────────────────────────────
+//
+// Two parsers, on purpose. Legacy records keep going through `parseFrontmatter`, which is a
+// hand-rolled reader for one flat block. Records carrying `schema: 1` go through js-yaml,
+// because their frontmatter has nested lists of objects and a hand-rolled reader is how the
+// original record ended up with `dumb:` and `boat:` as keys — a colon in prose parsing as a
+// mapping and nobody noticing.
+//
+// The gate is the `schema: 1` key itself. A record without it is grandfathered and skipped.
+// In jig that path should stay dead: the corpus started empty on 2026-08-27 and every record
+// here is v1, so a record without the key is a mistake rather than history.
+//
+// THE COMMENT THAT USED TO BE HERE IS THE REASON THIS ONE IS. It declared a one-line blocker
+// — `LISTS` knowing only `amends_spec`, so a `claims:` list threw and broke every downstream
+// check — and closed with "convert nothing until the generator's parser is widened." The
+// generator was widened in the very next commit; `LISTS` has held `claims` and `supersedes`
+// since. The instruction outlived its condition by weeks and was still being obeyed when jig
+// read it, because nothing retires a comment. This is the corpus-rot argument arriving one
+// level down, and the reason `revisit_if` is required in jig's schema and optional in
+// muster's: prose about the state of the code cannot be trusted to notice it changed.
+//
+// Claim TARGETS are deliberately not resolved. `kind` is checked against the enum and the
+// shape is checked; whether `src/foo.ts` exists is a resolver's job, and resolvers get built
+// once the rewritten records show which kinds actually appear.
+
+const SCHEMA_PATH = `${DIR}/decision-record.schema.json`
+
+/** A `**Bold:**` / `**Bold.**` lead-in — the drift that put `Decision:`, `Tradeoff:` and
+ *  `Status:` in prose. All structure lives in frontmatter now. Anchored to the line start so
+ *  ordinary mid-sentence bold is untouched. */
+const BOLD_LEAD_IN = /^\*\*([A-Z][^*\n]{0,40})[:.]\*\*/m
+
+const MAX_BYTES = 2000
+
+/**
+ * The two frontmatter predicates the sweep runs on, exported so tests assert the real thing.
+ *
+ * Three tests used to define their own copy of each and assert against the copy, so changing the
+ * implementation left all three green — a test that cannot fail is worse than no test, because it
+ * reads as coverage. `hasSchemaKey` in particular guards the opt-in gate, and that gate was
+ * already broken when the review found it.
+ *
+ * `hasSchemaKey` matches the KEY, not a formatting of its value: `/^schema: *1 *$/m` is stricter
+ * than YAML, so `schema: 1  # v1 draft` and `schema: "1"` both read as "never opted in" and the
+ * record got zero enforcement with nothing saying so.
+ */
+export const hasSchemaKey = (block) => /^schema:/m.test(block)
+export const idOf = (block) => block.match(/^id: *(\S+)/m)?.[1]
+
+/**
+ * Bytes of the whole record.
+ *
+ * IT USED TO SUBTRACT `## Amendment` SECTIONS, and that carve-out is gone with the convention it
+ * served (DEC-J003). A change of mind is a new record with `supersedes:`, not a section appended
+ * to an old one, so there is nothing left for the cap to forgive.
+ *
+ * The carve-out was never free. It needed a fence-aware scanner, because a bare
+ * `/^## Amendment\b/m` truncated at the first such line anywhere — and a record that merely
+ * QUOTED the convention measured 21 bytes, escaping both this cap and the bold-lead-in rule. A
+ * decision about how to write amendments is exactly the kind this repo writes. Whole-file
+ * measurement has no such hole to guard.
+ */
+export const sizeOf = (text) => Buffer.byteLength(text, 'utf8')
+
+/**
+ * ── The legacy freeze ────────────────────────────────────────────────────────
+ *
+ * A record with no `schema:` key used to be skipped outright — past the schema, past the byte
+ * cap, past the lead-in rule. That is how a repo adopts this gate with a corpus written before
+ * it existed, and it is also how a record written yesterday dodges every rule by omitting one
+ * line. Nothing told the two apart. Muster still cannot.
+ *
+ * `docs/decisions-baseline.txt` is that distinction: id and fingerprint, one line per record,
+ * generated ONCE at adoption by `gen-decisions-baseline.mjs`. Three consequences, all deliberate:
+ *
+ *   not listed        → fails. Omission stopped being an opt-out; getting on the list is a diff
+ *                       a reviewer sees.
+ *   listed, unchanged → skipped. Genuinely old, and left alone.
+ *   listed, edited    → fails. Legacy records are frozen. Needing to change one is the signal to
+ *                       convert it to v1 — splitting it if it turns out to be several decisions.
+ *
+ * jig's baseline is empty, so it grandfathers nothing. That is where its strictness comes from
+ * now: a fact about its corpus rather than a branch hardcoded to one repo's history.
+ */
+export const BASELINE_PATH = 'docs/decisions-baseline.txt'
+
+/**
+ * Every directory holding records. BOTH scripts read this, and that is the point.
+ *
+ * The checker swept `docs/decisions/` and `docs/decisions/archive/`; the generator read only the
+ * first. So an archived legacy record — untouched, genuinely historical — got no baseline line
+ * and then failed as `not-listed`, permanently, on a file nobody had opened. Exactly the corpus
+ * this gate exists to let a project adopt.
+ */
+export const RECORD_DIRS = [DIR, `${DIR}/archive`]
+
+/**
+ * The frontmatter block, or `''` if there is none.
+ *
+ * ALSO SHARED BECAUSE THE TWO SCRIPTS DISAGREED. The checker required `---\n` at byte 0, so a
+ * CRLF file or a leading BOM produced an empty block: `idOf` returned undefined and the record
+ * failed as `not-listed` forever — while the generator's lenient split had written a correct
+ * baseline line for the very same file. The same strict guard also made `hasSchemaKey` false on a
+ * CRLF v1 record, routing something modern into the legacy path.
+ *
+ * Line endings are normalized before anything looks at the text, so a corpus written on Windows
+ * reads the same as one written here.
+ */
+const normalize = (text) => text.replace(/^﻿/, '').replace(/\r\n/g, '\n')
+
+export function frontmatterBlock(text) {
+  const t = normalize(text)
+  if (!t.startsWith('---\n')) return ''
+  const end = t.indexOf('\n---\n', 3)
+  return end === -1 ? '' : t.slice(4, end)
+}
+
+/** Everything after the frontmatter, off the SAME normalized text the block came from.
+ *
+ *  Half-normalizing was the first bug one layer down: `frontmatterBlock` normalized while the
+ *  body slice still ran on raw bytes, so a CRLF record's `indexOf('\n---\n')` missed and the
+ *  "body" handed to the prose rules was very nearly the whole file, frontmatter included. */
+export function recordBody(text) {
+  const t = normalize(text)
+  const end = t.indexOf('\n---\n', 3)
+  return end === -1 ? t : t.slice(end + 5)
+}
+
+export const fingerprint = (text) => createHash('md5').update(text, 'utf8').digest('hex')
+
+/** `Map<id, fingerprint>`. A missing file is an empty baseline, which is the correct reading for
+ *  a repo that never had legacy records — not an error. */
+export function loadBaseline(path = BASELINE_PATH) {
+  if (!existsSync(path)) return new Map()
+  return new Map(
+    readFileSync(path, 'utf8')
+      .split('\n')
+      .map((l) => l.replace(/#.*/, '').trim())
+      .filter(Boolean)
+      .map((l) => l.split(/\s+/))
+      .filter(([id, hash]) => id && hash)
+      .map(([id, hash]) => [id, hash]),
+  )
+}
+
+/** `frozen` — leave it alone. `not-listed` / `edited` — fail, with different advice. */
+export function legacyVerdict(id, text, baseline) {
+  const known = baseline.get(id)
+  if (!known) return 'not-listed'
+  return known === fingerprint(text) ? 'frozen' : 'edited'
+}
+
+/** The subset of draft 2020-12 the schema actually uses. Written out rather than pulled in
+ *  because it is ~70 lines against a dependency, and because every message here has to name
+ *  the key and the limit — a validator that says "does not match schema" is a validator
+ *  nobody can act on. */
+function validateAgainstSchema(schema, value, path, root, errs) {
+  if (schema.$ref) {
+    const target = schema.$ref.replace(/^#\//, '').split('/')
+    return validateAgainstSchema(target.reduce((o, k) => o[k], root), value, path, root, errs)
+  }
+  const at = path || 'frontmatter'
+
+  if (schema.const !== undefined && value !== schema.const) {
+    errs.push(`${at} must be ${JSON.stringify(schema.const)}, not ${JSON.stringify(value)}`)
+    return errs
+  }
+  if (schema.enum && !schema.enum.includes(value)) {
+    errs.push(`${at} is ${JSON.stringify(value)} — allowed: ${schema.enum.join(', ')}`)
+    return errs
+  }
+  if (schema.type === 'array') {
+    if (!Array.isArray(value)) {
+      errs.push(`${at} must be a list`)
+      return errs
+    }
+    if (schema.minItems !== undefined && value.length < schema.minItems) {
+      errs.push(`${at} needs at least ${schema.minItems} entry — it has ${value.length}`)
+    }
+    if (schema.items) value.forEach((v, i) => validateAgainstSchema(schema.items, v, `${at}[${i}]`, root, errs))
+    return errs
+  }
+  if (schema.type === 'string') {
+    if (typeof value !== 'string') {
+      errs.push(`${at} must be text, not ${value === null ? 'empty' : typeof value}`)
+      return errs
+    }
+    if (schema.maxLength !== undefined && value.length > schema.maxLength) {
+      errs.push(`${at} is ${value.length} characters — the limit is ${schema.maxLength}`)
+    }
+    if (schema.minLength !== undefined && value.length < schema.minLength) {
+      errs.push(`${at} is ${value.length} characters — the minimum is ${schema.minLength}`)
+    }
+    if (schema.pattern && !new RegExp(schema.pattern).test(value)) {
+      errs.push(`${at} is ${JSON.stringify(value)}, which does not match ${schema.pattern}`)
+    }
+    if (schema.format === 'date' && !/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+      errs.push(`${at} is ${JSON.stringify(value)} — a date must be YYYY-MM-DD`)
+    }
+    return errs
+  }
+  if (schema.type === 'object' || schema.properties) {
+    if (value === null || typeof value !== 'object' || Array.isArray(value)) {
+      errs.push(`${at} must be a block of keys`)
+      return errs
+    }
+    for (const key of schema.required ?? []) {
+      if (!(key in value)) errs.push(`${at === 'frontmatter' ? '' : `${at}: `}missing required key \`${key}\``)
+    }
+    if (schema.additionalProperties === false) {
+      for (const key of Object.keys(value)) {
+        if (!(key in (schema.properties ?? {}))) {
+          errs.push(`${at === 'frontmatter' ? '' : `${at}: `}unknown key \`${key}\``)
+        }
+      }
+    }
+    for (const [key, sub] of Object.entries(schema.properties ?? {})) {
+      if (key in value) validateAgainstSchema(sub, value[key], at === 'frontmatter' ? key : `${at}.${key}`, root, errs)
+    }
+  }
+  return errs
+}
+
+/**
+ * Validate one `schema: 1` record. Returns a list of readable problems, empty when clean.
+ *
+ * @param {object} meta   parsed frontmatter
+ * @param {string} body   everything after the frontmatter block
+ * @param {number} bytes  size of the whole file on disk
+ */
+export function validateSchemaRecord(meta, body, bytes, schema = JSON.parse(readFileSync(SCHEMA_PATH, 'utf8'))) {
+  // The topic enum is injected here rather than baked into the schema: the list is a
+  // project fact and the schema file is not project-specific.
+  const withTopics = {
+    ...schema,
+    properties: { ...schema.properties, topic: { ...schema.properties.topic, enum: TOPICS } },
+  }
+  const errs = validateAgainstSchema(withTopics, meta, '', withTopics, [])
+
+  if (bytes > MAX_BYTES) {
+    errs.push(`is ${bytes} bytes — the cap is ${MAX_BYTES}. A decision that will not fit is more than one decision`)
+  }
+  /**
+   * Scoped to the decision for the same reason the byte cap is, and it collided the same way.
+   *
+   * This rule exists because `**Decision:**`, `**Tradeoff:**` and `**Status:**` used to be prose
+   * lead-ins standing in for structure that now lives in frontmatter. An amendment has no
+   * frontmatter and never will — it is dated prose appended under a heading — and the preamble
+   * prescribes the very phrasing this caught: *"appended as a dated `## Amendment` section saying
+   * what still stands."* Seeds wrote that as `**What this changes, and what still stands.**` in
+   * every one of its amendments.
+   *
+   * So the first amendment written under this schema failed the gate for following the
+   * instruction the gate's own repo gives. Both halves were right; the scope was wrong.
+   */
+  const lead = body.match(BOLD_LEAD_IN)
+  if (lead) {
+    errs.push(`body opens a paragraph with \`**${lead[1]}:**\` — structure lives in frontmatter now, not in bold prose`)
+  }
+  return errs
+}
+
 export function check() {
   const failures = []
   const fail = (where, msg) => failures.push(`${where} — ${msg}`)
+
+  // ── Schema v1, and the id sweep ───────────────────────────────────────────
+  //
+  // Both run BEFORE `load()`, deliberately. `load()`'s reader has no shape for schema v1's
+  // nested claim list, so the first rewritten record throws there. Running first means the
+  // schema errors still print rather than being swallowed by that throw — but it does NOT
+  // rescue the checks below `load()`, which stop for the whole corpus. See the blocker note
+  // at the top of this section.
+  const schemaFile = existsSync(SCHEMA_PATH) ? JSON.parse(readFileSync(SCHEMA_PATH, 'utf8')) : null
+  const baseline = loadBaseline()
+  const seenIds = new Map()
+  const rewritten = new Map()
+  const sweep = (dir, label) => {
+    if (!existsSync(dir)) return
+    for (const f of readdirSync(dir).filter((f) => f.endsWith('.md') && f !== '_preamble.md')) {
+      const path = `${dir}/${f}`
+      const text = readFileSync(path, 'utf8')
+      const block = frontmatterBlock(text)
+
+      // One id may exist in exactly one file. `load()` catches a duplicate within its own
+      // directory and stops there; an archived copy alongside the live record is the case it
+      // cannot see, and it is the one that makes a citation ambiguous.
+      const id = idOf(block)
+      if (id) {
+        const prior = seenIds.get(id)
+        if (prior) fail(path, `id ${id} is already used by ${prior} — one id, one file`)
+        else seenIds.set(id, `${label}${f}`)
+      }
+
+      // The opt-in gate reads the PARSED value, not the raw line. A regex here is stricter
+      // than YAML: `schema: 1  # v1` and `schema: "1"` are both valid and both fail
+      // `/^schema: *1 *$/m`, so the record would be silently treated as legacy and get zero
+      // enforcement — a rule that looks applied and isn't, which is the exact class this
+      // whole gate exists to close. The cheap `^schema:` pre-filter keeps js-yaml off the
+      // ~158 legacy blocks that have no such key.
+      /**
+       * No `schema:` key — so this is either genuine history or a record that forgot the line.
+       * The baseline is the only thing that can tell them apart; see `legacyVerdict` above.
+       *
+       * This used to be an unconditional `fail`, which was right for jig and made the gate
+       * un-adoptable by every repo that already had records — and before that an unconditional
+       * skip, which is how a 4,188-byte record with a `**Decision:**` lead-in passed clean. Both
+       * were the same mistake: one repo's history hardcoded as everyone's.
+       */
+      if (!hasSchemaKey(block)) {
+        const verdict = legacyVerdict(id, text, baseline)
+        if (verdict === 'frozen') continue
+        if (verdict === 'edited') {
+          fail(path, `is frozen as legacy in ${BASELINE_PATH} and has been edited — convert it to schema v1 (splitting it if it is really several decisions) and drop its line from the baseline`)
+        } else {
+          fail(path, `has no \`schema:\` key and is not listed in ${BASELINE_PATH} — new records are v1, and omitting the key is not a way out of the schema, the byte cap or the lead-in rule`)
+        }
+        continue
+      }
+      let meta
+      try {
+        meta = parseYaml(block)
+      } catch (e) {
+        fail(path, `frontmatter is not valid YAML — ${e.message.split('\n')[0]}`)
+        continue
+      }
+      if (meta?.schema !== 1) {
+        fail(path, `\`schema:\` is ${JSON.stringify(meta?.schema)} — the only version is 1`)
+        continue
+      }
+      if (!schemaFile) {
+        fail(path, `declares \`schema: 1\` but ${SCHEMA_PATH} does not exist`)
+        continue
+      }
+      /**
+       * THE CAP MEASURES THE WHOLE FILE, and the comment that used to sit here argued the
+       * opposite at length — that the cap must exclude amendments, or the 2,000-byte limit and
+       * the amendment rule together meant a record could be amended roughly never.
+       *
+       * That was a fair reading of a real collision, and DEC-J005 resolved it the other way:
+       * amendments are retired, so nothing accumulates under a record and there is nothing for
+       * the cap to forgive. A change of mind is a new record carrying `supersedes`.
+       *
+       * The argument is kept here in past tense on purpose. It was correct given its premise,
+       * and someone will reach for it again the first time a record won't fit.
+       */
+      for (const problem of validateSchemaRecord(meta, recordBody(text), sizeOf(text), schemaFile)) fail(path, problem)
+      rewritten.set(meta.id, { ...meta, path })
+    }
+  }
+  // Same list the generator baselines. Drifting these apart is the bug that made an archived
+  // legacy record fail as `not-listed` on a file nobody had touched.
+  for (const dir of RECORD_DIRS) sweep(dir, dir === DIR ? '' : 'archive/')
+
+  // `superseded_by` must land on a record that exists and is still the live one. Pointing at
+  // a record that is itself superseded is a chain a reader has to walk, and pointing at
+  // nothing is the dangling citation the whole gate exists to stop.
+  for (const [id, d] of rewritten) {
+    if (!d.superseded_by) continue
+    const target = rewritten.get(d.superseded_by)
+    if (!target) {
+      if (!seenIds.has(d.superseded_by)) {
+        fail(d.path, `superseded_by ${d.superseded_by}, which has no decision file`)
+      } else {
+        fail(d.path, `superseded_by ${d.superseded_by}, which has not been rewritten and so carries no status`)
+      }
+    } else if (target.status !== 'active') {
+      fail(d.path, `superseded_by ${d.superseded_by}, whose status is ${target.status} — point at the live record`)
+    }
+    if (d.superseded_by === id) fail(d.path, `superseded_by itself`)
+  }
 
   let decisions
   try {
     decisions = load()
   } catch (e) {
-    return [`${DIR} — ${e.message}`]
+    return [...failures, `${DIR} — ${e.message}`]
   }
 
   // `load()` only looks at files shaped `DEC-*.md`. Anything else in the directory —
