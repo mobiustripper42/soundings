@@ -22,11 +22,18 @@ from __future__ import annotations
 
 import logging
 
-from . import tank
+from . import tank, tension
 
 log = logging.getLogger(__name__)
 
-__all__ = ["ROOT", "reading_topic", "metric_name", "derive_tank"]
+__all__ = [
+    "ROOT",
+    "reading_topic",
+    "metric_name",
+    "derive_tank",
+    "derive_bed",
+    "derive_reading",
+]
 
 ROOT = "farm/soundings"
 
@@ -36,6 +43,19 @@ CH_TANK_DISTANCE = "TANK_DISTANCE"
 # wrong; the encoding — DS18B20 raw, i16, 1/16 °C — is exactly right.
 CH_HEADSPACE_TEMP = "SOIL_TEMP_0"
 TEMP_COUNTS_PER_C = 16.0
+
+# Which soil-temp channel compensates which Watermark. SPEC §5.1 stacks the sensors at
+# 6" and 12" with a DS18B20 co-located at each depth, and deploys the commercial and
+# homemade sensors as matched pairs SIDE BY SIDE — so bits 0 and 2 share the 6" probe
+# and bits 1 and 3 share the 12" one. A pair that shared a node but not a depth would be
+# compensated with the wrong temperature, which is the error the compensation exists to
+# remove.
+TENSION_TEMP_PAIR = {
+    0: "SOIL_TEMP_0",   # 6"  commercial Watermark
+    1: "SOIL_TEMP_1",   # 12" commercial Watermark
+    2: "SOIL_TEMP_0",   # 6"  homemade, alongside bit 0
+    3: "SOIL_TEMP_1",   # 12" homemade, alongside bit 1
+}
 
 
 def reading_topic(node_id: int) -> str:
@@ -136,3 +156,99 @@ def _derive_tank(msg: dict, cfg) -> list[tuple[str, str]]:
     out.append((f"{base}/level_gal", _fmt(gallons)))
     out.append((f"{base}/percent", _fmt(tank.percent_full(gallons, geom.capacity_gal))))
     return out
+
+
+def derive_bed(msg: dict, cfg) -> list[tuple[str, str]]:
+    """Derived (topic, payload) pairs for one bed-node reading. Never raises.
+
+    Same contract as derive_tank, and the same reason: this runs inside the ingest loop
+    and a derivation that raises takes the daemon down with it.
+    """
+    try:
+        return _derive_bed(msg, cfg)
+    except Exception:  # noqa: BLE001 — the daemon outlives one bad reading
+        log.exception("bed derivation failed (node %s)", msg.get("node_id"))
+        return []
+
+
+def _derive_bed(msg: dict, cfg) -> list[tuple[str, str]]:
+    node_id = msg.get("node_id")
+    node = cfg.nodes.get(node_id)
+    if node is None or node.role != "bed":
+        return []
+
+    base = f"{ROOT}/{node.location}"
+    out: list[tuple[str, str]] = []
+
+    # Soil temperatures first: they are measurements in their own right, and publishing
+    # them is what lets someone check a suspicious tension against the temperature that
+    # produced it.
+    temps_c: dict[str, float] = {}
+    for bit, name in ((4, "SOIL_TEMP_0"), (5, "SOIL_TEMP_1"), (9, "SOIL_TEMP_2")):
+        ch = _channel(msg, name)
+        if ch is None:
+            continue
+        temp_c = ch["raw"] / TEMP_COUNTS_PER_C
+        temps_c[name] = temp_c
+        out.append((f"{base}/soil_temp_{bit}_c", _fmt(temp_c)))
+
+    for bit in (0, 1, 2, 3):
+        ch = _channel(msg, f"SOIL_TENSION_{bit}")
+        if ch is None:
+            continue
+
+        # ⚠ No temperature, no tension. SPEC §5.1 calls the compensation **mandatory**,
+        # and the reason is in the numbers: at 5 kΩ the same sensor reads 24.3 cb at
+        # 10 °C and 34.2 cb at 30 °C, which straddles the 25-30 cb irrigation trigger.
+        # An uncompensated value is not a rougher answer, it is a different one — so it
+        # is withheld, exactly as tank.py withholds gallons with no headspace temp. The
+        # raw resistance still goes out on the node branch and a re-fit can use it.
+        paired = TENSION_TEMP_PAIR[bit]
+        temp_c = temps_c.get(paired)
+        if temp_c is None:
+            log.info("node %s: SOIL_TENSION_%d has no %s, tension not derived",
+                     node_id, bit, paired)
+            continue
+
+        kohm = tension.resistance_kohm(ch["raw"])
+        kpa = tension.tension_kpa(kohm, temp_c)
+        if kpa is None:
+            # Out of the curve's domain — past the denominator's pole, or a value that
+            # is not a resistance. Not a very dry soil; a reading with no meaning.
+            log.info("node %s: SOIL_TENSION_%d raw %s at %.1f C is outside the curve",
+                     node_id, bit, ch["raw"], temp_c)
+            continue
+
+        out.append((f"{base}/tension_{bit}_kpa", _fmt(kpa)))
+        if tension.is_wet_end(kpa):
+            # Published, not dropped — it is a true "wetter than you would irrigate at".
+            # The flag says the number is directional rather than quantitative.
+            out.append((f"{base}/tension_{bit}_wet_end", "1"))
+
+    return out
+
+
+# Which derivation runs for a node is a property of its role, and the role lives in the
+# node→location map (D7). Dispatching here rather than at each call site means a new
+# node type is one branch in one place, not a grep for every caller of derive_tank.
+_BY_ROLE = {
+    "tank": derive_tank,
+    "bed": derive_bed,
+}
+
+
+def derive_reading(msg: dict, cfg) -> list[tuple[str, str]]:
+    """Derived (topic, payload) pairs for any reading, routed by the node's role.
+
+    An unmapped node or an unknown role derives nothing and says so once at debug —
+    it is a provisioning gap, not an error, and the raw reading still publishes on the
+    node branch where it stays the durable record.
+    """
+    node = cfg.nodes.get(msg.get("node_id"))
+    if node is None:
+        return []
+    fn = _BY_ROLE.get(node.role)
+    if fn is None:
+        log.debug("node %s has role %r, which has no derivation", node.node_id, node.role)
+        return []
+    return fn(msg, cfg)

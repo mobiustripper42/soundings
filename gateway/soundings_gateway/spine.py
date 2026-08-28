@@ -35,11 +35,17 @@ log = logging.getLogger("soundings_gateway.spine")
 
 def build_fleet(n: int, **kw) -> emitter.FleetEmitter:
     """N bed nodes with slightly varied drydown so the fleet's curves differ and
-    the ±jitter window is visible across distinct series."""
+    the ±jitter window is visible across distinct series.
+
+    The wet-end spread is small in absolute terms because the Watermark curve is steep
+    there: 0.6 kΩ and 1.0 kΩ are 7.0 cb and 10.7 cb, which is a visible gap on a chart.
+    The pre-#20 spread (110 + 15·i, i.e. 11-15 kΩ) looked wider and was not — every one
+    of those nodes started its drydown above the 50-60 cb stress threshold.
+    """
     specs = [
         emitter.NodeSpec(
             node_id=i,
-            wet_raw=110 + 15 * i,
+            wet_raw=6 + 2 * i,
             tau_min=2400.0 + 240.0 * i,
         )
         for i in range(1, n + 1)
@@ -107,9 +113,10 @@ def run(args: argparse.Namespace) -> int:
             pub.publish(derive.reading_topic(env["node_id"]), json.dumps(env), qos=1, retain=False)
         # Derived scalars, keyed by place rather than by hardware — the live view a
         # dashboard or alert rule subscribes to, not a record. Returns nothing for a node
-        # the map doesn't cover or a reading that can't support a volume; the sim fleet is
-        # bed nodes, so this correctly stays quiet on them.
-        for topic, payload in derive.derive_tank(msg, cfg):
+        # the map doesn't cover or a reading that can't support its role's derivation.
+        # The sim fleet is bed nodes; since issue #20 those derive tension in kPa, so a
+        # sim run that used to publish nothing on this branch now publishes on it.
+        for topic, payload in derive.derive_reading(msg, cfg):
             pub.publish(topic, payload)
 
     fleet = build_fleet(

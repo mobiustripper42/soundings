@@ -208,8 +208,18 @@ Deep sleep ~20–30 µA; active cycle ~3–5 s every 15 min; average ~0.15–0.2
   kPa = (4.093 + 3.213·R) / (1 − 0.009733·R − 0.01205·T)
   ```
   R = resistance (kΩ), T = soil temp (°C). Skipping temp compensation causes
-  20–30% drift between morning and afternoon. *Where this math runs (on-node vs
-  gateway)* is **[deferred]** — see §12.
+  20–30% drift between morning and afternoon. *Where this math runs* was settled
+  by D1 on 2026-07-10: **gateway-side** (DEC-004). Implemented in
+  `gateway/soundings_gateway/tension.py`, pinned by
+  `contracts/vectors/tension-v1.json`.
+
+  ⚠ **The denominator has a pole and it moves with temperature.** It reaches zero
+  near 78 kΩ at 20 °C, ~103 kΩ at 0 °C and ~66 kΩ at 30 °C; past it the equation
+  returns large negative tensions that read as measurements. Any implementation
+  guards the denominator itself — a fixed resistance ceiling cannot, because the
+  ceiling moves. Values above Irrometer's 239 cb scale are clamped rather than
+  refused, which is what catches the near-pole region where the denominator is
+  still positive and the result is nonsense.
 - **Known limit:** noisy/compressed below ~10 cb (wet end). Good for "is it time
   to irrigate," not precise saturation. Acceptable.
 - **Install discipline:** 24 h soak-prime, slurry backfill, no air gaps. A bad

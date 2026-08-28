@@ -59,8 +59,20 @@ class NodeSpec:
     canopy SHT45. Defaults are plausible tunnel values, not calibrated."""
 
     node_id: int
-    wet_raw: int = 120          # ~12 kΩ, freshly watered
-    dry_raw: int = 2000         # ~200 kΩ, dry — well under the 0xFFFE ceiling
+    # ~0.8 kΩ, freshly watered — about 8.7 cb, inside the wet end where the sensor stops
+    # being quantitative. This was 120 (~12 kΩ) on the same never-consumed-so-never-wrong
+    # reasoning as dry_raw below: 12 kΩ is ~65 cb, a soil already past the stress
+    # threshold, so the synthetic "freshly watered" node opened its drydown needing
+    # water and the whole curve sat above the 25-30 cb trigger it exists to cross.
+    wet_raw: int = 8
+    # ~30 kΩ, dry. This was 2000 (~200 kΩ) until issue #20, chosen against the 0xFFFE
+    # ENCODING ceiling because no calibration curve existed yet to say what a Watermark
+    # can actually read. It cannot read 200 kΩ: the SPEC §5.1 denominator has a pole at
+    # ~78 kΩ (20 °C), so every synthetic drydown past day 0 sat outside the curve and
+    # derived nothing. The fake was never wrong about anything until something consumed
+    # it. 300 lands at ~215 cb — near the dry end of Irrometer's 239 cb scale and inside
+    # the domain across the soil temperatures the sim spans.
+    dry_raw: int = 300
     tau_min: float = 2880.0     # ~2-day drydown time constant
     soil_temp_c: float = 18.5
     air_temp_c: float = 24.0

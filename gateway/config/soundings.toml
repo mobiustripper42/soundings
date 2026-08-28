@@ -37,6 +37,32 @@ location = "water/cluster"
 role = "tank"
 label = "Rain catchment cluster"
 
+# ⚠ Nodes 2 and 3 are the SYNTHETIC fleet, not hardware. `spine.py --nodes N` emits bed
+# packets on ids 1..N (build_fleet), and without a mapping those readings derive nothing,
+# so the tension math added in issue #20 would have no way to run end to end before a bed
+# node physically exists. They are mapped rather than faked in a test fixture because the
+# sim is the surface this project checks derivation on, and a derivation nothing exercises
+# is a derivation nobody has watched run.
+#
+# The locations are real places; the nodes are not there yet. Delete these two stanzas —
+# or change the ids — the day a bed node is actually fitted, so a synthetic reading can
+# never be mistaken for a measurement from the ground.
+#
+# `role = "bed"` selects derive_bed: raw Watermark resistance → kPa via the SPEC §5.1
+# curve, temperature-compensated per depth. Unlike the tank there is no `measured` gate,
+# because the curve is Irrometer's published calibration for a manufactured sensor rather
+# than geometry someone still has to go measure with a tape.
+
+[nodes.2]
+location = "tunnel/bed-north"
+role = "bed"
+label = "North tunnel, tomato bed (sim)"
+
+[nodes.3]
+location = "tunnel/bed-south"
+role = "bed"
+label = "South tunnel, tomato bed (sim)"
+
 # --- Tank cluster volume geometry ---------------------------------------------
 # Two linear segments with one breakpoint, per docs/tank-level-sensor.md § Volume math:
 # below the IBC's top all three tanks rise together (steeper gal/mm); above it only the

@@ -1,0 +1,193 @@
+{
+  "format": "soundings-tension",
+  "curve": "Irrometer Watermark 200SS, SPEC \u00a75.1",
+  "equation": "kPa = (a + b*R) / (1 - c*R - d*T), R in kOhm, T in degC",
+  "coefficients": {
+    "a": 4.093,
+    "b": 3.213,
+    "c": 0.009733,
+    "d": 0.01205
+  },
+  "guards": {
+    "max_kpa": 239.0,
+    "refuse_when": "resistance < 0, or denominator <= 0 (the pole), or kPa < 0",
+    "pole_kohm_at_0c": 102.743,
+    "pole_kohm_at_20c": 77.982,
+    "pole_kohm_at_30c": 65.602
+  },
+  "decision_bands_kpa": {
+    "wet_end_below": 10.0,
+    "irrigate": [
+      25.0,
+      30.0
+    ],
+    "stress": [
+      50.0,
+      60.0
+    ]
+  },
+  "vectors": [
+    {
+      "name": "saturated_cold",
+      "kind": "wet",
+      "description": "Freshly watered, cold spring soil. Well inside the wet end where the sensor stops being quantitative.",
+      "resistance_kohm": 0.2,
+      "resistance_raw": 2,
+      "temp_c": 5.0,
+      "expected_kpa": 5.0497
+    },
+    {
+      "name": "wet_end_boundary",
+      "kind": "wet",
+      "description": "9.75 cb \u2014 just under the 10 cb floor below which resolution collapses.",
+      "resistance_kohm": 1.0,
+      "resistance_raw": 10,
+      "temp_c": 20.0,
+      "expected_kpa": 9.7509
+    },
+    {
+      "name": "trigger_low_cool",
+      "kind": "trigger",
+      "description": "24.3 cb at dawn. The SAME resistance as trigger_low_warm \u2014 only soil temp moved.",
+      "resistance_kohm": 5.0,
+      "resistance_raw": 50,
+      "temp_c": 10.0,
+      "expected_kpa": 24.2623
+    },
+    {
+      "name": "trigger_low",
+      "kind": "trigger",
+      "description": "28.4 cb \u2014 dead centre of the 25-30 cb irrigation trigger.",
+      "resistance_kohm": 5.0,
+      "resistance_raw": 50,
+      "temp_c": 20.0,
+      "expected_kpa": 28.3782
+    },
+    {
+      "name": "trigger_low_warm",
+      "kind": "trigger",
+      "description": "34.2 cb in afternoon soil. Uncompensated this reads as 'irrigate' while trigger_low_cool reads 'hold off', on one unchanged sensor.",
+      "resistance_kohm": 5.0,
+      "resistance_raw": 50,
+      "temp_c": 30.0,
+      "expected_kpa": 34.1757
+    },
+    {
+      "name": "trigger_high",
+      "kind": "trigger",
+      "description": "33.0 cb \u2014 the dry edge of the trigger band.",
+      "resistance_kohm": 6.0,
+      "resistance_raw": 60,
+      "temp_c": 20.0,
+      "expected_kpa": 33.3585
+    },
+    {
+      "name": "stress_low",
+      "kind": "stress",
+      "description": "54.7 cb \u2014 the middle of the 50-60 cb stress threshold.",
+      "resistance_kohm": 10.0,
+      "resistance_raw": 100,
+      "temp_c": 20.0,
+      "expected_kpa": 54.7448
+    },
+    {
+      "name": "stress_high",
+      "kind": "stress",
+      "description": "60.5 cb \u2014 the top of the stress band. Past here the crop is paying for it.",
+      "resistance_kohm": 11.0,
+      "resistance_raw": 110,
+      "temp_c": 20.0,
+      "expected_kpa": 60.4905
+    },
+    {
+      "name": "stress_cold_soil",
+      "kind": "stress",
+      "description": "The same 10 k\u03a9 in near-freezing soil reads lower \u2014 the compensation is signed.",
+      "resistance_kohm": 10.0,
+      "resistance_raw": 100,
+      "temp_c": 2.0,
+      "expected_kpa": 41.2295
+    },
+    {
+      "name": "very_dry",
+      "kind": "dry",
+      "description": "121 cb. Well past any irrigation decision, still on the scale.",
+      "resistance_kohm": 20.0,
+      "resistance_raw": 200,
+      "temp_c": 20.0,
+      "expected_kpa": 121.1202
+    },
+    {
+      "name": "scale_ceiling",
+      "kind": "dry",
+      "description": "238.9 cb \u2014 the last value under Irrometer's 239 cb ceiling.",
+      "resistance_kohm": 32.0,
+      "resistance_raw": 320,
+      "temp_c": 20.0,
+      "expected_kpa": 238.8793
+    },
+    {
+      "name": "above_scale_clamps",
+      "kind": "dry",
+      "description": "278.6 cb computed, clamped to 239. Reported as 'at least this dry'.",
+      "resistance_kohm": 35.0,
+      "resistance_raw": 350,
+      "temp_c": 20.0,
+      "expected_kpa": 239.0
+    },
+    {
+      "name": "near_pole_clamps",
+      "kind": "dry",
+      "description": "~26,300 cb computed \u2014 the denominator is still positive, so the pole guard passes it. The clamp is what makes this region safe.",
+      "resistance_kohm": 77.0,
+      "resistance_raw": 770,
+      "temp_c": 20.0,
+      "expected_kpa": 239.0
+    },
+    {
+      "name": "dead_short",
+      "kind": "edge",
+      "description": "5.39 cb. Zero ohms is a legal reading \u2014 a shorted block \u2014 not an error.",
+      "resistance_kohm": 0.0,
+      "resistance_raw": 0,
+      "temp_c": 20.0,
+      "expected_kpa": 5.3926
+    },
+    {
+      "name": "pole_at_twenty_c",
+      "kind": "refused",
+      "description": "Denominator -0.000174. The pole sits at 77.98 k\u03a9 when T=20.",
+      "resistance_kohm": 78.0,
+      "resistance_raw": 780,
+      "temp_c": 20.0,
+      "expected_kpa": null
+    },
+    {
+      "name": "pole_moves_warm",
+      "kind": "refused",
+      "description": "Fine at 0 \u00b0C, past the pole at 30 \u00b0C: the pole moves from 102.7 k\u03a9 to 65.6 k\u03a9 across the soil-temperature range. A fixed resistance ceiling cannot guard it.",
+      "resistance_kohm": 70.0,
+      "resistance_raw": 700,
+      "temp_c": 30.0,
+      "expected_kpa": null
+    },
+    {
+      "name": "in_domain_when_cold",
+      "kind": "dry",
+      "description": "The positive control for pole_moves_warm \u2014 same resistance, cold soil, valid.",
+      "resistance_kohm": 70.0,
+      "resistance_raw": 700,
+      "temp_c": 0.0,
+      "expected_kpa": 239.0
+    },
+    {
+      "name": "negative_resistance",
+      "kind": "refused",
+      "description": "Not a resistance at all. Distinct from the legal zero above.",
+      "resistance_kohm": -1.0,
+      "resistance_raw": null,
+      "temp_c": 20.0,
+      "expected_kpa": null
+    }
+  ]
+}
