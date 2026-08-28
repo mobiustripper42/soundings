@@ -30,6 +30,16 @@ explained loosely beats four hard ideas stated tightly.
 If a turn needs a paragraph of background before its point makes sense, that
 background is the previous turn.
 
+## One claim per sentence
+
+If a sentence carries two facts the reader has to hold at once, split it into two
+sentences. No fact is dropped — the same content arrives across more sentences.
+
+This is the density lever. Length is not. "Make it shorter" removes sentences and
+keeps claims, which raises density and produces compressed prose nobody can read.
+More sentences per claim is the only instruction that cannot be satisfied by
+deleting content.
+
 ## Lead with the answer
 
 The conclusion goes in the first sentence, in the plainest words available. Support
