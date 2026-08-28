@@ -1,0 +1,21 @@
+# Legacy decision records, frozen at adoption of the schema v1 gate.
+#
+# Generated ONCE by scripts/gen-decisions-baseline.mjs. Do not re-run it and do not add lines
+# by hand: a record here is exempt from the schema, the byte cap and the lead-in rule, and the
+# whole point is that getting on this list is a diff somebody reads.
+#
+# These files are FROZEN. Editing one fails the build. To change a legacy decision, convert it
+# to schema v1 — splitting it if it is really several decisions — and delete its line here.
+
+DEC-001  38934eb69d6ce7201f28557330719103
+DEC-002  019f75aeef3855d52b0a7774f3666538
+DEC-003  7e6a6a0e67b200cf85020a2a0dc50876
+DEC-004  e1903fd8c2df2803aa8f37f48627508e
+DEC-005  40927c5ae79c0fe685a5e63140a5117d
+DEC-006  bc8aeae88fd67cf48cda2db4848f8498
+DEC-007  03dcb162aee1f98cef8158c0eead47c6
+DEC-008  72453d71960a141bda0978062c764d4f
+DEC-009  b9c822e8239976d5d8de693a365c1958
+DEC-010  df749409e2df065c411c5ef910110b48
+DEC-011  7b871e3c7084de8769b3107407f9b7e1
+DEC-012  ab0519f66349152ef11f072ed0a400e9
