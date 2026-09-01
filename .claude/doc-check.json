@@ -8,6 +8,10 @@
     "docs/AGENTS.md": {
       "skills": true,
       "agents": true
+    },
+    ".claude/CLAUDE-context.md": {
+      "skills": "mentions",
+      "agents": false
     }
   },
   "historical": {
