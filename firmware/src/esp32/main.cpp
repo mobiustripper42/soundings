@@ -10,21 +10,25 @@
 #include "ibattery.h"
 #include "isleeper.h"
 #include "idistance.h"
+#include "a02yyuw.h"
+#include "uart_bytesource.h"
+#include "vext_rail.h"
 #include "ota_client.h"
 
 // The tank node. Phase 3.9b turns this from the Phase 1.1 skeleton into the real cycle:
 // wake → sample → assemble → transmit → listen → sleep.
 //
-// ⚠ Two of the four seams are still stubs, and they are stubbed HONESTLY rather than
-// faked plausibly:
-//   - IDistance   — the A02YYUW driver exists (a02yyuw.{h,cpp}) but its ESP32 binding and
-//                   its rail are issue #71. Until then the channel reports a fault, which
-//                   is a true statement about a node with no sensor fitted.
+// ⚠ ONE of the four seams is still a stub, and it is stubbed HONESTLY rather than faked
+// plausibly:
 //   - IBattery    — issue #49 (battery ADC, gated by ADC_Ctrl).
 // A fault bit is the correct output for a declared sensor that did not answer (DEC-002),
 // so the packets this sends are honest, not fabricated. Nothing downstream has to know
 // the difference between "not fitted yet" and "broken", because operationally there
 // isn't one.
+//
+// IDistance became real in 3.8b (issue #71): a live A02YYUW on GPIO6, gated by the Vext
+// rail on GPIO36. The headspace DS18B20 that DEC-007 requires is 3.8c (issue #94) and is
+// not declared yet, so this node still ships one channel.
 
 using namespace soundings;
 
@@ -59,11 +63,8 @@ struct RtcSeqStore : ISeqStore {
     void     store(uint16_t v) override { g_seq = v; }
 };
 
-// Placeholder seams, pending their own tasks. Deliberately reporting failure rather than
-// a plausible number — see the warning above.
-struct UnfittedDistance : IDistance {
-    Reading read() override { return Reading{0, false}; }
-};
+// Placeholder seam, pending its own task. Deliberately reporting failure rather than a
+// plausible number — see the warning above.
 struct UnfittedBattery : IBattery {
     Reading read() override { return Reading{0, false}; }
 };
@@ -72,9 +73,14 @@ ArduinoClock     g_clock;
 DeepSleeper      g_sleeper;
 HwRandom         g_rng;
 RtcSeqStore      g_seqStore;
-UnfittedDistance g_distance;
 UnfittedBattery  g_battery;
 Sx1262Radio      g_radio(kTxPowerDbm);
+
+// The real tank sensor. Declared after g_clock because it holds a reference to it, and a
+// global initialised before the thing it refers to is a bug that compiles.
+UartByteSource   g_sensorBytes;
+VextRail         g_sensorRail;
+A02yyuwDistance  g_distance(g_sensorBytes, g_sensorRail, g_clock);
 DistanceSampler  g_distanceSampler(g_distance);
 
 constexpr uint8_t  kNodeId     = 7;
@@ -109,6 +115,10 @@ PrintingDownlinkHandler g_downlinkHandler;
 
 void setup() {
     Serial.begin(115200);
+
+    // Serial1 on GPIO6, for the sensor. Not in a constructor: a global built before
+    // Arduino's init() would be configuring a peripheral that is not up yet.
+    g_sensorBytes.begin();
 
     // ⚠ If the radio does not come up we still run the cycle and still sleep. The
     // transmit fails, no window is held, and the node tries again in fifteen minutes —

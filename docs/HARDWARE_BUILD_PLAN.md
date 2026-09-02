@@ -717,6 +717,59 @@ it first turned a contingent BOM line into a zero and saved a second order. Wher
 bench check gates a purchase and needs nothing that has to be purchased, do it
 before the order, not in sequence order.
 
+### Wiring the A02YYUW to the node — check 4's prerequisite (issue #71)
+
+**Node-side pins, decided 2026-09-02** from the [WSL V3 Rev1.1
+datasheet](https://resource.heltec.cn/download/Wireless_Stick_Lite_V3/HTIT-WSL_V3(Rev1.1).pdf),
+Tables 2.2-1 and 2.2-2. Nothing in the repo carried a sensor pin before this.
+
+| Node header | Pin | Signal |
+|---|---|---|
+| J2 | 1 | `Ve` — switched 3.3 V sensor supply |
+| J2 | 2 | `GND` |
+| J3 | 18 | **GPIO6** — UART RX, the sensor's TX comes in here |
+
+GPIO6 is `GPIO6, ADC1_CH5, TOUCH6` on the datasheet — no committed function, not a
+strapping pin, not USB, not JTAG, not flash. J3 pins 19–20 (GPIO5, GPIO4) are left as a
+contiguous spare pair at the board edge.
+
+**Sensor-side pins** from [DFRobot's SEN0311 page](https://wiki.dfrobot.com/sen0311/):
+PH2.0-4P connector, pin 1 `VCC`, pin 2 `GND`, pin 3 `RX` (output-mode selection), pin 4
+`TX` (UART output). ⚠ **DFRobot publishes no wire-colour table.** Identify the four wires
+by connector position or meter them — the same rule already applied to the battery pigtail
+(B-2), and for the same reason.
+
+| Sensor | → | Node |
+|---|---|---|
+| pin 1 `VCC` | → | J2 pin 1 `Ve` |
+| pin 2 `GND` | → | J2 pin 2 `GND` |
+| pin 4 `TX` | → | J3 pin 18, GPIO6 |
+| pin 3 `RX` | → | **GND at the sensor end** — the mode strap for real-time output |
+
+Cable per §4's *Wiring the sensor run*: V+ with its own GND in one twisted pair, TX with a
+second GND in another, spares paralleled onto V+/GND. 100 nF + 10 µF at the **sensor** end.
+
+⚠ **Four things that bite here.**
+
+1. **Do not land anything on J2 pin 3 or J3 pin 13.** They are GPIO12 and GPIO14 — the
+   radio's RST and DIO1 (`firmware/src/esp32/sx1262_radio.h:46-49`). Both are brought out
+   to the headers and both are already spoken for.
+2. **`Ve` reads 0 V until firmware drives GPIO36 low.** A dead `Ve` while you are wiring is
+   the expected state, not a fault — see §6.
+3. **The sensor's RX is strapped low at the *sensor*, not at the node.** It is a mode
+   select on the sensor's own MCU, not a signal this board drives, and no node pin is spent
+   on it.
+4. **Keep the run out of any conduit shared with the Grundfos pump wiring** — a far bigger
+   noise source than cable length.
+
+⚠ **Do not take pin numbers from the Arduino variant header.**
+`framework-arduinoespressif32/variants/heltec_wireless_stick_lite_v3/pins_arduino.h`
+defines `SCK = 36`, `MOSI = 35` and `MISO = 37`, which collide with its own `Vext = 36` and
+`LED = 35` and with GPIO37 as ADC_Ctrl. It is wrong about this board. Go to the datasheet.
+
+**Order at the bench:** meter first (B-1), then solder, then `pio run -e hw13 -t upload`,
+then read the per-minute tally of checksum-valid frames.
+
 ### Step 5 in detail — three of four done, 2026-08-20
 
 | # | Check | Result | Resolves |
