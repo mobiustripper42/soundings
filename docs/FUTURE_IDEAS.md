@@ -1,7 +1,8 @@
 # Future Ideas — parking lot
 
-*Ideas worth keeping but not worth building yet. Curated by `@ideas`. Parking
-something here is not a rejection — it's a decision to not decide now (DEC-001).*
+*Ideas worth keeping but not worth building yet. Nothing curates this file — tidy
+it by hand or let it get untidy. Parking something here is not a rejection — it's
+a decision to not decide now (DEC-001).*
 
 Nothing in this file is committed scope. Check `docs/SPEC.md` § Not V1 and the
 current `docs/PROJECT_PLAN.md` phase before promoting anything out of it.
