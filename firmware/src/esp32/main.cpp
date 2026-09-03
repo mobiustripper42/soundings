@@ -87,7 +87,7 @@ constexpr uint8_t  kNodeId     = 7;
 // ⚠ BUMP THIS FOR EVERY IMAGE YOU PUBLISH. The daemon compares it against the manifest's
 // version to decide whether a node is stale, so two different builds sharing a value are
 // indistinguishable and the node will believe it is already current (issue #79).
-constexpr uint16_t kFwVersion  = 0x0107;   // 263 — first image that verifies signatures
+constexpr uint16_t kFwVersion  = 0x0108;   // 264 — first image with a live distance sensor
 
 // The OTA client — the real IDownlinkHandler (issue #79). Declared after kFwVersion
 // because it needs it: bit 0 means "you are not running what I have", and "what I am
