@@ -11,7 +11,7 @@
     },
     ".claude/CLAUDE-context.md": {
       "skills": "mentions",
-      "agents": false
+      "agents": "mentions"
     }
   },
   "historical": {
