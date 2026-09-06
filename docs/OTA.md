@@ -219,7 +219,7 @@ cost on the field node, and nothing in this design may be complicated to avoid i
 Recovery is the cable:
 
 ```bash
-~/.platformio/penv/bin/pio run -e node -t upload --upload-port /dev/ttyUSB1
+~/.platformio/penv/bin/pio run -e node -t upload --upload-port /dev/ttyUSB0
 ```
 
 ⚠ **This is a trip to the tank.** OTA is a convenience on top of USB, not a replacement

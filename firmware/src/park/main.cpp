@@ -9,7 +9,7 @@
 // The board stays that way until something resets it, which is exactly what flashing it
 // does — so recovery is the same one-line upload that put anything else on it.
 //
-//   pio run -e park -t upload --upload-port /dev/ttyUSB1
+//   pio run -e park -t upload --upload-port /dev/ttyUSB0    # the node; see platformio.ini
 //
 // Why this exists as its own firmware rather than a flag on the node build: these two
 // boards live permanently cabled to bee-grace (DEC-009), so "unplug it" is not available
