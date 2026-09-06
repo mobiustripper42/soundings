@@ -719,31 +719,45 @@ before the order, not in sequence order.
 
 ### Wiring the A02YYUW to the node — check 4's prerequisite (issue #71)
 
+🔴 **SOLDER TO THE SILKSCREEN LABEL, NOT TO A HEADER POSITION.** The board prints **GPIO
+numbers** on the pads. The datasheet numbers the same pads by **position along the header**,
+and the two schemes collide: datasheet "J2 pin 1" is the pad printed `Ve`, and the pad
+printed `1` is GPIO1, seventeen positions away. This cost three misplaced solder joints on
+2026-09-05, and the symptom was 0.6 V on a pad that looked right — GPIO1 is the
+battery-sense divider, so it clamps rather than reading dead. **Every instruction below
+names the silkscreen.**
+
 **Node-side pins, decided 2026-09-02** from the [WSL V3 Rev1.1
 datasheet](https://resource.heltec.cn/download/Wireless_Stick_Lite_V3/HTIT-WSL_V3(Rev1.1).pdf),
 Tables 2.2-1 and 2.2-2. Nothing in the repo carried a sensor pin before this.
 
-| Node header | Pin | Signal |
+| Solder to the pad printed | Which is | For |
 |---|---|---|
-| J2 | 1 | `Ve` — switched 3.3 V sensor supply |
-| J2 | 2 | `GND` |
-| J3 | 18 | **GPIO6** — UART RX, the sensor's TX comes in here |
+| **`Ve`** | end of the `3 2 1 46 …` row | switched 3.3 V sensor supply |
+| **`GND`** | beside `Ve`, same row | ground |
+| **`6`** | third pad in from the far end of the other row | **GPIO6** — UART RX, the sensor's TX arrives here |
+
+⚠ **Both rows read right-to-left relative to the datasheet when you are looking at the
+underside**, which is the side you solder from. Do not count positions. Read the label.
 
 GPIO6 is `GPIO6, ADC1_CH5, TOUCH6` on the datasheet — no committed function, not a
-strapping pin, not USB, not JTAG, not flash. J3 pins 19–20 (GPIO5, GPIO4) are left as a
-contiguous spare pair at the board edge.
+strapping pin, not USB, not JTAG, not flash. The pads printed `5` and `4` sit beside it and
+are left as a contiguous spare pair at the board edge.
+
+⚠ **The pads printed `12` and `14` are the radio's RST and DIO1**
+(`firmware/src/esp32/sx1262_radio.h:46-49`). They are brought out and they are taken.
 
 **Sensor-side pins** from [DFRobot's SEN0311 page](https://wiki.dfrobot.com/sen0311/):
 PH2.0-4P connector, pin 1 `VCC`, pin 2 `GND`, pin 3 `RX` (output-mode selection), pin 4
 `TX` (UART output). ⚠ **DFRobot publishes no wire-colour table** — the colours below are
 observed, not specified.
 
-| Sensor pin | Colour, observed 2026-09-04 | → | Node |
+| Sensor pin | Colour, observed 2026-09-04 | → | Solder to the pad printed |
 |---|---|---|---|
-| 1 `VCC` | red | → | J2 pin 1 `Ve` |
-| 2 `GND` | black | → | J2 pin 2 `GND` |
-| 3 `RX` | blue | → | **black, at the sensor end** — the mode strap for real-time output |
-| 4 `TX` | green | → | J3 pin 18, GPIO6 |
+| 1 `VCC` | red | → | **`Ve`** |
+| 2 `GND` | black | → | **`GND`** |
+| 3 `RX` | blue | → | **the black wire, at the sensor end** — the mode strap for real-time output |
+| 4 `TX` | green | → | **`6`** |
 
 ⚠ **The colours are one sample of one unit, metered by the operator on 2026-09-04, not a
 DFRobot specification** — the same hedge the battery pigtail carries (B-2), and for the
@@ -759,26 +773,32 @@ sensor.
 Cable per §4's *Wiring the sensor run*: V+ with its own GND in one twisted pair, TX with a
 second GND in another, spares paralleled onto V+/GND. 100 nF + 10 µF at the **sensor** end.
 
-⚠ **Four things that bite here.**
+⚠ **Five things that bite here**, and the first four were all hit on 2026-09-05.
 
-1. **Do not land anything on J2 pin 3 or J3 pin 13.** They are GPIO12 and GPIO14 — the
-   radio's RST and DIO1 (`firmware/src/esp32/sx1262_radio.h:46-49`). Both are brought out
-   to the headers and both are already spoken for.
-2. **`Ve` reads 0 V until firmware drives GPIO36 low.** A dead `Ve` while you are wiring is
+1. **`Ve` reads 0 V until firmware drives GPIO36 low.** A dead `Ve` while you are wiring is
    the expected state, not a fault — see §6.
-3. **The sensor's RX is strapped low at the *sensor*, not at the node.** It is a mode
+2. **Power the board down before swapping a sensor.** A hot swap browns the chip out
+   (`rst:0xf (BROWNOUT_RST)`): the sensor's bulk capacitor is a short at the instant of
+   connection and the inrush pulls the rail under the detector threshold.
+3. **Meter which board is which before flashing.** Both CP2102s report the same USB serial
+   (`0001`), so nothing in software distinguishes them. Unplug one and see which
+   `/dev/ttyUSB*` disappears. On bee-grace, 2026-09-05: **node `/dev/ttyUSB0`**, gateway
+   `/dev/ttyUSB1` — the opposite of what `platformio.ini`'s comments assumed.
+4. **Give the target a metre of clear space.** The 60° cone finds the nearest thing in it,
+   not the thing you aimed at, and a false echo is steady and convincing. See check 4.
+5. **The sensor's RX is strapped low at the *sensor*, not at the node.** It is a mode
    select on the sensor's own MCU, not a signal this board drives, and no node pin is spent
-   on it.
-4. **Keep the run out of any conduit shared with the Grundfos pump wiring** — a far bigger
-   noise source than cable length.
+   on it. **Keep the run out of any conduit shared with the Grundfos pump wiring** — a far
+   bigger noise source than cable length.
 
 ⚠ **Do not take pin numbers from the Arduino variant header.**
 `framework-arduinoespressif32/variants/heltec_wireless_stick_lite_v3/pins_arduino.h`
 defines `SCK = 36`, `MOSI = 35` and `MISO = 37`, which collide with its own `Vext = 36` and
 `LED = 35` and with GPIO37 as ADC_Ctrl. It is wrong about this board. Go to the datasheet.
 
-**Order at the bench:** meter first (B-1), then solder, then `pio run -e hw13 -t upload`,
-then read the per-minute tally of checksum-valid frames.
+**Order at the bench:** meter first (B-1), then solder, then
+`pio run -e hw13 -t upload --upload-port /dev/ttyUSB0`, then read the per-minute tally of
+checksum-valid frames.
 
 ### Step 5 in detail — three of four done, 2026-08-20
 
@@ -787,7 +807,7 @@ then read the per-minute tally of checksum-valid frames.
 | 1 | **JP1 polarity** — USB in, **no battery**, probe each pin to a GND header pin; the one near 4.2 V is + | ✅ **4.0 V on the pin nearer the USER button; GND nearer RST** | HW-05. **⚠ Do this first — it is the only one that is destructive if skipped.** |
 | 2 | GPIO36 / Vext, firmware running | ✅ **`Ve` = 3.3 V**, so GPIO36 is being driven low — confirms the pin and the **active-LOW** sense | HW-14 |
 | 3 | **Is Vext under 50 mV with the FET off?** | ✅ **3.0 mV** — see the RST technique below | HW-18 — **HW-11 closed, F-6 retired, a BOM line and its firmware gone** |
-| 4 | Sensor on 3.3 V, checksum-valid frame rate over a few minutes | ⏳ **Blocked on the order** — the A02YYUW is not bought yet | HW-13 |
+| 4 | Sensor on 3.3 V, checksum-valid frame rate over a few minutes | ✅ **Answered 2026-09-05 on both units** — 36,532 frames / 58 min and 4,491 / 7 min, **one bad checksum each and both at startup**. See below | HW-13 — **F-13 does not fire; the AO3401 stays off the BOM** |
 
 **Check 3 needs no firmware — hold RST.** The obvious reading of "is Vext under
 50 mV" is *drive GPIO36 high and measure*, which means a sketch or the Meshtastic
@@ -799,8 +819,51 @@ is off — the same drain state driving GPIO36 high would produce. GPIO36 is not
 S3 strapping pin, so nothing else moves. Reusable on any Heltec V3 with this Vext
 topology.
 
-**Only check 4 is left, and it is gated on the purchase, not on research** — see
-§9. Nothing here blocks the order.
+### Check 4 in full — HW-13 answered 2026-09-05, and it is not close
+
+Run with `[env:hw13]` (`firmware/src/hw13/main.cpp`), which holds the Vext rail on
+and counts checksum-valid frames per minute. Both A02YYUW units, on Vext at 3.3 V:
+
+| | Unit 1 | Unit 2 |
+|---|---|---|
+| Duration | 58 min | 7 min |
+| Checksum-valid frames | **36,532** | **4,491** |
+| Bad checksums | **1** | **1** |
+| Frames per minute | 629, flat | 627, flat |
+| Reading spread | 2241–2242 mm | 2247 mm, unvarying |
+
+**Both bad checksums were the first frame of their run** and neither counter moved
+again. That is the parser locking on mid-stream — it hunts for a `0xFF` header, and
+the first one it sees can be a checksum byte. Nothing to fix.
+
+**`bytes ÷ valid` came to exactly 4.0**, which is the number that makes this a strong
+result rather than a passing one: not one stray byte arrived outside a well-formed
+frame, so the link is clean rather than noisy-but-rescued-by-checksums.
+
+⚠ **A 60° cone means the first bench reading was wrong and looked fine.** On a desk
+the sensor read 1544 mm against a tape-measured 1683 mm — 139 mm short, rock steady,
+and entirely convincing. Moved to the middle of a room it read 2241 mm against 2286 mm,
+**45 mm short**. The error shrank in both absolute and relative terms, which rules out a
+fixed offset and a scale error alike; the desk reading was an echo off something else
+inside the cone. This is F-3 (§5) reproduced on a bench. **Give the target roughly a
+metre of clear space in every direction or the number is fiction.**
+
+The residual 45 mm at 2.29 m is about 11 °C of air temperature — the speed of sound
+moves the answer ~4 mm/°C at that range — plus tape-measure slop. **Do not correct for
+it in firmware.** That is precisely the error DEC-007's headspace DS18B20 removes, it is
+removed gateway-side from a real temperature reading, and a fudge factor on the node is
+the one place it could never be re-fitted.
+
+⚠ **Power the board down before swapping a sensor.** A hot swap browned out the chip
+(`rst:0xf (BROWNOUT_RST)`) — the sensor's bulk capacitor is a short at the instant of
+connection and the inrush drags the rail under the detector threshold. Harmless, and
+alarming if you do not expect it.
+
+⚠ **Meter which board is which; do not trust a comment.** The first flash went to the
+wrong board and reported `NO BYTES AT ALL` for a reason that had nothing to do with the
+sensor. **Both CP2102s report the same USB serial (`0001`)**, so nothing in software tells
+them apart. Unplug one and see which `/dev/ttyUSB*` disappears. Measured 2026-09-05 on
+bee-grace: **the node is `/dev/ttyUSB0`**, the gateway `/dev/ttyUSB1`.
 
 Steps 5–6 need node firmware, which is the software half of Phase 3 and can be
 built in parallel with steps 1–4 against the existing fakes.
@@ -817,9 +880,9 @@ board transfer (HW-15), held DEC-006 (HW-16), corrected the Vext mechanism
 (HW-18), revised the sleep-disable list (HW-20), and raised the probe-placement
 finding (HW-19) that amended DEC-007.
 
-**Nothing open blocks the order**, and the 2026-08-20 bench session closed four of
-the six below. **One question is genuinely open, and it is bench work gated on the
-purchase:**
+**Every hardware question below is now closed.** The 2026-08-20 bench session closed
+four; the 2026-09-05 sitting closed HW-13, the last one. Only HW-19 remains, and it is
+a first-season data question with no hardware gate on it.
 
 | ID | Question | Status |
 |----|----------|--------|
@@ -827,7 +890,7 @@ purchase:**
 | HW-14 | Confirm GPIO36 = Vext on the board received | ✅ **Answered 2026-08-20** — `Ve` = 3.3 V under firmware, so GPIO36 is driven low; active-LOW confirmed (§6) |
 | HW-18 | Does Vext reach <50 mV with no OLED? | ✅ **Answered 2026-08-20 — 3.0 mV.** F-6 retired (§6) |
 | HW-11 | P-FET part choice | ✅ **Closed — not needed.** Vext is the switched rail. Returns only if HW-13 fails, sourced from VBAT (§4) |
-| HW-13 | A02YYUW reliable at 3.3 V? | ⏳ **The only open one.** Step 5 check 4, **blocked on the order.** See below. |
+| HW-13 | A02YYUW reliable at 3.3 V? | ✅ **Answered 2026-09-05 — yes, on both units.** 36,532 and 4,491 checksum-valid frames, one bad checksum each and both at startup; `bytes ÷ valid` exactly 4.0. **F-13 does not fire and the AO3401 stays off the BOM.** §8, check 4 in full. |
 | HW-19 | Does the fitted gradient model beat a single lid probe? | First season, from stored raw — no hardware change |
 
 **F-8 is closed on the datasheet — operator's call, 2026-08-21 — and the bench
@@ -847,17 +910,17 @@ does not contradict it. That reading makes HW-13 unclosable by any document. The
 operator's call is that unsourced reseller copy is not evidence strong enough to
 keep a finding open against the manufacturer.
 
-**Either way the bench test is unchanged and still runs at step 5**, so nothing
-downstream depends on which reading is right — it confirms rather than decides.
-Two sensors are on order specifically so a marginal result can be told apart from
-a bad unit.
+**The bench test ran at step 5 on 2026-09-05 and both readings survive it.** The
+datasheet said in-spec and the dissent said in-spec is not the same as reliable at the
+bottom; 41,023 frames across two units with two bad checksums, both at startup, answers
+the dissent's question in the dissent's own terms. **Buying two sensors is what makes
+that sentence sayable** — with one unit a clean run cannot be told from a lucky part.
 
-⚠ **Why this still matters after F-6 was retired, and it is the consequence hiding
-behind the row:** **Vext outputs 3.3 V**, and Vext is now what gates the sensor
-rail. If 3.3 V proves marginal, the fix is a discrete switch sourced from **VBAT
-(3.4–4.2 V)** — which reintroduces the P-FET that HW-11 just deleted, along with
-its firmware. HW-13 is the one open question that can still put a line back on the
-BOM.
+⚠ **The consequence that was hiding behind this row is now retired.** **Vext outputs
+3.3 V**, and Vext gates the sensor rail. Had 3.3 V proved marginal, the fix was a
+discrete switch sourced from **VBAT (3.4–4.2 V)**, reintroducing the P-FET that HW-11
+deleted along with its firmware. It did not, so **F-13 does not fire and the AO3401 does
+not return to the BOM.** Nothing open can now put that line back.
 
 ⚠ **`GPIO37 = ADC_Ctrl` was folded into HW-14 and was NOT measured.** The Vext
 half is confirmed; the battery-sense gate is still documentary only (WSL V3 Rev1.1

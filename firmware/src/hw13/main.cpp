@@ -7,7 +7,11 @@
 // does the A02YYUW count checksum-valid frames reliably on a 3.3 V rail?
 // (HARDWARE_BUILD_PLAN.md §8 step 5 check 4, §9.)
 //
-//   pio run -e hw13 -t upload --upload-port /dev/ttyUSB1
+//   pio run -e hw13 -t upload --upload-port /dev/ttyUSB0
+//
+// ⚠ The port is the NODE's, and both CP2102s report USB serial 0001 so nothing in software
+// tells them apart — see platformio.ini. Flashing the gateway board by mistake reports
+// "NO BYTES AT ALL", which reads as a wiring fault and is not one.
 //
 // ⚠ Run it on BOTH sensors. Two were bought precisely so a marginal unit can be told apart
 // from a marginal rail (HARDWARE_BUILD_PLAN.md:277); one sensor answers a different and
@@ -56,12 +60,26 @@ void report(uint32_t nowMs) {
     const uint16_t badThis  = (uint16_t)(badTotal - g_lastBadTotal);
     g_lastBadTotal = badTotal;
 
-    Serial.printf(
-        "[%lu s] valid=%lu bad=%u bytes=%lu | mm last=%u min=%u max=%u | total valid=%lu bad=%u\n",
-        (unsigned long)(nowMs / 1000), (unsigned long)g_valid, (unsigned)badThis,
-        (unsigned long)g_bytesRead, (unsigned)g_lastMm,
-        (unsigned)(g_minMm == 0xFFFF ? 0 : g_minMm), (unsigned)g_maxMm,
-        (unsigned long)g_totalValid, (unsigned)badTotal);
+    // ⚠ The mm figures are printed ONLY when a frame arrived, and that is the whole point
+    // of the branch. A sentinel printed as 0 would collide with a real reading: the
+    // A02YYUW emits 0x0000 when it gets no usable echo (a02yyuw.h:82), that frame is
+    // checksum-valid, and this program deliberately runs the raw parser rather than the
+    // driver's band check — so `min=0` is a thing the sensor genuinely says. Printing 0 for
+    // "nothing yet" as well would make the two indistinguishable in the one direction that
+    // matters, which is the null-value ambiguity CLAUDE-context.md § Testing exists about.
+    if (g_valid == 0) {
+        Serial.printf(
+            "[%lu s] valid=0 bad=%u bytes=%lu | no frames this interval | total valid=%lu bad=%u\n",
+            (unsigned long)(nowMs / 1000), (unsigned)badThis, (unsigned long)g_bytesRead,
+            (unsigned long)g_totalValid, (unsigned)badTotal);
+    } else {
+        Serial.printf(
+            "[%lu s] valid=%lu bad=%u bytes=%lu | mm last=%u min=%u max=%u | total valid=%lu bad=%u\n",
+            (unsigned long)(nowMs / 1000), (unsigned long)g_valid, (unsigned)badThis,
+            (unsigned long)g_bytesRead, (unsigned)g_lastMm,
+            (unsigned)g_minMm, (unsigned)g_maxMm,
+            (unsigned long)g_totalValid, (unsigned)badTotal);
+    }
 
     // The two silent failures are different faults and want different cables checked.
     // Saying so here beats leaving it to whoever reads the log to remember.
