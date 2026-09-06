@@ -735,16 +735,26 @@ contiguous spare pair at the board edge.
 
 **Sensor-side pins** from [DFRobot's SEN0311 page](https://wiki.dfrobot.com/sen0311/):
 PH2.0-4P connector, pin 1 `VCC`, pin 2 `GND`, pin 3 `RX` (output-mode selection), pin 4
-`TX` (UART output). ⚠ **DFRobot publishes no wire-colour table.** Identify the four wires
-by connector position or meter them — the same rule already applied to the battery pigtail
-(B-2), and for the same reason.
+`TX` (UART output). ⚠ **DFRobot publishes no wire-colour table** — the colours below are
+observed, not specified.
 
-| Sensor | → | Node |
-|---|---|---|
-| pin 1 `VCC` | → | J2 pin 1 `Ve` |
-| pin 2 `GND` | → | J2 pin 2 `GND` |
-| pin 4 `TX` | → | J3 pin 18, GPIO6 |
-| pin 3 `RX` | → | **GND at the sensor end** — the mode strap for real-time output |
+| Sensor pin | Colour, observed 2026-09-04 | → | Node |
+|---|---|---|---|
+| 1 `VCC` | red | → | J2 pin 1 `Ve` |
+| 2 `GND` | black | → | J2 pin 2 `GND` |
+| 3 `RX` | blue | → | **black, at the sensor end** — the mode strap for real-time output |
+| 4 `TX` | green | → | J3 pin 18, GPIO6 |
+
+⚠ **The colours are one sample of one unit, metered by the operator on 2026-09-04, not a
+DFRobot specification** — the same hedge the battery pigtail carries (B-2), and for the
+same reason. `VCC` and `GND` were identified with a meter; `RX` and `TX` follow from the
+published pin order once the numbering direction is known. **Meter red and black on every
+sensor before connecting one.** What corroborates the direction rather than proving it: the
+colour sequence red-black-blue-green runs in the same order as the published pins, so both
+readings agree about which end is pin 1.
+
+Three conductors run back to the node — `VCC`, `GND` and `TX`. The fourth never leaves the
+sensor.
 
 Cable per §4's *Wiring the sensor run*: V+ with its own GND in one twisted pair, TX with a
 second GND in another, spares paralleled onto V+/GND. 100 nF + 10 µF at the **sensor** end.
