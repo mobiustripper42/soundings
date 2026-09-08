@@ -7,16 +7,18 @@ Vocabulary already in the docs when the gate shipped is grandfathered and does n
 be registered — but registering it is always welcome, and registering one is how its
 alternates start being caught.
 
-9 terms.
+11 terms.
 
 | Term | Says | Not |
 |---|---|---|
 | **bench** | a breadboard node with a real radio and stand-in sensors, on a desk. The tier above simulation and below a real tunnel | — |
+| **EEPROM** | storage inside a sensor that outlives power loss, unlike its scratchpad. It wears out — 50,000 writes on the DS18B20, so the node writes it once per probe | — |
 | **gateway** | the always-on box on the farm network that receives packets, decodes them and publishes. Holds the antenna; stores nothing itself | `base station`, `hub` |
 | **LVC** | low-voltage cutoff — the battery level at which a node stops transmitting to avoid draining a cell past recovery | `low voltage cut-off` |
 | **manifest** | the per-node declaration of which sensors that node has. Identity is data, not code — every node runs the same firmware | `profile`, `node config` |
 | **node** | one battery-powered field unit. Wakes, samples its declared sensors, transmits one packet, sleeps. Never actuates anything | `sensor unit`, `mote` |
 | **packet** | the binary record a node transmits — the contract between the firmware serializer and the gateway parser, pinned by shared test vectors | `frame` |
+| **RTC** | a small memory block on the ESP32 that survives deep sleep but not a power cycle. Home of the sequence counter and the heal-attempt flag | `RTC RAM`, `RTC slow memory` |
 | **tension** | how hard a plant must pull to get water out of the soil, in kilopascals — higher means drier. The anchor measurement; a Watermark sensor reads it directly | `soil moisture`, `moisture level` |
 | **VPD** | vapour pressure deficit — how much more water the air could hold, derived from canopy temperature and humidity. Drives when to irrigate | — |
 | **wet confirm** | the final gate — real parts in a tunnel, in the ground, reporting. What no test suite can stand in for | `field test` |

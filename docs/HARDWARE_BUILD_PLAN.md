@@ -290,10 +290,10 @@ Per `SPEC.md` §4, minus the perfboard (no excitation circuit on a tank node).
 | **915 MHz antenna, 3–5 dBi omni, SMA male** | 3 | [settled] — **on hand** | HW-01. Vertical. **Already bought** in the $67.20 Heltec order — three whips for two radios. Heltec's own whip is **4 dBi, VSWR ≤1.5, DC ground**, inside the 3–5 dBi window and with a better VSWR than the 3 dBi glue-rod alternative. ⚠ **Skip 8–10 dBi fiberglass sticks** — the gain comes from flattening the vertical pattern, so with gateway and tank at different heights you shoot over or under. ⚠ Rated **−40 … +55 °C**, a lower ceiling than most 4 dBi parts; it is a bare whip in moving air so this is fine, but don't mount it against a dark surface in full sun. |
 | Wago lever-nut terminal block | 1 | [settled] | Serviceable internal connections |
 | Silica gel desiccant | 1 | [settled] | Replaced annually |
-| **Sensor cable — 22 AWG 6-conductor, UL 2464, stranded tinned copper**, 25 ft | 1 | [settled] — **on hand** | ⚠ **Substitution, and electrically it beats the specced Cat5e (SR-08).** 22 AWG stranded tinned copper wins on three counts: lower resistance, corrosion resistance at the splices, and — the one that matters — **stranded survives flexing at a tank lid where solid conductors work-harden and snap.** The old row's "solid copper not CCA" warning was aimed at CCA; this is a different and better answer. **Conductor count works out exactly:** sensor takes V+/GND/TX, DS18B20 shares V+/GND and adds DQ — **four used, two spare, one gland, one hole.** That answers the "does the DS18B20 share the jacket" question: yes. HW-04's extension analysis is unchanged — 9600 8N1 is 104 µs/bit, nowhere near a timing limit. ⚠ **The one real gap: UL 2464 is an indoor appliance rating with no sunlight-resistance requirement.** The listing says outdoor; that is marketing, not the standard, and plain PVC chalks and cracks in a couple of seasons of sun. **Mitigation ~$4: sleeve the exposed run in split loom or ½" flex conduit** (B-4) — a build step, not a re-order, and a jacket failure is visible long before the conductors go. ⚠ **Verify 25 ft covers tank height plus slack before cutting** (B-7). |
+| **Sensor cable — 22 AWG 6-conductor, UL 2464, stranded tinned copper**, 25 ft | 1 | [settled] — **on hand** | ⚠ **Substitution, and electrically it beats the specced Cat5e (SR-08).** 22 AWG stranded tinned copper wins on three counts: lower resistance, corrosion resistance at the splices, and — the one that matters — **stranded survives flexing at a tank lid where solid conductors work-harden and snap.** The old row's "solid copper not CCA" warning was aimed at CCA; this is a different and better answer. **Conductor count:** the A02YYUW takes V+/GND/TX — **three used, three spare.** ⚠ **CORRECTED 2026-09-02 (operator): the DS18B20 does NOT share this jacket.** It runs on its own factory lead, which is why the probes were ordered at **5 m** (see the DS18B20 row above) rather than the cheaper 1 m — the length was bought precisely so the probe runs independently. That is **two cables, two glands, two holes**, and the earlier "yes, it shares the jacket" answer was wrong. This feeds the enclosure work in issue #50, where a wrong gland count is a drilled hole. HW-04's extension analysis is unchanged — 9600 8N1 is 104 µs/bit, nowhere near a timing limit. ⚠ **The one real gap: UL 2464 is an indoor appliance rating with no sunlight-resistance requirement.** The listing says outdoor; that is marketing, not the standard, and plain PVC chalks and cracks in a couple of seasons of sun. **Mitigation ~$4: sleeve the exposed run in split loom or ½" flex conduit** (B-4) — a build step, not a re-order, and a jacket failure is visible long before the conductors go. ⚠ **Verify 25 ft covers tank height plus slack before cutting** (B-7). |
 | 100 nF + 10 µF capacitors | 1 ea | [settled] — **on hand** | At the **sensor end** of the run |
 | **Self-amalgamating tape** | 1 roll | [settled] — **on hand** | **SR-17.** ⚠ **Nearly lost with the struck SR-06 row, which is the only place it was named.** This is what keeps water out of the antenna connector, and outdoors it is not optional. |
-| **4.7 kΩ resistor** | 1 | [settled] — **on hand** | **SR-17.** The DS18B20 1-Wire bus pull-up on DQ. Implied by the sensor choice since Round 1 and listed in no BOM row until now. |
+| **4.7 kΩ resistor** | 1 | [settled] — **on hand** | **SR-17.** The DS18B20 1-Wire bus pull-up on DQ. Implied by the sensor choice since Round 1 and listed in no BOM row until now. ⚠ **It pulls up to `Ve`, the SWITCHED rail — not to 3V3** (settled with Phase 3.8c, DEC-015). On the always-on rail it back-powers the DS18B20 through DQ and the rail-off state stops being off, which defeats the only mechanism keeping the sensors out of the sleep budget. |
 | **Heat-shrink, incl. adhesive-lined** | 1 kit | [settled] — **on hand** | **SR-17.** Every joint in this build is outdoors — the Cat5e-to-sensor splice and the DS18B20 splice especially. **Adhesive-lined for the splices in the damp end**, plain for strain relief. |
 
 **Wiring the sensor run (HW-04).** Three conductors suffice: **V+, GND, TX**. RX
@@ -791,6 +791,43 @@ second GND in another, spares paralleled onto V+/GND. 100 nF + 10 µF at the **s
    on it. **Keep the run out of any conduit shared with the Grundfos pump wiring** — a far
    bigger noise source than cable length.
 
+### Wiring the DS18B20 headspace probe (issue #94)
+
+**Its own cable and its own gland.** The probe ships on a 5 m factory lead and does **not**
+share the A02YYUW's 6-conductor jacket — that is why 5 m probes were bought instead of 1 m.
+Two cables, two glands, two holes. (The §4 BOM row said otherwise until 2026-09-02; it is
+corrected there now.)
+
+| Solder to the pad printed | Which is | For |
+|---|---|---|
+| **`Ve`** | end of the `3 2 1 46 …` row | switched 3.3 V — the same rail the A02YYUW uses |
+| **`GND`** | beside `Ve`, same row | ground |
+| **`7`** | beside the pad printed `6` | **GPIO7** — 1-Wire DQ |
+
+GPIO7 is `GPIO7, ADC1_CH6, TOUCH7` in datasheet Table 2.2-2 — no committed function and,
+load-bearingly, **not a strapping pin.** A 4.7 kΩ pull-up holding a strapping pin at the
+wrong level through reset stops the board booting, and it presents as a dead board rather
+than as a wiring mistake.
+
+🔴 **THE 4.7 kΩ PULL-UP GOES FROM DQ TO `Ve`, NOT TO 3V3.** On the always-on rail it
+back-powers the probe through DQ, and the rail-off state stops being off — which defeats the
+only thing keeping the sensors out of the sleep budget (§6, DEC-015). Put the resistor at
+the **node** end, where it is dry and serviceable.
+
+Probe leads are conventionally red `VDD`, black `GND`, yellow or white `DQ`. ⚠ **Meter them
+anyway.** These are marketplace parts bought for price (§4), the colour convention is not a
+specification, and the failure mode of getting it wrong is a cooked probe rather than a
+silent misread.
+
+Three wires, all three run: this part is **externally powered, not parasitic.** Parasite
+power would need a strong-pullup MOSFET (datasheet Figure 6 vs Figure 7) and would stop the
+driver polling the bus for conversion-complete, which is how it avoids blocking.
+
+⚠ **A fresh probe converts at 12-bit and takes 750 ms.** The node writes 9-bit to its EEPROM
+on the first wake and every wake after that takes ~94 ms (DEC-014, DEC-015). Nothing needs
+doing at the bench for this — but the first packet after fitting a new probe is legitimately
+slower than the rest, and that is expected, not a fault.
+
 ⚠ **Do not take pin numbers from the Arduino variant header.**
 `framework-arduinoespressif32/variants/heltec_wireless_stick_lite_v3/pins_arduino.h`
 defines `SCK = 36`, `MOSI = 35` and `MISO = 37`, which collide with its own `Vext = 36` and
@@ -799,6 +836,53 @@ defines `SCK = 36`, `MOSI = 35` and `MISO = 37`, which collide with its own `Vex
 **Order at the bench:** meter first (B-1), then solder, then
 `pio run -e hw13 -t upload --upload-port /dev/ttyUSB0`, then read the per-minute tally of
 checksum-valid frames.
+
+### The 3.8c bench sitting — four checks, one visit
+
+Written 2026-09-07 with the Phase 3.8c code. **All four need the same sitting**, so do them
+in this order rather than making two trips. Two of them are 3.8b acceptance criteria carried
+over from issue #71 — they were never verified before PR #97 merged, and they are here
+because this is where the hardware visit happens.
+
+⚠ **Board identity first, every time.** Both CP2102s report USB serial `0001`. Unplug one,
+see which `/dev/ttyUSB*` vanishes. Measured on 2026-09-05: **node `/dev/ttyUSB0`**, gateway
+`/dev/ttyUSB1` — one machine, one day, so re-measure rather than trusting this line.
+
+**0. Restore the gateway board's own firmware.** ⚠ It was flashed with `hw13` during the
+2026-09-05 sitting and is still carrying it. Nothing below works until the gateway is
+listening again. Do this before wiring anything.
+
+**1. A real distance rides un-faulted in a decoded packet** *(carried from issue #71)*.
+Everything HW-13 proved ran through `[env:hw13]`, which uses the raw `A02yyuwFrameParser`
+and never touches `A02yyuwDistance`, `DistanceSampler`, the manifest or the packet. The
+driver's median-of-five, its band check and its rail cycling inside a real wake have not run
+once on silicon. Expect channel 8 present, fault bit clear, value in millimetres matching a
+tape measure.
+
+**2. The headspace probe reads a plausible room temperature.** Channel 4, i16, 1/16 °C —
+so ~20 °C arrives as ~320 counts. Compare against any thermometer. Both channels should
+appear in **one** packet; that is the check that the manifest's second slot bound.
+
+⚠ **The first packet after fitting a fresh probe is legitimately slow.** A new part is at
+its 12-bit factory default and converts in 750 ms; the node writes 9-bit to its EEPROM on
+that wake and every wake after takes ~94 ms (DEC-015). One slow reading then normal service
+is the expected shape, not a fault. A bench build (`-e node_bench`) prints `ds18b20 heal
+flag:` at the top of each wake — that reports a **previous** wake's failure, so `clear` is
+the ordinary state and says nothing about whether a heal happened.
+
+**3. A below-zero reading, if a freezer is to hand.** This is the assertion the host tests
+can only simulate. The node's value is `int16_t`, the packet word is `uint16_t`, and channel
+4 is typed `I16` at the gateway — a sign error parses cleanly and reads about +4095 °C.
+`contracts/vectors/packet-v1.json` pins the encoding, but only hardware pins the probe.
+
+**4. Sleep current is microamps, not milliamps, with the sensor cable attached**
+*(carried from issue #71)*. Multimeter in series, as §6 describes. This is the only test
+that `gpio_hold_en()` + `gpio_deep_sleep_hold_en()` in `VextRail::off()` actually takes, and
+a rail left energised between wakes is invisible from the serial monitor — which is exactly
+why the original `rtc_gpio_hold_en()` defect could have shipped unnoticed. ⚠ **With the
+DS18B20 fitted this now also tests the pull-up's rail.** A 4.7 kΩ tied to 3V3 instead of
+`Ve` back-powers the probe through DQ and shows up here as milliamps. Overlaps the
+disable-list sitting in issue #49; run it there if that lands first.
 
 ### Step 5 in detail — three of four done, 2026-08-20
 

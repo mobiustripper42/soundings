@@ -29,6 +29,13 @@ namespace soundings {
 // reading this header looking for a BindResult variant that does not exist.
 constexpr uint8_t kSensorTypeNone     = 0;
 constexpr uint8_t kSensorTypeDistance = 1;   // ultrasonic tank level (A02YYUW)
+// ⚠ A manifest TYPE ID, not a channel bit. DEC-007's "no new channel bit spent" is a claim
+// about the packet's 16-entry channel registry, which is scarce and shared with every other
+// node type; this registry is the manifest's own and is neither. The DS18B20 rides the
+// existing channel 4 (SOIL_TEMP_0) and still needs its own type here, because the registry
+// binds a declared TYPE to a compiled-in driver (sensor_registry.h) and two sensors on one
+// channel bit would otherwise be indistinguishable to it.
+constexpr uint8_t kSensorTypeDsTemp   = 2;   // headspace temperature (DS18B20)
 
 struct ChannelDecl {
     uint8_t channelBit;     // index into the packet.h channel registry

@@ -114,6 +114,17 @@ VECTORS = [
         node_id=10, fw_version=100, seq=1, battery_mv=3700,
         channels=[("TANK_DISTANCE", 1234)]),
 
+    vec("tank_node_with_headspace",
+        "Tank node as actually built from Phase 3.8c: distance AND headspace "
+        "temperature in one packet, the temperature below zero. DEC-007 makes the "
+        "second channel required rather than optional -- the speed of sound moves "
+        "~0.176 %/C, which over a 2 m headspace is 14.1 cm of apparent level change "
+        "with no water moving. The sub-zero value is the point: it is the only place "
+        "the node's int16 sensor value, the uint16 packet word and the gateway's "
+        "signed read of channel 4 can disagree without anything failing loudly.",
+        node_id=10, fw_version=264, seq=2, battery_mv=3690,
+        channels=[("SOIL_TEMP_0", -8), ("TANK_DISTANCE", 1347)]),
+
     vec("bed_node_nominal",
         "Bed node: 2 Watermarks (6\"/12\") + 2 DS18B20 + SHT45 (T,RH). Typical.",
         node_id=1, fw_version=100, seq=42, battery_mv=3850,

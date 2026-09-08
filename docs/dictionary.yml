@@ -63,3 +63,11 @@
 - term: wet confirm
   says: the final gate — real parts in a tunnel, in the ground, reporting. What no test suite can stand in for
   not: [field test]
+
+- term: EEPROM
+  says: storage inside a sensor that outlives power loss, unlike its scratchpad. It wears out — 50,000 writes on the DS18B20, so the node writes it once per probe
+  not: []
+
+- term: RTC
+  says: a small memory block on the ESP32 that survives deep sleep but not a power cycle. Home of the sequence counter and the heal-attempt flag
+  not: [RTC RAM, RTC slow memory]
