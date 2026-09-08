@@ -875,6 +875,16 @@ can only simulate. The node's value is `int16_t`, the packet word is `uint16_t`,
 4 is typed `I16` at the gateway — a sign error parses cleanly and reads about +4095 °C.
 `contracts/vectors/packet-v1.json` pins the encoding, but only hardware pins the probe.
 
+**3b. Scope `Ve` across the heal's rail cycle, if a scope is to hand.** The verify step
+switches the rail off and on again to force the probe's scratchpad to reload from its
+storage. Whether the rail actually falls below the part's reset threshold in that window
+depends on the bulk capacitance on `Ve` and what is still drawing from it — the firmware
+cannot know, and `Ds18b20Config::verifyDischargeMs` (default 50 ms) is a **seed, not a
+measurement.** If `Ve` never collapses, the verify reports a success that did not happen.
+⚠ **Nothing is damaged either way** — the endurance bound is enforced by marking the
+attempt before the write, not by trusting this answer (DEC-015) — so this is a diagnostic
+accuracy check, not a safety one. Raise `verifyDischargeMs` if the trace says to.
+
 **4. Sleep current is microamps, not milliamps, with the sensor cable attached**
 *(carried from issue #71)*. Multimeter in series, as §6 describes. This is the only test
 that `gpio_hold_en()` + `gpio_deep_sleep_hold_en()` in `VextRail::off()` actually takes, and

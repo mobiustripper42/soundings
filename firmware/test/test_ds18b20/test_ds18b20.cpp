@@ -269,7 +269,46 @@ void test_factory_default_is_healed_and_the_reading_still_publishes() {
     TEST_ASSERT_TRUE(d.healSucceededLastRead());
     TEST_ASSERT_EQUAL_INT(1, rig.bus.copyScratchpadCount());
     TEST_ASSERT_EQUAL_HEX8(kDsConfig9Bit, rig.bus.eepromConfig());
-    TEST_ASSERT_FALSE(rig.flag.attempted());   // it worked, so nothing is remembered
+    // ⚠ Set even though the heal SUCCEEDED. The flag is marked on attempt, not on failure,
+    // so the 50,000-write bound cannot depend on the verify telling the truth. It costs
+    // nothing: a part that took the write comes up 9-bit forever and never re-enters the
+    // branch. See the review finding recorded on this test's sibling below.
+    TEST_ASSERT_TRUE(rig.flag.attempted());
+}
+
+// ⚠ THE ENDURANCE GUARANTEE, and it exists because code review caught the version that
+// didn't have it.
+//
+// The verify's rail cycle is two GPIO writes. Whether Ve actually falls below the part's
+// power-on-reset threshold depends on bulk capacitance and residual load, which the driver
+// cannot know. This test models the bad case: the EEPROM refuses the write AND the rail
+// does not really collapse, so the part hands back the RAM copy and the driver is told the
+// heal worked. Under the original "mark only on failure" rule the flag stayed clear, and
+// every genuine wake from deep sleep — where the power cycle IS real and 12-bit does come
+// back — issued another Copy Scratchpad. At a fifteen-minute cadence that is ~35,000 writes
+// a year, reached through the very mechanism meant to prevent it.
+void test_a_lying_verify_still_cannot_write_eeprom_twice_in_one_boot() {
+    Rig rig(kDsConfig12Bit);
+    rig.bus.setTemperature(kRaw25_0625);
+    rig.bus.refuseEepromWrite(true);
+    rig.bus.ignorePowerCycles(true);        // Ve never falls far enough to reset the part
+
+    Ds18b20Temp first = rig.driver();
+    ITemp::Reading r = first.read();
+    TEST_ASSERT_TRUE(r.ok);
+    TEST_ASSERT_EQUAL_INT(1, rig.bus.copyScratchpadCount());
+    // The verify is fooled — it reports success on a write that was refused.
+    TEST_ASSERT_TRUE(first.healSucceededLastRead());
+    TEST_ASSERT_EQUAL_HEX8(kDsConfig12Bit, rig.bus.eepromConfig());   // nothing was kept
+    // And the bound holds anyway, which is the point.
+    TEST_ASSERT_TRUE(rig.flag.attempted());
+
+    // The next wake finds the part back at 12-bit and must NOT write again.
+    rig.bus.ignorePowerCycles(false);
+    Ds18b20Temp second = rig.driver();
+    TEST_ASSERT_TRUE(second.read().ok);
+    TEST_ASSERT_EQUAL_INT(1, rig.bus.copyScratchpadCount());
+    TEST_ASSERT_FALSE(second.healAttemptedLastRead());
 }
 
 // The steady-state case, and the one that catches an inverted comparison. A driver that
@@ -414,6 +453,7 @@ int main(int, char**) {
     RUN_TEST(test_conversion_deadline_fires_only_on_a_bus_that_never_answers);
     RUN_TEST(test_factory_default_needs_a_deadline_that_covers_750ms);
     RUN_TEST(test_factory_default_is_healed_and_the_reading_still_publishes);
+    RUN_TEST(test_a_lying_verify_still_cannot_write_eeprom_twice_in_one_boot);
     RUN_TEST(test_a_sensor_already_at_nine_bit_is_never_written);
     RUN_TEST(test_heal_verifies_by_power_cycling_the_rail);
     RUN_TEST(test_an_ordinary_read_cycles_the_rail_exactly_once);

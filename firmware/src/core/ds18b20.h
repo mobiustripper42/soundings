@@ -83,6 +83,17 @@ struct Ds18b20Config {
     // a timer anything waits out.
     uint32_t conversionDeadlineMs = 900;
 
+    // How long the rail is held off during the heal's verify step, so Ve can fall below the
+    // part's power-on-reset threshold and the scratchpad reloads from EEPROM.
+    //
+    // ⚠ A SEED, NOT A MEASURED NUMBER. The discharge time depends on the bulk capacitance
+    // on Ve and what is still drawing from it, and nothing in this repo knows either. It is
+    // named here rather than buried so the bench can change one value — the same treatment
+    // A02yyuwConfig::settleMs gets, and for the same reason. Too short and the verify
+    // reports a success that did not happen, which is a wrong diagnostic and nothing worse:
+    // the endurance bound does not rest on it (see read()).
+    uint32_t verifyDischargeMs = 50;
+
     // TH and TL. The alarm function is unused, but Write Scratchpad takes THREE bytes and
     // there is no way to send the configuration byte without them. These are the datasheet's
     // own power-up values, so a healed part keeps the alarm thresholds it shipped with.

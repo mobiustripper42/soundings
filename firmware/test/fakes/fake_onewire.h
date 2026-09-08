@@ -56,6 +56,13 @@ public:
     // return 1, so only the deadline ends the wait.
     void neverFinishConversion(bool never) { neverFinish_ = never; }
 
+    // ⚠ The rail is toggled but Ve never falls below the part's power-on-reset threshold,
+    // so the scratchpad is NOT reloaded from EEPROM. This models real hardware the driver
+    // cannot see: bulk capacitance on Ve holding the part alive across an off/on pair that
+    // is two GPIO writes apart. Without this control the fake is strictly more obedient
+    // than a real DS18B20, and the endurance failure it enables is untestable.
+    void ignorePowerCycles(bool ignore) { ignorePowerCycles_ = ignore; }
+
     int  copyScratchpadCount()  const { return copyCount_; }
     int  writeScratchpadCount() const { return writeCount_; }
     uint8_t eepromConfig()      const { return eepromConfig_; }
@@ -177,8 +184,13 @@ private:
         const int offs = rail_.offCount();
         if (offs != lastOffCount_) {
             lastOffCount_ = offs;
-            powered_ = false;
-            state_   = kIdle;
+            // ignorePowerCycles_ models a rail that was switched but never actually fell:
+            // the transition is consumed, so it is not seen again, but the part keeps its
+            // RAM scratchpad exactly as a capacitor-held DS18B20 would.
+            if (!ignorePowerCycles_) {
+                powered_ = false;
+                state_   = kIdle;
+            }
         }
         const bool nowOn = rail_.isOn();
         if (nowOn && !powered_) reloadFromEeprom();   // power-up: scratchpad <- EEPROM
@@ -223,6 +235,7 @@ private:
     bool     refuseEeprom_ = false;
     bool     corruptCrc_   = false;
     bool     neverFinish_  = false;
+    bool     ignorePowerCycles_ = false;
 
     State    state_    = kIdle;
     int      lastOffCount_ = 0;

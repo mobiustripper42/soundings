@@ -66,8 +66,19 @@ bool Ds18b20Temp::healResolution() {
     // nothing about whether the EEPROM took it — a refusing part accepts Copy Scratchpad in
     // silence and reports no error. The scratchpad reloads from EEPROM on power-up, so
     // cycling the rail we already own is what turns "we sent the command" into "the part
-    // kept it". It costs one extra rail cycle, on one wake, once per sensor.
+    // kept it".
+    //
+    // ⚠ THIS VERIFY IS DIAGNOSTIC, NOT LOAD-BEARING, and the distinction is deliberate.
+    // `off()` and `on()` are two GPIO writes (`esp32/vext_rail.cpp`); whether the rail
+    // actually falls below the part's power-on-reset threshold in between depends on the
+    // bulk capacitance on Ve and what is left drawing from it, neither of which this code
+    // knows. If it does not collapse, the read below returns the RAM copy and reports a
+    // success that did not happen. Nothing is damaged by that, because the endurance bound
+    // no longer depends on this answer — see read(), where the flag is set on ATTEMPT.
+    // Confirming the threshold is crossed is a bench job (HARDWARE_BUILD_PLAN.md §8).
     rail_.off();
+    const uint32_t offAt = clock_.millis();
+    while (clock_.millis() - offAt < cfg_.verifyDischargeMs) { /* let Ve fall */ }
     rail_.on();
 
     uint8_t pad[kDsScratchpadLen];
@@ -139,10 +150,24 @@ ITemp::Reading Ds18b20Temp::read() {
     // stop derive.py producing gallons in order to report a power problem.
     if (liveConfig != cfg_.resolution && !flag_.attempted()) {
         healAttempted_ = true;
+        // ⚠ MARKED BEFORE THE ATTEMPT, not after a failed one, and this is the whole
+        // endurance guarantee.
+        //
+        // The first version set the flag only when healResolution() reported failure. That
+        // made the 50,000-write budget depend on the verify being truthful — and the verify
+        // cannot be trusted, because it rests on a rail cycle whose voltage collapse this
+        // code cannot confirm. A part that refuses the write, on a rail that does not fall
+        // far enough, reports SUCCESS, leaves the flag clear, and then gets rewritten on
+        // every genuine wake from deep sleep — where the power cycle IS real, the 12-bit
+        // value does come back, and the mismatch is found again. That is ~35,000 writes a
+        // year: precisely the failure the flag exists to prevent, reached through the
+        // mechanism meant to prevent it.
+        //
+        // Marking first makes the bound hold whatever the verify says. It costs nothing: a
+        // part that genuinely took the write comes up 9-bit forever and never enters this
+        // branch again, so there is no second attempt to lose.
+        flag_.markAttempted();
         healSucceeded_ = healResolution();
-        // Only a FAILED heal is remembered. A part that took the write is correct from here
-        // on and will never match this branch again, so there is nothing to store.
-        if (!healSucceeded_) flag_.markAttempted();
     }
 
     rail_.off();
