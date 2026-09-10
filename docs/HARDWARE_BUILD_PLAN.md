@@ -887,15 +887,17 @@ proves the manifest's second slot bound.
   got the +85 °C power-on value. `ds18b20.cpp` now floors the wait at the part's real
   conversion time, read from the config byte *before* converting.
 
-⚠ **The first packet after fitting a fresh probe is legitimately slow**, and the heal is
-real: this probe arrived at `0x7F` (12-bit) and was at `0x1F` (9-bit) afterwards.
+⚠ **The first packet after fitting a fresh probe is legitimately slow, and the heal is real.**
+A new part is at its 12-bit factory default and converts in 750 ms; the node writes 9-bit to
+its EEPROM on that wake and every wake after takes ~94 ms (DEC-016). One slow reading then
+normal service is the expected shape, not a fault. Confirmed 2026-09-10: this probe arrived
+at `0x7F` and read `0x1F` afterwards.
 
-⚠ **The first packet after fitting a fresh probe is legitimately slow.** A new part is at
-its 12-bit factory default and converts in 750 ms; the node writes 9-bit to its EEPROM on
-that wake and every wake after takes ~94 ms (DEC-015). One slow reading then normal service
-is the expected shape, not a fault. A bench build (`-e node_bench`) prints `ds18b20 heal
-flag:` at the top of each wake — that reports a **previous** wake's failure, so `clear` is
-the ordinary state and says nothing about whether a heal happened.
+A bench build (`-e node_bench`) prints `ds18b20 heal flag:` at the top of each wake, and it
+reports a **previous** wake's *attempt* — not a failure. The flag is marked before the EEPROM
+write so the write bound holds whatever the part does, so `set` on a healthy healed node is
+the ordinary outcome, not a fault. The line used to say "could not write the probe's EEPROM"
+and was corrected here.
 
 **3. A below-zero reading, if a freezer is to hand.** ⬜ **Still open.** This is the assertion the host tests
 can only simulate. The node's value is `int16_t`, the packet word is `uint16_t`, and channel

@@ -78,13 +78,6 @@ ITemp::Reading Ds18b20Temp::read() {
 
     rail_.on();
 
-    if (!bus_.reset()) {
-        // No presence pulse: an unplugged probe, a cut lead, a dead part. The rail comes
-        // down on every failure path — a stuck rail is invisible from the serial monitor and
-        // is the failure that flattens the pack (DEC-006).
-        rail_.off();
-        return Reading{0, false};
-    }
     // ⚠ The configuration byte is read BEFORE the conversion, and that ordering is the fix.
     //
     // It says how long this part's conversion actually takes — 94 ms at 9-bit, 750 ms at the
@@ -92,6 +85,13 @@ ITemp::Reading Ds18b20Temp::read() {
     // status bit was supposed to supply it and cannot be trusted to (dsConversionMs). One
     // extra scratchpad read costs about 6 ms against a 94 ms conversion, which is the
     // cheapest of the available wrong answers.
+    //
+    // This is also the presence check, and there is deliberately no separate bus_.reset()
+    // ahead of it: readScratchpad() opens with its own reset, and a standalone one would fail
+    // into this identical branch having bought nothing but another ~1 ms pulse per wake.
+    // An unplugged probe, a cut lead and a dead part all land here. The rail comes down on
+    // every failure path — a stuck rail is invisible from the serial monitor and is the
+    // failure that flattens the pack (DEC-006).
     uint8_t pre[kDsScratchpadLen];
     if (!readScratchpad(pre)) {
         rail_.off();

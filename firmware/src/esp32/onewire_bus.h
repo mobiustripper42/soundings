@@ -53,6 +53,19 @@ struct OneWireTiming {
 // registers (GPIO_ENABLE1_*, GPIO_IN1_REG) and would silently address the wrong pin rather
 // than fail. kPinOneWireDq is 7, and this file is board-specific already — it names J3 pin 17
 // — so the constraint is documented rather than abstracted over.
+//
+// ⚠ begin() IS A REQUIRED PRECONDITION FOR EVERY OTHER METHOD, not merely a safe one to call
+// early, and the register rewrite is what made that true. The open-drain guarantee — the line
+// is driven LOW or released, never driven high into an unpowered probe — now rests on the
+// output latch being parked at 0, which happens once, in begin(). The bit slots toggle only
+// the output ENABLE and never touch the latch again.
+//
+// The previous implementation re-proved the latch on every call, because pinMode(OUTPUT) plus
+// digitalWrite(LOW) set direction and level together. This one does not. Reach driveLow()
+// without begin() having run — a second OneWireBus constructed somewhere, a refactor that
+// drops the call, anything else that has written GPIO_OUT_REG bit 7 first — and enabling the
+// output drives whatever the latch happens to hold. That is the one failure this class exists
+// to make impossible, so it is stated here rather than left to be rediscovered.
 class OneWireBus : public IOneWireBus {
 public:
     explicit OneWireBus(int8_t pin = kPinOneWireDq, const OneWireTiming& t = OneWireTiming())
