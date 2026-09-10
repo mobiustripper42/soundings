@@ -37,6 +37,7 @@ so several placeholders would collide. Consult @architect before building on one
 - DEC-012 — OTA is a pull, and the manifest is the trigger
 - DEC-013 — The manifest is signed, and that is why the format got a v2
 - DEC-015 — The node provisions its own sensor configuration, once, and verifies it
+- DEC-016 — The node provisions its own sensor configuration, once, and does not verify it
 
 ### Radio, wire contract & gateway
 - DEC-003 — Packet v1 wire contract (resolves §12 D2)

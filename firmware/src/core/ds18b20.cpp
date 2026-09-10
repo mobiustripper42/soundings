@@ -18,6 +18,15 @@ uint8_t dsUndefinedLowBits(uint8_t configByte) {
     }
 }
 
+uint32_t dsConversionMs(uint8_t configByte) {
+    switch (configByte) {
+        case kDsConfig9Bit:  return 94;    // 93.75 ms, rounded up to whole ms
+        case kDsConfig10Bit: return 188;   // 187.5
+        case kDsConfig11Bit: return 375;
+        default:             return 750;   // 12-bit, and the safe arm for anything unknown
+    }
+}
+
 uint8_t ds18b20Crc8(const uint8_t* data, size_t len) {
     // X^8 + X^5 + X^4 + 1, shifted least-significant-bit first, register initialised to 0.
     // 0x8C is that polynomial reflected, which is what an LSB-first shift wants.
@@ -45,50 +54,27 @@ bool Ds18b20Temp::readScratchpad(uint8_t* out) {
     return ds18b20Crc8(out, 8) == out[8];
 }
 
-bool Ds18b20Temp::healResolution() {
+void Ds18b20Temp::healResolution() {
     // Write Scratchpad takes exactly three bytes. TH and TL are unused by this project but
     // cannot be omitted, so the datasheet's own factory values go back in.
-    if (!bus_.reset()) return false;
+    if (!bus_.reset()) return;
     bus_.writeByte(kDsSkipRom);
     bus_.writeByte(kDsWriteScratch);
     bus_.writeByte(cfg_.alarmHigh);
     bus_.writeByte(cfg_.alarmLow);
     bus_.writeByte(cfg_.resolution);
 
-    // The one EEPROM write in this sensor's life.
-    if (!bus_.reset()) return false;
+    // The one EEPROM write in this sensor's life. Whether it takes is not knowable from here
+    // — see the header. The caller has already marked the attempt, so this happens at most
+    // once per boot regardless.
+    if (!bus_.reset()) return;
     bus_.writeByte(kDsSkipRom);
     bus_.writeByte(kDsCopyScratch);
-
-    // ⚠ The verify, and the reason it is a POWER CYCLE rather than a read.
-    //
-    // Reading the scratchpad back here would return the RAM copy we just wrote, which says
-    // nothing about whether the EEPROM took it — a refusing part accepts Copy Scratchpad in
-    // silence and reports no error. The scratchpad reloads from EEPROM on power-up, so
-    // cycling the rail we already own is what turns "we sent the command" into "the part
-    // kept it".
-    //
-    // ⚠ THIS VERIFY IS DIAGNOSTIC, NOT LOAD-BEARING, and the distinction is deliberate.
-    // `off()` and `on()` are two GPIO writes (`esp32/vext_rail.cpp`); whether the rail
-    // actually falls below the part's power-on-reset threshold in between depends on the
-    // bulk capacitance on Ve and what is left drawing from it, neither of which this code
-    // knows. If it does not collapse, the read below returns the RAM copy and reports a
-    // success that did not happen. Nothing is damaged by that, because the endurance bound
-    // no longer depends on this answer — see read(), where the flag is set on ATTEMPT.
-    // Confirming the threshold is crossed is a bench job (HARDWARE_BUILD_PLAN.md §8).
-    rail_.off();
-    const uint32_t offAt = clock_.millis();
-    while (clock_.millis() - offAt < cfg_.verifyDischargeMs) { /* let Ve fall */ }
-    rail_.on();
-
-    uint8_t pad[kDsScratchpadLen];
-    if (!readScratchpad(pad)) return false;
-    return pad[4] == cfg_.resolution;
 }
+
 
 ITemp::Reading Ds18b20Temp::read() {
     healAttempted_ = false;
-    healSucceeded_ = false;
 
     rail_.on();
 
@@ -99,21 +85,53 @@ ITemp::Reading Ds18b20Temp::read() {
         rail_.off();
         return Reading{0, false};
     }
+    // ⚠ The configuration byte is read BEFORE the conversion, and that ordering is the fix.
+    //
+    // It says how long this part's conversion actually takes — 94 ms at 9-bit, 750 ms at the
+    // 12-bit factory default — and that is a number the driver cannot get any other way. The
+    // status bit was supposed to supply it and cannot be trusted to (dsConversionMs). One
+    // extra scratchpad read costs about 6 ms against a 94 ms conversion, which is the
+    // cheapest of the available wrong answers.
+    uint8_t pre[kDsScratchpadLen];
+    if (!readScratchpad(pre)) {
+        rail_.off();
+        return Reading{0, false};
+    }
+    const uint32_t minConvMs = dsConversionMs(pre[4]);
+
+    if (!bus_.reset()) {
+        rail_.off();
+        return Reading{0, false};
+    }
     bus_.writeByte(kDsSkipRom);
     bus_.writeByte(kDsConvertT);
 
-    // Externally powered, so the part answers read slots with 0 while converting and 1 when
-    // done. Polling that beats timing 93.75 ms blind, and it is what lets one deadline cover
-    // both 9-bit and the 12-bit factory default without waiting out the difference.
+    // Wait, floored, then polled — and the deadline bounds both.
+    //
+    // The floor is the fix: nothing is asked of the bus until the part has had its full
+    // conversion time, because a clone with no busy-signalling answers the very first read
+    // slot with 1 while the scratchpad still holds +85 C. The poll still earns its place
+    // after that — it catches a part running slower than its nominal time, and on an honest
+    // one it costs a single read slot.
+    //
+    // ⚠ The deadline is checked FIRST, so it still means what its comment says: a deadline
+    // that does not cover this part's conversion time is a misconfiguration and fails the
+    // read rather than being silently overridden by the floor.
+    //
+    // ONE clock reading per pass, holding a single instant that the deadline and the floor
+    // are both judged against — the same shape and the same reason as A02yyuwDistance::read()
+    // (a02yyuw.cpp:87-94). Unsigned subtraction is wrap-safe across the ~49.7-day millis()
+    // rollover.
     const uint32_t start = clock_.millis();
     for (;;) {
-        if (bus_.readBit()) break;
-        // Unsigned subtraction, wrap-safe across the ~49.7-day millis() rollover — same as
-        // Elapsed and as A02yyuwDistance::read().
-        if (clock_.millis() - start >= cfg_.conversionDeadlineMs) {
+        const uint32_t since = clock_.millis() - start;
+
+        if (since >= cfg_.conversionDeadlineMs) {
             rail_.off();
             return Reading{0, false};
         }
+        if (since < minConvMs) continue;     // still converting, whatever it would claim
+        if (bus_.readBit()) break;
     }
 
     uint8_t pad[kDsScratchpadLen];
@@ -150,24 +168,23 @@ ITemp::Reading Ds18b20Temp::read() {
     // stop derive.py producing gallons in order to report a power problem.
     if (liveConfig != cfg_.resolution && !flag_.attempted()) {
         healAttempted_ = true;
-        // ⚠ MARKED BEFORE THE ATTEMPT, not after a failed one, and this is the whole
-        // endurance guarantee.
+        // ⚠ MARKED BEFORE THE ATTEMPT, and this is the ENTIRE endurance guarantee — there is
+        // no longer a verify standing behind it.
         //
-        // The first version set the flag only when healResolution() reported failure. That
-        // made the 50,000-write budget depend on the verify being truthful — and the verify
-        // cannot be trusted, because it rests on a rail cycle whose voltage collapse this
-        // code cannot confirm. A part that refuses the write, on a rail that does not fall
-        // far enough, reports SUCCESS, leaves the flag clear, and then gets rewritten on
-        // every genuine wake from deep sleep — where the power cycle IS real, the 12-bit
-        // value does come back, and the mismatch is found again. That is ~35,000 writes a
-        // year: precisely the failure the flag exists to prevent, reached through the
-        // mechanism meant to prevent it.
+        // A DS18B20 accepts Copy Scratchpad, keeps nothing, and reports no error. The driver
+        // cannot tell. An earlier version set the flag only when a verify reported failure,
+        // which made the 50,000-write budget depend on that verify telling the truth — and it
+        // could not, because it rested on a rail cycle whose voltage collapse this code cannot
+        // confirm. A refusing part on a rail that does not fall far enough reported SUCCESS,
+        // left the flag clear, and got rewritten on every genuine wake from deep sleep. At a
+        // fifteen-minute cadence that is ~35,000 writes a year, through the mechanism meant to
+        // prevent it. The verify has since been removed outright (see healResolution).
         //
-        // Marking first makes the bound hold whatever the verify says. It costs nothing: a
-        // part that genuinely took the write comes up 9-bit forever and never enters this
-        // branch again, so there is no second attempt to lose.
+        // Marking first makes the bound hold whatever the part does. It costs nothing: a part
+        // that genuinely took the write comes up 9-bit forever and never enters this branch
+        // again, so there is no second attempt to lose.
         flag_.markAttempted();
-        healSucceeded_ = healResolution();
+        healResolution();
     }
 
     rail_.off();

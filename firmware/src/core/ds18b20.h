@@ -59,6 +59,21 @@ constexpr uint8_t kDsConfig12Bit = 0x7F;   // the factory power-up default
 // gateway can go on assuming what it already assumed.
 uint8_t dsUndefinedLowBits(uint8_t configByte);
 
+// Maximum conversion time at a given resolution, in whole milliseconds, from the datasheet's
+// R1/R0 table: 93.75 / 187.5 / 375 / 750 ms.
+//
+// ⚠ This is a FLOOR the driver must wait, not an estimate it may skip. The datasheet says an
+// externally-powered part answers read slots with 0 until conversion completes, and the
+// clones this project buys on purpose (HARDWARE_BUILD_PLAN.md:278) frequently do not: one
+// measured on the bench 2026-09-09 reported "done" on the first read slot, 0 ms in, while it
+// was genuinely still converting (issue #94). Believing it means reading the scratchpad
+// before the conversion has written anything into it — which returns the +85 C power-on
+// value, and the sentinel check then faults a working probe forever.
+//
+// The unrecognised-byte arm returns 750, the longest. Waiting too long costs awake time;
+// waiting too little costs every reading.
+uint32_t dsConversionMs(uint8_t configByte);
+
 // ---- CRC-8 ------------------------------------------------------------------
 
 // Dallas/Maxim CRC-8: polynomial X^8 + X^5 + X^4 + 1, shifted least-significant-bit first,
@@ -82,17 +97,6 @@ struct Ds18b20Config {
     // conversion ends, so this is a backstop against a bus that has stopped answering, not
     // a timer anything waits out.
     uint32_t conversionDeadlineMs = 900;
-
-    // How long the rail is held off during the heal's verify step, so Ve can fall below the
-    // part's power-on-reset threshold and the scratchpad reloads from EEPROM.
-    //
-    // ⚠ A SEED, NOT A MEASURED NUMBER. The discharge time depends on the bulk capacitance
-    // on Ve and what is still drawing from it, and nothing in this repo knows either. It is
-    // named here rather than buried so the bench can change one value — the same treatment
-    // A02yyuwConfig::settleMs gets, and for the same reason. Too short and the verify
-    // reports a success that did not happen, which is a wrong diagnostic and nothing worse:
-    // the endurance bound does not rest on it (see read()).
-    uint32_t verifyDischargeMs = 50;
 
     // TH and TL. The alarm function is unused, but Write Scratchpad takes THREE bytes and
     // there is no way to send the configuration byte without them. These are the datasheet's
@@ -145,17 +149,25 @@ public:
     // diagnostic — nothing in the run path consumes it, because a failed heal has no way to
     // reach the gateway yet (issue #98).
     bool healAttemptedLastRead() const { return healAttempted_; }
-    bool healSucceededLastRead() const { return healSucceeded_; }
 
 private:
     // Reads the whole scratchpad into `out`, CRC-checked. Assumes the rail is already on.
     bool readScratchpad(uint8_t* out);
 
-    // Write the wanted configuration to the scratchpad, copy it to EEPROM, then power-cycle
-    // the rail and read it back. The power cycle is the point: the scratchpad reloads from
-    // EEPROM on every power-up, so this confirms the copy actually took rather than
-    // assuming it did.
-    bool healResolution();
+    // Write the wanted configuration to the scratchpad and copy it to EEPROM.
+    //
+    // ⚠ IT DOES NOT VERIFY, AND CANNOT. A DS18B20 accepts Copy Scratchpad, keeps nothing and
+    // reports no error, so the only way to tell is a power cycle — the scratchpad reloads
+    // from EEPROM on power-up. This used to do exactly that, and it never worked: a bench
+    // sweep on 2026-09-09 found Ve does not fall below the part's reset threshold until
+    // between 50 and 100 ms, against the 50 ms the verify allowed. The part never restarted,
+    // handed back the RAM copy it had just been given, and reported success unconditionally.
+    //
+    // Nothing is lost by removing it, because nothing depended on it. The 50,000-write bound
+    // is structural — IHealAttemptFlag is marked on ATTEMPT, so a refusing part is written at
+    // most once per boot whatever it claims. Returning void rather than a bool nobody could
+    // trust is the honest shape.
+    void healResolution();
 
     IOneWireBus&      bus_;
     IPowerRail&       rail_;
@@ -163,7 +175,6 @@ private:
     IHealAttemptFlag& flag_;
     Ds18b20Config     cfg_;
     bool healAttempted_ = false;
-    bool healSucceeded_ = false;
 };
 
 } // namespace soundings

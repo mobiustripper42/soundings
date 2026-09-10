@@ -3,7 +3,7 @@ schema: 1
 id: DEC-015
 title: "The node provisions its own sensor configuration, once, and verifies it"
 topic: "Firmware architecture"
-status: "active"
+status: "superseded"
 date: "2026-09-07"
 ruling: "The node reads the DS18B20's config byte every wake and writes 9-bit to its EEPROM once, verified by a rail cycle and bounded to one attempt per boot. No bench step."
 claims:
@@ -13,6 +13,7 @@ claims:
     target: "firmware/src/esp32/main.cpp"
   - kind: "test"
     target: "firmware/test/test_ds18b20/test_ds18b20.cpp"
+superseded_by: DEC-016
 revisit_if: "A sensor needs bench setup anyway, or another sensor wants this shape."
 ---
 
@@ -39,7 +40,6 @@ the reverse: a lying verify left the flag clear and every real wake rewrote the 
 the 50,000-write budget gone in seventeen months, through the mechanism meant to
 protect it.
 
-A failed write is invisible in the field — not a channel fault, and no status field
-exists. Issue #98.
+A failed write is invisible in the field. Issue #98.
 
 ---

@@ -251,6 +251,50 @@ void test_factory_default_needs_a_deadline_that_covers_750ms() {
     }
 }
 
+// ---- A clone that lies about its conversion status --------------------------
+
+// ⚠ The bench failure of 2026-09-09, written as a test (issue #94).
+//
+// The datasheet says an externally-powered DS18B20 answers read slots with 0 until its
+// conversion finishes. The marketplace clones this project buys on purpose often never
+// implement that and answer 1 immediately. A driver that believes the status bit reads the
+// scratchpad before the conversion has put anything in it, gets 0x0550 — the power-on value
+// — and the sentinel check correctly rejects it. The channel then faults forever on a probe
+// that is working perfectly, which is exactly what a real probe did on a real bench.
+//
+// The second half is not decoration. Without the "did not sit out the deadline" assertion,
+// a driver that abandons the poll and blindly waits conversionDeadlineMs on every read would
+// pass — and it would cost 900 ms of awake time per wake against a power budget whose whole
+// margin is 1.48x (DEC-006). The cheap wrong fix has to fail here.
+void test_a_lying_conversion_status_still_yields_a_real_reading() {
+    {
+        Rig rig(kDsConfig9Bit);                    // healed already: 93.75 ms conversion
+        rig.bus.setTemperature(kRaw25_0625);
+        rig.bus.lieAboutConversionStatus(true);
+        Ds18b20Temp d = rig.driver();
+
+        const uint32_t before = rig.clock.millis();
+        ITemp::Reading r      = d.read();
+        const uint32_t waited = rig.clock.millis() - before;
+
+        TEST_ASSERT_TRUE(r.ok);
+        TEST_ASSERT_EQUAL_INT16(0x0190, r.raw);    // 25.0 C, masked at 9-bit
+        TEST_ASSERT_TRUE(waited >= 94);            // it did wait out the real conversion
+        TEST_ASSERT_TRUE(waited < 300);            // and did NOT sit out the 900 ms deadline
+    }
+    {
+        // Out of the bag at 12-bit, where the floor has to be 750 ms rather than 94. A fix
+        // that hardcodes one conversion time passes the case above and fails this one.
+        Rig rig(kDsConfig12Bit);
+        rig.bus.setTemperature(kRaw25_0625);
+        rig.bus.lieAboutConversionStatus(true);
+        Ds18b20Temp d = rig.driver();
+        ITemp::Reading r = d.read();
+        TEST_ASSERT_TRUE(r.ok);
+        TEST_ASSERT_EQUAL_INT16(kRaw25_0625, r.raw);
+    }
+}
+
 // ---- The heal path ----------------------------------------------------------
 
 void test_factory_default_is_healed_and_the_reading_still_publishes() {
@@ -266,45 +310,37 @@ void test_factory_default_is_healed_and_the_reading_still_publishes() {
     TEST_ASSERT_EQUAL_INT16(kRaw25_0625, r.raw);
 
     TEST_ASSERT_TRUE(d.healAttemptedLastRead());
-    TEST_ASSERT_TRUE(d.healSucceededLastRead());
     TEST_ASSERT_EQUAL_INT(1, rig.bus.copyScratchpadCount());
     TEST_ASSERT_EQUAL_HEX8(kDsConfig9Bit, rig.bus.eepromConfig());
-    // ⚠ Set even though the heal SUCCEEDED. The flag is marked on attempt, not on failure,
-    // so the 50,000-write bound cannot depend on the verify telling the truth. It costs
-    // nothing: a part that took the write comes up 9-bit forever and never re-enters the
-    // branch. See the review finding recorded on this test's sibling below.
+    // ⚠ Set even though the write was taken. The flag is marked on ATTEMPT, and since the
+    // verify was removed it is the only thing bounding EEPROM writes — one per boot, whatever
+    // the part does with them. It costs nothing: a part that took the write comes up 9-bit
+    // forever and never re-enters the branch.
     TEST_ASSERT_TRUE(rig.flag.attempted());
 }
 
-// ⚠ THE ENDURANCE GUARANTEE, and it exists because code review caught the version that
-// didn't have it.
+// ⚠ THE ENDURANCE GUARANTEE, and since the verify was removed it is the ONLY thing standing
+// between this driver and the part's 50,000-write rating.
 //
-// The verify's rail cycle is two GPIO writes. Whether Ve actually falls below the part's
-// power-on-reset threshold depends on bulk capacitance and residual load, which the driver
-// cannot know. This test models the bad case: the EEPROM refuses the write AND the rail
-// does not really collapse, so the part hands back the RAM copy and the driver is told the
-// heal worked. Under the original "mark only on failure" rule the flag stayed clear, and
-// every genuine wake from deep sleep — where the power cycle IS real and 12-bit does come
-// back — issued another Copy Scratchpad. At a fifteen-minute cadence that is ~35,000 writes
-// a year, reached through the very mechanism meant to prevent it.
-void test_a_lying_verify_still_cannot_write_eeprom_twice_in_one_boot() {
+// A DS18B20 can accept Copy Scratchpad, keep nothing, and report no error. Nothing the
+// driver can do detects that — which is precisely why the verify went: it claimed to and
+// couldn't (the rail does not collapse in 50 ms; measured on the bench 2026-09-09). So the
+// bound is structural instead. The flag is marked on attempt, so a refusing part is written
+// at most once per boot no matter what it says. At a fifteen-minute cadence the unbounded
+// version would be ~35,000 writes a year.
+void test_a_refused_eeprom_write_is_not_retried_in_the_same_boot() {
     Rig rig(kDsConfig12Bit);
     rig.bus.setTemperature(kRaw25_0625);
     rig.bus.refuseEepromWrite(true);
-    rig.bus.ignorePowerCycles(true);        // Ve never falls far enough to reset the part
 
     Ds18b20Temp first = rig.driver();
     ITemp::Reading r = first.read();
-    TEST_ASSERT_TRUE(r.ok);
+    TEST_ASSERT_TRUE(r.ok);                                          // the reading still publishes
     TEST_ASSERT_EQUAL_INT(1, rig.bus.copyScratchpadCount());
-    // The verify is fooled — it reports success on a write that was refused.
-    TEST_ASSERT_TRUE(first.healSucceededLastRead());
-    TEST_ASSERT_EQUAL_HEX8(kDsConfig12Bit, rig.bus.eepromConfig());   // nothing was kept
-    // And the bound holds anyway, which is the point.
+    TEST_ASSERT_EQUAL_HEX8(kDsConfig12Bit, rig.bus.eepromConfig());  // nothing was kept
     TEST_ASSERT_TRUE(rig.flag.attempted());
 
-    // The next wake finds the part back at 12-bit and must NOT write again.
-    rig.bus.ignorePowerCycles(false);
+    // The next wake finds the part still at 12-bit and must NOT write again.
     Ds18b20Temp second = rig.driver();
     TEST_ASSERT_TRUE(second.read().ok);
     TEST_ASSERT_EQUAL_INT(1, rig.bus.copyScratchpadCount());
@@ -325,28 +361,38 @@ void test_a_sensor_already_at_nine_bit_is_never_written() {
     TEST_ASSERT_EQUAL_INT(0, rig.bus.writeScratchpadCount());
 }
 
-// The verify step is a rail cycle, and it has to actually happen: the scratchpad only
-// reloads from EEPROM on power-up, so without the cycle the driver would be re-reading the
-// RAM copy it just wrote and would call a refusing part healed.
-void test_heal_verifies_by_power_cycling_the_rail() {
+// ⚠ THE REMOVED VERIFY, pinned as an assertion so it cannot creep back.
+//
+// The heal used to power-cycle the rail to prove the EEPROM had taken the write: the
+// scratchpad reloads from EEPROM on power-up, so a 9-bit value surviving the cycle meant the
+// write stuck. It never worked. Bench sweep, 2026-09-09: Ve does not fall below the part's
+// reset threshold until somewhere between 50 and 100 ms, and the verify allowed 50 — so the
+// part never restarted, handed back the RAM copy it had just been given, and reported
+// success unconditionally. A check that cannot fail is not a check.
+//
+// A heal wake now costs exactly the same rail cycle as any other read. Paired with the
+// ordinary-read case below so this cannot be satisfied by a driver that never heals.
+void test_the_heal_does_not_cycle_the_rail_a_second_time() {
     Rig rig(kDsConfig12Bit);
     rig.bus.setTemperature(kRaw25_0625);
     Ds18b20Temp d = rig.driver();
     TEST_ASSERT_TRUE(d.read().ok);
 
-    // on, [heal: off, on], off
-    TEST_ASSERT_EQUAL_INT(2, rig.rail.onCount());
-    TEST_ASSERT_EQUAL_INT(2, rig.rail.offCount());
+    TEST_ASSERT_TRUE(d.healAttemptedLastRead());          // a heal really did happen
+    TEST_ASSERT_EQUAL_INT(1, rig.bus.copyScratchpadCount());
+    TEST_ASSERT_EQUAL_INT(1, rig.rail.onCount());         // on, off. No second cycle.
+    TEST_ASSERT_EQUAL_INT(1, rig.rail.offCount());
     TEST_ASSERT_FALSE(rig.rail.isOn());
 }
 
-// The ordinary read does NOT cycle twice. Paired with the test above so "cycles the rail
-// twice" cannot be satisfied by a driver that always does.
+// The ordinary read, which never healed and never cycled twice. Paired with the test above
+// so "one cycle" cannot be satisfied by a driver that simply never heals.
 void test_an_ordinary_read_cycles_the_rail_exactly_once() {
     Rig rig(kDsConfig9Bit);
     rig.bus.setTemperature(kRaw25_0625);
     Ds18b20Temp d = rig.driver();
     TEST_ASSERT_TRUE(d.read().ok);
+    TEST_ASSERT_FALSE(d.healAttemptedLastRead());
     TEST_ASSERT_EQUAL_INT(1, rig.rail.onCount());
     TEST_ASSERT_EQUAL_INT(1, rig.rail.offCount());
 }
@@ -360,7 +406,6 @@ void test_an_eeprom_that_refuses_the_copy_sets_the_flag() {
     ITemp::Reading r = d.read();
     TEST_ASSERT_TRUE(r.ok);                    // still good data
     TEST_ASSERT_TRUE(d.healAttemptedLastRead());
-    TEST_ASSERT_FALSE(d.healSucceededLastRead());
     TEST_ASSERT_TRUE(rig.flag.attempted());
     TEST_ASSERT_EQUAL_HEX8(kDsConfig12Bit, rig.bus.eepromConfig());
 }
@@ -452,10 +497,11 @@ int main(int, char**) {
     RUN_TEST(test_band_check_rejects_below_the_sensor_floor_and_accepts_the_floor);
     RUN_TEST(test_conversion_deadline_fires_only_on_a_bus_that_never_answers);
     RUN_TEST(test_factory_default_needs_a_deadline_that_covers_750ms);
+    RUN_TEST(test_a_lying_conversion_status_still_yields_a_real_reading);
     RUN_TEST(test_factory_default_is_healed_and_the_reading_still_publishes);
-    RUN_TEST(test_a_lying_verify_still_cannot_write_eeprom_twice_in_one_boot);
+    RUN_TEST(test_a_refused_eeprom_write_is_not_retried_in_the_same_boot);
     RUN_TEST(test_a_sensor_already_at_nine_bit_is_never_written);
-    RUN_TEST(test_heal_verifies_by_power_cycling_the_rail);
+    RUN_TEST(test_the_heal_does_not_cycle_the_rail_a_second_time);
     RUN_TEST(test_an_ordinary_read_cycles_the_rail_exactly_once);
     RUN_TEST(test_an_eeprom_that_refuses_the_copy_sets_the_flag);
     RUN_TEST(test_flag_suppresses_a_second_attempt_and_a_clear_flag_does_not);

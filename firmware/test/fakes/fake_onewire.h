@@ -56,12 +56,18 @@ public:
     // return 1, so only the deadline ends the wait.
     void neverFinishConversion(bool never) { neverFinish_ = never; }
 
-    // ⚠ The rail is toggled but Ve never falls below the part's power-on-reset threshold,
-    // so the scratchpad is NOT reloaded from EEPROM. This models real hardware the driver
-    // cannot see: bulk capacitance on Ve holding the part alive across an off/on pair that
-    // is two GPIO writes apart. Without this control the fake is strictly more obedient
-    // than a real DS18B20, and the endurance failure it enables is untestable.
-    void ignorePowerCycles(bool ignore) { ignorePowerCycles_ = ignore; }
+    // ⚠ THE PART REPORTS "CONVERSION DONE" WHILE IT IS STILL CONVERTING.
+    //
+    // The datasheet says an externally-powered DS18B20 answers read slots with 0 until the
+    // conversion finishes. Plenty of the marketplace clones this project buys on purpose
+    // (HARDWARE_BUILD_PLAN.md:278) simply never implement that, and answer 1 immediately.
+    // Measured on the bench 2026-09-09 (issue #94): the poll reported done after one read
+    // slot and 0 ms, while a blind 800 ms wait proved the conversion was genuinely running.
+    //
+    // Without this control the fake is strictly more honest than the hardware, a driver that
+    // trusts the status bit passes every test, and the failure is only findable by sitting at
+    // a bench with a probe in your hand. Which is how it was found.
+    void lieAboutConversionStatus(bool lie) { lieAboutStatus_ = lie; }
 
     int  copyScratchpadCount()  const { return copyCount_; }
     int  writeScratchpadCount() const { return writeCount_; }
@@ -93,10 +99,16 @@ public:
                 switch (b) {
                     case kDsConvertT:
                         convertEndsAtMs_ = clock_.millis() + conversionMsFor(pad_[4]);
+                        convertPending_  = true;
                         state_ = kConverting;
                         return;
                     case kDsReadScratch:
-                        refreshTemperatureBytes();
+                        // ⚠ NO refreshTemperatureBytes() here. The scratchpad returns what the
+                        // last COMPLETED conversion left in it — which, on a part that has not
+                        // converted since power-up, is the 85.0 C reset value. Recomputing the
+                        // true temperature on every read made this fake answer correctly no
+                        // matter when it was asked, so a driver reading the scratchpad too
+                        // early got the right answer here and the sentinel on silicon.
                         state_ = kReadingScratch;
                         return;
                     case kDsWriteScratch:
@@ -123,7 +135,10 @@ public:
                 if (writeIdx_ == 0)      pad_[2] = b;
                 else if (writeIdx_ == 1) pad_[3] = b;
                 else if (writeIdx_ == 2) pad_[4] = b;
-                if (++writeIdx_ >= 3) state_ = kIdle;
+                if (++writeIdx_ >= 3) {
+                    state_ = kIdle;
+                    refreshCrc();   // the config byte is covered by the CRC
+                }
                 return;
 
             default:
@@ -143,6 +158,10 @@ public:
         if (!powered_) return false;
         if (state_ != kConverting) return true;
         if (neverFinish_) return false;
+        // A clone with no busy-signalling says "done" the instant it is asked. The conversion
+        // itself still takes its full time — convertEndsAtMs_ is untouched — so a driver that
+        // believes this reads the scratchpad before there is anything new in it.
+        if (lieAboutStatus_) return true;
         return clock_.millis() >= convertEndsAtMs_;
     }
 
@@ -184,18 +203,26 @@ private:
         const int offs = rail_.offCount();
         if (offs != lastOffCount_) {
             lastOffCount_ = offs;
-            // ignorePowerCycles_ models a rail that was switched but never actually fell:
-            // the transition is consumed, so it is not seen again, but the part keeps its
-            // RAM scratchpad exactly as a capacitor-held DS18B20 would.
-            if (!ignorePowerCycles_) {
-                powered_ = false;
-                state_   = kIdle;
-            }
+            powered_ = false;
+            state_   = kIdle;
+            // A part that loses power loses the conversion it was running.
+            convertPending_ = false;
         }
         const bool nowOn = rail_.isOn();
         if (nowOn && !powered_) reloadFromEeprom();   // power-up: scratchpad <- EEPROM
         if (!nowOn) state_ = kIdle;
         powered_ = nowOn;
+
+        settleConversion();
+    }
+
+    // A conversion finishes on the part's own clock, whether or not anybody is polling. When
+    // it does, and only then, the true temperature replaces the power-on value in the pad.
+    void settleConversion() {
+        if (!powered_ || !convertPending_) return;
+        if (clock_.millis() < convertEndsAtMs_) return;
+        convertPending_ = false;
+        latchTemperature();
     }
 
     void reloadFromEeprom() {
@@ -209,10 +236,16 @@ private:
         // bug this comment exists to make obvious.
         pad_[6] = 0x0C;
         pad_[7] = 0x10;
-        refreshTemperatureBytes();
+
+        // ⚠ +85.0 C, the datasheet's power-on value for bytes 0 and 1 — NOT the temperature
+        // this part would measure. A DS18B20 that has not completed a conversion since power
+        // -up holds 0x0550, and Ds18b20Config::sentinelRaw exists precisely to reject it.
+        pad_[0] = 0x50;
+        pad_[1] = 0x05;
+        refreshCrc();
     }
 
-    void refreshTemperatureBytes() {
+    void latchTemperature() {
         const uint8_t undef = undefinedMaskFor(pad_[4]);
         // Fill the undefined bits with 1s — the worst case, and the one that catches a
         // driver that forgets to mask.
@@ -220,6 +253,10 @@ private:
                                             | (uint16_t)undef);
         pad_[0] = (uint8_t)(emitted & 0xFF);
         pad_[1] = (uint8_t)(emitted >> 8);
+        refreshCrc();
+    }
+
+    void refreshCrc() {
         pad_[8] = ds18b20Crc8(pad_, 8);
         if (corruptCrc_) pad_[8] = (uint8_t)(pad_[8] ^ 0xFF);
     }
@@ -235,7 +272,8 @@ private:
     bool     refuseEeprom_ = false;
     bool     corruptCrc_   = false;
     bool     neverFinish_  = false;
-    bool     ignorePowerCycles_ = false;
+    bool     lieAboutStatus_    = false;
+    bool     convertPending_    = false;
 
     State    state_    = kIdle;
     int      lastOffCount_ = 0;

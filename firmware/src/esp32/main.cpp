@@ -107,7 +107,14 @@ constexpr uint8_t  kNodeId     = 7;
 // ⚠ BUMP THIS FOR EVERY IMAGE YOU PUBLISH. The daemon compares it against the manifest's
 // version to decide whether a node is stale, so two different builds sharing a value are
 // indistinguishable and the node will believe it is already current (issue #79).
-constexpr uint16_t kFwVersion  = 0x0109;   // 265 — adds the live DS18B20 headspace channel
+constexpr uint16_t kFwVersion  = 0x010C;   // 268 — the two bench defects from issue #94,
+                                           // plus the heal's verify removed (it never worked).
+                                           // 0x0109 could never talk to a DS18B20 at all:
+                                           // pinMode() cost 14 us inside a 15 us window, so
+                                           // every write-1 went out as a 0 (onewire_bus.cpp).
+                                           // 0x010A fixed that and still faulted, because the
+                                           // part lies about conversion-complete; ds18b20.cpp
+                                           // now floors the wait at the real conversion time.
 
 // The OTA client — the real IDownlinkHandler (issue #79). Declared after kFwVersion
 // because it needs it: bit 0 means "you are not running what I have", and "what I am
@@ -157,13 +164,22 @@ void setup() {
     delay(200);                       // let the USB bridge settle before the first line
     Serial.println("\nsoundings node: setup");
     // Reported at the START of a wake, not the end, because runOnce() is terminal — there is
-    // no "after" on this program. The flag lives in RTC memory, so what this prints is the
-    // verdict of a PREVIOUS wake: set means the probe's EEPROM refused a 9-bit write and the
-    // node has stopped retrying until reboot (DEC-015). Clear is the ordinary state and says
-    // nothing about whether a heal ever happened.
+    // no "after" on this program. The flag lives in RTC memory, so this is the record of a
+    // PREVIOUS wake.
+    //
+    // ⚠ IT MEANS "ATTEMPTED", NOT "FAILED", and that difference is the whole point of the
+    // flag. It is marked BEFORE the EEPROM write so the 50,000-write bound holds whatever the
+    // part does with it — nothing on the node can tell whether the write took, and since the
+    // verify was removed nothing pretends to.
+    //
+    // This line used to read "SET — a previous wake could not write the probe's EEPROM",
+    // left over from an earlier design where the flag was set only on failure. On a node that
+    // had healed perfectly it announced a fault that had not happened, which is a trip up a
+    // tank for nothing. Found on the bench 2026-09-09, on exactly such a node.
     Serial.printf("ds18b20 heal flag: %s\n",
-                  g_healAttempted ? "SET — a previous wake could not write the probe's EEPROM"
-                                  : "clear");
+                  g_healAttempted ? "set — a 9-bit write was attempted on an earlier wake, "
+                                    "and none will be tried again until reboot"
+                                  : "clear — no resolution write attempted since boot");
 #endif
 
     const bool radioUp = g_radio.begin();

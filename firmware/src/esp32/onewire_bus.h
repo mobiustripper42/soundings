@@ -38,14 +38,25 @@ struct OneWireTiming {
     uint8_t  writeZeroLowUs  = 60;    // write-0: 60-120 us low
     uint8_t  writeZeroRestUs = 10;
     uint8_t  readSlotLowUs   = 6;
-    uint8_t  readSampleUs    = 9;     // 6 + 9 = 15 us, the edge of "data valid"
-    uint8_t  readRestUs      = 55;
+    // 6 + 6 = 12 us. Was 9, putting the sample at exactly 15 — the limit itself, in a struct
+    // whose own rule two paragraphs up is to sit comfortably inside the windows rather than
+    // at their edges. That never bit, because ~28 us of Arduino GPIO overhead pushed the real
+    // sample out to ~43 us, inside a read-0's 60 us hold by luck. onewire_bus.cpp now hits
+    // these numbers to a fraction of a microsecond, so 15 stops being luck and starts being
+    // a limit (issue #94).
+    uint8_t  readSampleUs    = 6;
+    uint8_t  readRestUs      = 55;    // 6 + 6 + 55 = 67 us, inside the 60-120 us slot
 };
 
+// ⚠ CORRECT ONLY FOR A PIN BELOW 32. The bit slots write GPIO_ENABLE_W1TS_REG and read
+// GPIO_IN_REG, which cover GPIO0-31; pins 32 and up live in a second bank behind different
+// registers (GPIO_ENABLE1_*, GPIO_IN1_REG) and would silently address the wrong pin rather
+// than fail. kPinOneWireDq is 7, and this file is board-specific already — it names J3 pin 17
+// — so the constraint is documented rather than abstracted over.
 class OneWireBus : public IOneWireBus {
 public:
     explicit OneWireBus(int8_t pin = kPinOneWireDq, const OneWireTiming& t = OneWireTiming())
-        : pin_(pin), t_(t) {}
+        : pin_(pin), t_(t), mask_(1u << (pin & 31)) {}
 
     // Idles the line released (input, external pull-up holds it high). Safe to call before
     // the rail is up: an input pin cannot back-power anything.
@@ -69,6 +80,7 @@ private:
 
     int8_t        pin_;
     OneWireTiming t_;
+    uint32_t      mask_;   // 1 << pin, precomputed: a shift per bit slot is a shift too many
 };
 
 } // namespace soundings

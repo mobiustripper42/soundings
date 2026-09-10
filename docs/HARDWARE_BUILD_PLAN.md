@@ -844,24 +844,51 @@ in this order rather than making two trips. Two of them are 3.8b acceptance crit
 over from issue #71 — they were never verified before PR #97 merged, and they are here
 because this is where the hardware visit happens.
 
-⚠ **Board identity first, every time.** Both CP2102s report USB serial `0001`. Unplug one,
-see which `/dev/ttyUSB*` vanishes. Measured on 2026-09-05: **node `/dev/ttyUSB0`**, gateway
-`/dev/ttyUSB1` — one machine, one day, so re-measure rather than trusting this line.
+> **Sitting of 2026-09-10 — checks 1, 2 and 3b done. Checks 3 and 4 still open.** Two
+> firmware defects were found here that no host test could have caught, and the driver had
+> never once talked to a DS18B20 before this night. Details under each check.
 
-**0. Restore the gateway board's own firmware.** ⚠ It was flashed with `hw13` during the
-2026-09-05 sitting and is still carrying it. Nothing below works until the gateway is
-listening again. Do this before wiring anything.
+⚠ **Board identity first, every time.** Both CP2102s report USB serial `0001`. Unplug one,
+see which `/dev/ttyUSB*` vanishes. **Re-measured 2026-09-10: node `/dev/ttyUSB1`, gateway
+`/dev/ttyUSB0`** — the opposite way round from 2026-09-05, which is exactly why this line
+says re-measure rather than remember.
+
+⚠ **A firmware banner identifies the IMAGE, not the board.** Reading a banner tells you what
+a board was last flashed with, which is not the same as which one has sensor wires on it. A
+session that conflated the two swapped both images on a correct setup and spent two flashes
+getting back. The only test is unplugging one, or knowing which you plugged in.
+
+**0. Restore the gateway board's own firmware.** ✅ **Done 2026-09-10.** It had been left
+carrying `hw13` since the 2026-09-05 sitting. Nothing below works until the gateway is
+listening again, so do this before wiring anything.
 
 **1. A real distance rides un-faulted in a decoded packet** *(carried from issue #71)*.
-Everything HW-13 proved ran through `[env:hw13]`, which uses the raw `A02yyuwFrameParser`
-and never touches `A02yyuwDistance`, `DistanceSampler`, the manifest or the packet. The
-driver's median-of-five, its band check and its rail cycling inside a real wake have not run
-once on silicon. Expect channel 8 present, fault bit clear, value in millimetres matching a
-tape measure.
+✅ **PASSED 2026-09-10** — channel 8, fault bit clear, tracking a moved sensor from 773 mm to
+2248 mm. Everything HW-13 proved had run through `[env:hw13]`, which uses the raw
+`A02yyuwFrameParser` and never touches `A02yyuwDistance`, `DistanceSampler`, the manifest or
+the packet; the driver's median-of-five, band check and rail cycling inside a real wake had
+not run once on silicon until this.
 
-**2. The headspace probe reads a plausible room temperature.** Channel 4, i16, 1/16 °C —
-so ~20 °C arrives as ~320 counts. Compare against any thermometer. Both channels should
-appear in **one** packet; that is the check that the manifest's second slot bound.
+**2. The headspace probe reads a plausible room temperature.** ✅ **PASSED 2026-09-10** —
+channel 4 at 432 counts, 27.0 °C, both channels un-faulted in **one** packet, which is what
+proves the manifest's second slot bound.
+
+⚠ **It took two firmware fixes to get there, and neither was findable from a host test.**
+
+- **The 1-Wire bit timing.** `pinMode()` and `digitalWrite()` cost ~14 µs each on this chip,
+  measured. A write-1 budgeted at 6 µs was holding the line low for **35.7 µs against a
+  15 µs datasheet limit**, so every 1 bit went out as a 0 and no command this driver ever
+  sent had been understood by a DS18B20. `onewire_bus.cpp` now drives the bit slots by
+  register write: 6.9 µs. The reset pulse is 500 µs and swallowed the error whole, which is
+  why the bus reported a healthy presence pulse and then returned nine bytes of `0xFF`.
+- **The part lies about conversion-complete.** The datasheet says an externally-powered
+  DS18B20 answers read slots with 0 until its conversion finishes. This clone answers 1
+  immediately — proven by waiting 800 ms blind and getting a real temperature where polling
+  got the +85 °C power-on value. `ds18b20.cpp` now floors the wait at the part's real
+  conversion time, read from the config byte *before* converting.
+
+⚠ **The first packet after fitting a fresh probe is legitimately slow**, and the heal is
+real: this probe arrived at `0x7F` (12-bit) and was at `0x1F` (9-bit) afterwards.
 
 ⚠ **The first packet after fitting a fresh probe is legitimately slow.** A new part is at
 its 12-bit factory default and converts in 750 ms; the node writes 9-bit to its EEPROM on
@@ -870,29 +897,46 @@ is the expected shape, not a fault. A bench build (`-e node_bench`) prints `ds18
 flag:` at the top of each wake — that reports a **previous** wake's failure, so `clear` is
 the ordinary state and says nothing about whether a heal happened.
 
-**3. A below-zero reading, if a freezer is to hand.** This is the assertion the host tests
+**3. A below-zero reading, if a freezer is to hand.** ⬜ **Still open.** This is the assertion the host tests
 can only simulate. The node's value is `int16_t`, the packet word is `uint16_t`, and channel
 4 is typed `I16` at the gateway — a sign error parses cleanly and reads about +4095 °C.
 `contracts/vectors/packet-v1.json` pins the encoding, but only hardware pins the probe.
 
-**3b. Scope `Ve` across the heal's rail cycle, if a scope is to hand.** The verify step
-switches the rail off and on again to force the probe's scratchpad to reload from its
-storage. Whether the rail actually falls below the part's reset threshold in that window
-depends on the bulk capacitance on `Ve` and what is still drawing from it — the firmware
-cannot know, and `Ds18b20Config::verifyDischargeMs` (default 50 ms) is a **seed, not a
-measurement.** If `Ve` never collapses, the verify reports a success that did not happen.
-⚠ **Nothing is damaged either way** — the endurance bound is enforced by marking the
-attempt before the write, not by trusting this answer (DEC-015) — so this is a diagnostic
-accuracy check, not a safety one. Raise `verifyDischargeMs` if the trace says to.
+**3b. Does `Ve` actually collapse when the rail is switched off?** ✅ **MEASURED 2026-09-10,
+and the answer deleted the code that asked (DEC-016).**
+
+No scope needed. `[env:ds18probe]` parks a throwaway value in the probe's RAM — Write
+Scratchpad only, so no EEPROM write and no wear — then power-cycles and reads it back. The
+value surviving means the part never lost power; the value reverting means it did.
+
+| rail off for | marker | verdict |
+|---|---|---|
+| 10 ms | survived | no reset — `Ve` stayed up |
+| 50 ms | survived | no reset — **this was the shipping default** |
+| 100 ms | reverted | reset — `Ve` collapsed |
+| 250 ms | reverted | reset |
+| 500 ms | reverted | reset |
+
+The heal's verify allowed 50 ms, so it never reset the part, read back the RAM copy it had
+just written, and reported success unconditionally. A check that cannot fail is not a check.
+It has been removed rather than retuned: nothing depended on it, because DEC-015 had already
+moved the endurance bound onto marking the flag *before* the write. `verifyDischargeMs` is
+gone with it, and a heal wake now costs one rail cycle instead of two.
 
 **4. Sleep current is microamps, not milliamps, with the sensor cable attached**
-*(carried from issue #71)*. Multimeter in series, as §6 describes. This is the only test
+*(carried from issue #71)*. ⬜ **Still open.** Multimeter in series, as §6 describes. This is the only test
 that `gpio_hold_en()` + `gpio_deep_sleep_hold_en()` in `VextRail::off()` actually takes, and
 a rail left energised between wakes is invisible from the serial monitor — which is exactly
 why the original `rtc_gpio_hold_en()` defect could have shipped unnoticed. ⚠ **With the
 DS18B20 fitted this now also tests the pull-up's rail.** A 4.7 kΩ tied to 3V3 instead of
 `Ve` back-powers the probe through DQ and shows up here as milliamps. Overlaps the
 disable-list sitting in issue #49; run it there if that lands first.
+
+**5. The downlink reaches the node inside its receive window** *(DEC-010's never-measured
+direction)*. ✅ **PASSED 2026-09-10** — seven for seven across two runs, at −37 to −42 dBm,
+the node's bench build printing `DOWNLINK heard at ~1996 ms` against a 250 ms `rx window`.
+Run it by pointing a decoding daemon at the gateway board while a bench node transmits;
+`tools/bench_reply.py` exists for exactly this and times the daemon's half of the trip.
 
 ### Step 5 in detail — three of four done, 2026-08-20
 
