@@ -107,9 +107,11 @@ constexpr uint8_t  kNodeId     = 7;
 // ⚠ BUMP THIS FOR EVERY IMAGE YOU PUBLISH. The daemon compares it against the manifest's
 // version to decide whether a node is stale, so two different builds sharing a value are
 // indistinguishable and the node will believe it is already current (issue #79).
-constexpr uint16_t kFwVersion  = 0x010D;   // 269 — the two bench defects from issue #94, the
+constexpr uint16_t kFwVersion  = 0x010E;   // 270 — the two bench defects from issue #94, the
                                            // heal's verify removed (it never worked), and the
                                            // redundant pre-read reset dropped on code review.
+                                           // First image published over the air carrying a
+                                           // working DS18B20 (2026-09-10).
                                            // 0x0109 could never talk to a DS18B20 at all:
                                            // pinMode() cost 14 us inside a 15 us window, so
                                            // every write-1 went out as a 0 (onewire_bus.cpp).
