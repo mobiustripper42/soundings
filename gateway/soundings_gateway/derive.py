@@ -22,7 +22,7 @@ from __future__ import annotations
 
 import logging
 
-from . import tank, tension
+from . import tank, tension, vpd
 
 log = logging.getLogger(__name__)
 
@@ -229,7 +229,48 @@ def _derive_bed(msg: dict, cfg) -> list[tuple[str, str]]:
             # The flag says the number is directional rather than quantitative.
             out.append((f"{base}/tension_{bit}_wet_end", "1"))
 
+    out.extend(_derive_air(msg, base, node_id))
     return out
+
+
+def _derive_air(msg: dict, base: str, node_id) -> list[tuple[str, str]]:
+    """Canopy air: temperature, humidity, and the VPD computed from them (SPEC §5.3).
+
+    ⚠ **VPD needs BOTH channels, so a half-present pair derives nothing.** Unlike the
+    soil temperatures above — each a measurement in its own right — air temperature on
+    its own says nothing about drying power. Publishing the half that arrived would put a
+    number on the bus that looks like part of a VPD reading and is not.
+    """
+    t_ch = _channel(msg, "AIR_TEMP")
+    rh_ch = _channel(msg, "AIR_RH")
+    if t_ch is None or rh_ch is None:
+        return []
+
+    t_c = vpd.air_temp_c(t_ch["raw"])
+    rh_pct = vpd.air_rh_pct(rh_ch["raw"])
+
+    # ⚠ Out of band is a BROKEN sensor, not a marginal reading, and nothing is published
+    # for it — not even the raw temperature.
+    #
+    # The registry's tick conversions span -45..130 °C and -6..119 %RH, which is the raw
+    # grid and not what an SHT45 can physically be. Zero ticks on both channels decodes
+    # to a perfectly well-formed -45 °C at -6 %RH, and full scale decodes to 130 °C at
+    # 119 %RH — a VPD of -52 kPa. Those are a disconnected or dead part answering, and a
+    # plausible-looking temperature published from one is worse than a gap, because
+    # nobody re-checks a number that looks fine.
+    #
+    # Quantisation is handled inside out_of_band: saturated air lands a tick above 100 %
+    # and is not a fault.
+    if vpd.out_of_band(t_c, rh_pct):
+        log.info("node %s: air %.3f C / %.3f %%RH is outside the SHT45's range, "
+                 "nothing derived", node_id, t_c, rh_pct)
+        return []
+
+    return [
+        (f"{base}/air_temp_c", _fmt(t_c)),
+        (f"{base}/air_rh_pct", _fmt(rh_pct)),
+        (f"{base}/vpd_kpa", _fmt(vpd.vpd_kpa(t_c, rh_pct))),
+    ]
 
 
 # Which derivation runs for a node is a property of its role, and the role lives in the
