@@ -45,6 +45,8 @@ __all__ = [
     "vpd_kpa",
     "vpd_from_ticks",
     "out_of_band",
+    "temp_out_of_band",
+    "rh_out_of_band",
 ]
 
 #: Both SHT45 channels are u16, so full scale is 0xFFFF (packet-v1.md bits 6 and 7).
@@ -130,23 +132,39 @@ def vpd_from_ticks(temp_ticks: float, rh_ticks: float) -> float:
     return vpd_kpa(air_temp_c(temp_ticks), air_rh_pct(rh_ticks))
 
 
-def out_of_band(t_c: float, rh_pct: float) -> bool:
-    """Is this reading outside what an SHT45 can physically be?
-
-    Reports; does not refuse. `vpd_kpa` still returns a number for an out-of-band input,
-    because deciding whether to publish it is derive.py's job and this module has no
-    business having an opinion about a gateway's policy.
+def temp_out_of_band(t_c: float) -> bool:
+    """Is this air temperature outside what an SHT45 can physically be?
 
     Edges are inclusive: -40 and 125 °C are the sensor's specified limits, not one step
     outside them, and a probe sitting exactly at spec is at spec.
 
-    The RH limits carry one tick of slack on each side — see RH_TICK_PCT. Temperature
-    does not, because its band sits well inside the tick range and quantisation cannot
-    push a real reading across it.
+    No quantisation slack, unlike RH: this band sits thousands of ticks inside the tick
+    grid's own -45..130 °C span, so rounding cannot push a real reading across it.
     """
-    if not SHT45_T_MIN_C <= t_c <= SHT45_T_MAX_C:
-        return True
+    return not SHT45_T_MIN_C <= t_c <= SHT45_T_MAX_C
+
+
+def rh_out_of_band(rh_pct: float) -> bool:
+    """Is this humidity outside what an SHT45 can physically be?
+
+    Carries one tick of slack at each end — see RH_TICK_PCT. Unlike temperature, the
+    physical limit here is reachable: saturated air lands a tick ABOVE 100 %, and without
+    the slack every saturated reading is condemned as a broken sensor.
+    """
     return not (RH_MIN_PCT - RH_TICK_PCT) <= rh_pct <= (RH_MAX_PCT + RH_TICK_PCT)
+
+
+def out_of_band(t_c: float, rh_pct: float) -> bool:
+    """Either half outside the sensor's physical range.
+
+    Reports; does not refuse. `vpd_kpa` still returns a number for an out-of-band input,
+    because deciding whether to publish is derive.py's job and this module has no
+    business holding an opinion about a gateway's policy.
+
+    Callers that publish the two channels separately want the per-channel predicates
+    above; this one is for the VPD question, which needs both halves trustworthy.
+    """
+    return temp_out_of_band(t_c) or rh_out_of_band(rh_pct)
 
 
 def _clamped_rh(rh_pct: float) -> float:

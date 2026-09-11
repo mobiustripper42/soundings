@@ -208,41 +208,57 @@ def test_a_canopy_sht45_produces_temperature_humidity_and_vpd():
     assert out[f"farm/soundings/{BED}/vpd_kpa"] == "0.94"
 
 
-def test_half_a_pair_derives_nothing_and_the_whole_pair_does():
-    # ⚠ VPD needs both. Air temperature alone says nothing about drying power, so a
-    # half-present pair publishes neither half rather than putting a number on the bus
-    # that looks like part of a VPD reading.
-    for missing in ("AIR_TEMP", "AIR_RH"):
-        out = topics(derive.derive_bed(air_reading(drop=[missing]), CFG))
-        assert f"farm/soundings/{BED}/vpd_kpa" not in out, missing
-        assert f"farm/soundings/{BED}/air_temp_c" not in out, missing
-        assert f"farm/soundings/{BED}/air_rh_pct" not in out, missing
-        # ...and the soil half is untouched, so this is not "derived nothing at all".
-        assert f"farm/soundings/{BED}/tension_0_kpa" in out, missing
+def test_half_a_pair_withholds_vpd_but_still_publishes_the_half_that_arrived():
+    # ⚠ VPD needs both — air temperature alone says nothing about drying power, the same
+    # way tank.py withholds gallons with no headspace temp. But each channel is a
+    # measurement in its own right and publishes on its own merits, exactly as the soil
+    # temperatures above do. Withholding the arrived half too would discard good data
+    # because its neighbour was missing.
+    out = topics(derive.derive_bed(air_reading(drop=["AIR_RH"]), CFG))
+    assert f"farm/soundings/{BED}/vpd_kpa" not in out
+    assert f"farm/soundings/{BED}/air_rh_pct" not in out
+    assert out[f"farm/soundings/{BED}/air_temp_c"] == "20.00"
 
+    out = topics(derive.derive_bed(air_reading(drop=["AIR_TEMP"]), CFG))
+    assert f"farm/soundings/{BED}/vpd_kpa" not in out
+    assert f"farm/soundings/{BED}/air_temp_c" not in out
+    assert out[f"farm/soundings/{BED}/air_rh_pct"] == "60.00"
+
+    # The paired legal case: a whole pair derives the lot.
     assert f"farm/soundings/{BED}/vpd_kpa" in topics(derive.derive_bed(air_reading(), CFG))
 
 
 def test_a_faulted_air_channel_withholds_vpd_and_an_unfaulted_pair_publishes_it():
-    for kwargs in ({"temp_fault": True}, {"rh_fault": True}):
-        out = topics(derive.derive_bed(air_reading(**kwargs), CFG))
-        assert f"farm/soundings/{BED}/vpd_kpa" not in out, kwargs
-        assert f"farm/soundings/{BED}/tension_0_kpa" in out, kwargs
+    # A declared channel that did not answer (DEC-002) — same treatment as absent.
+    out = topics(derive.derive_bed(air_reading(rh_fault=True), CFG))
+    assert f"farm/soundings/{BED}/vpd_kpa" not in out
+    assert f"farm/soundings/{BED}/air_rh_pct" not in out
+    assert out[f"farm/soundings/{BED}/air_temp_c"] == "20.00"   # the good half survives
+    assert f"farm/soundings/{BED}/tension_0_kpa" in out          # and so does the soil
 
     assert f"farm/soundings/{BED}/vpd_kpa" in topics(derive.derive_bed(air_reading(), CFG))
 
 
-def test_out_of_band_air_publishes_nothing_not_even_the_temperature():
+def test_out_of_band_air_is_dropped_per_channel():
     # ⚠ Zero ticks decodes to a perfectly well-formed -45 °C at -6 %RH, and full scale to
     # 130 °C at 119 %RH — a VPD of -52 kPa. Both are a dead or disconnected part, not
-    # weather, and a plausible-looking temperature published from one is worse than a gap
-    # because nobody re-checks a number that looks fine.
+    # weather, and a plausible-looking number published from one is worse than a gap
+    # because nobody re-checks a reading that looks fine.
     for ticks in ((0, 0), (65535, 65535)):
         out = topics(derive.derive_bed(
             air_reading(temp_ticks=ticks[0], rh_ticks=ticks[1]), CFG))
         assert f"farm/soundings/{BED}/vpd_kpa" not in out, ticks
         assert f"farm/soundings/{BED}/air_temp_c" not in out, ticks
+        assert f"farm/soundings/{BED}/air_rh_pct" not in out, ticks
         assert f"farm/soundings/{BED}/tension_0_kpa" in out, ticks   # the soil half survives
+
+    # ⚠ The case the per-channel split exists for: one half impossible, the other fine.
+    # A whole-reading band check would throw away a perfectly good 20 °C because the
+    # humidity channel came back at 119 %.
+    out = topics(derive.derive_bed(air_reading(rh_ticks=65535), CFG))
+    assert out[f"farm/soundings/{BED}/air_temp_c"] == "20.00"
+    assert f"farm/soundings/{BED}/air_rh_pct" not in out
+    assert f"farm/soundings/{BED}/vpd_kpa" not in out
 
     assert f"farm/soundings/{BED}/air_temp_c" in topics(derive.derive_bed(air_reading(), CFG))
 

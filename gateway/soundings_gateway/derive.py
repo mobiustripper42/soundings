@@ -236,41 +236,54 @@ def _derive_bed(msg: dict, cfg) -> list[tuple[str, str]]:
 def _derive_air(msg: dict, base: str, node_id) -> list[tuple[str, str]]:
     """Canopy air: temperature, humidity, and the VPD computed from them (SPEC §5.3).
 
-    ⚠ **VPD needs BOTH channels, so a half-present pair derives nothing.** Unlike the
-    soil temperatures above — each a measurement in its own right — air temperature on
-    its own says nothing about drying power. Publishing the half that arrived would put a
-    number on the bus that looks like part of a VPD reading and is not.
+    Each measurement publishes on its own merits; only the DERIVED value needs both.
+    That is the same split the soil temperatures above take — published first, in their
+    own right, so someone can check a suspicious tension against the temperature that
+    produced it — and the same one _derive_tank takes with distance and headspace temp.
+    A canopy temperature is real information whether or not its RH arrived.
+
+    ⚠ Each channel is band-checked SEPARATELY. The registry's tick conversions span
+    -45..130 °C and -6..119 %RH, which is the raw grid and not what an SHT45 can
+    physically be: zero ticks decodes to a perfectly well-formed -45 °C at -6 %RH, and
+    full scale to 130 °C at 119 %RH — a VPD of -52 kPa. Those are a dead or disconnected
+    part, and a plausible-looking number published from one is worse than a gap because
+    nobody re-checks a reading that looks fine. Quantisation is handled inside the
+    predicates: saturated air lands a tick above 100 % and is not a fault.
     """
+    out: list[tuple[str, str]] = []
+
     t_ch = _channel(msg, "AIR_TEMP")
+    t_c = None
+    if t_ch is not None:
+        t_c = vpd.air_temp_c(t_ch["raw"])
+        if vpd.temp_out_of_band(t_c):
+            log.info("node %s: air temp %.3f C is outside the SHT45's range, dropped",
+                     node_id, t_c)
+            t_c = None
+        else:
+            out.append((f"{base}/air_temp_c", _fmt(t_c)))
+
     rh_ch = _channel(msg, "AIR_RH")
-    if t_ch is None or rh_ch is None:
-        return []
+    rh_pct = None
+    if rh_ch is not None:
+        rh_pct = vpd.air_rh_pct(rh_ch["raw"])
+        if vpd.rh_out_of_band(rh_pct):
+            log.info("node %s: air RH %.3f %% is outside the SHT45's range, dropped",
+                     node_id, rh_pct)
+            rh_pct = None
+        else:
+            out.append((f"{base}/air_rh_pct", _fmt(rh_pct)))
 
-    t_c = vpd.air_temp_c(t_ch["raw"])
-    rh_pct = vpd.air_rh_pct(rh_ch["raw"])
+    # ⚠ No humidity, no VPD. Air temperature alone says nothing about drying power, so a
+    # half-present pair derives nothing — the same rule tank.py applies when it withholds
+    # gallons with no headspace temperature. The measured halves above still went out.
+    if t_c is None or rh_pct is None:
+        if t_ch is not None or rh_ch is not None:
+            log.info("node %s: VPD needs both AIR_TEMP and AIR_RH, not derived", node_id)
+        return out
 
-    # ⚠ Out of band is a BROKEN sensor, not a marginal reading, and nothing is published
-    # for it — not even the raw temperature.
-    #
-    # The registry's tick conversions span -45..130 °C and -6..119 %RH, which is the raw
-    # grid and not what an SHT45 can physically be. Zero ticks on both channels decodes
-    # to a perfectly well-formed -45 °C at -6 %RH, and full scale decodes to 130 °C at
-    # 119 %RH — a VPD of -52 kPa. Those are a disconnected or dead part answering, and a
-    # plausible-looking temperature published from one is worse than a gap, because
-    # nobody re-checks a number that looks fine.
-    #
-    # Quantisation is handled inside out_of_band: saturated air lands a tick above 100 %
-    # and is not a fault.
-    if vpd.out_of_band(t_c, rh_pct):
-        log.info("node %s: air %.3f C / %.3f %%RH is outside the SHT45's range, "
-                 "nothing derived", node_id, t_c, rh_pct)
-        return []
-
-    return [
-        (f"{base}/air_temp_c", _fmt(t_c)),
-        (f"{base}/air_rh_pct", _fmt(rh_pct)),
-        (f"{base}/vpd_kpa", _fmt(vpd.vpd_kpa(t_c, rh_pct))),
-    ]
+    out.append((f"{base}/vpd_kpa", _fmt(vpd.vpd_kpa(t_c, rh_pct))))
+    return out
 
 
 # Which derivation runs for a node is a property of its role, and the role lives in the

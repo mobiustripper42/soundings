@@ -218,3 +218,64 @@ def test_the_module_is_independent_of_the_vector_file():
     svp = 0.61078 * math.exp((17.27 * t) / (t + 237.3))
     assert v["svp_kpa"] == pytest.approx(svp, abs=1e-5)
     assert v["vpd_kpa"] == pytest.approx(svp * (1 - rh / 100.0), abs=1e-5)
+
+
+# ---- The sim and the field must agree ---------------------------------------
+
+
+def test_the_emitters_tick_encoding_is_the_exact_inverse_of_this_module():
+    """⚠ The sim encodes SHT45 ticks and this module decodes them. Nothing else pins
+    those two formulas together.
+
+    emitter._sht_temp_ticks / _sht_rh_ticks invert air_temp_c / air_rh_pct by hand, in a
+    different file, with the constants written out twice. Edit one and the sim silently
+    disagrees with the field — every chart shifts and no test fails. Raised in review on
+    issue #21 as the drift this task most plausibly ships.
+    """
+    from soundings_gateway import emitter
+
+    for t_c in (-40.0, -5.0, 0.0, 16.0, 20.0, 25.0, 37.5, 100.0, 125.0):
+        # One tick is 175/65535 = 0.00267 °C, so a round trip cannot lose more than that.
+        assert vpd.air_temp_c(emitter._sht_temp_ticks(t_c)) == pytest.approx(t_c, abs=0.003)
+
+    for rh in (0.0, 12.5, 50.0, 60.0, 99.0, 100.0):
+        # One tick is 125/65535 = 0.0019 %RH.
+        assert vpd.air_rh_pct(emitter._sht_rh_ticks(rh)) == pytest.approx(rh, abs=0.002)
+
+
+def test_the_sims_default_node_stays_inside_the_sensors_band():
+    """A NodeSpec default nudged toward the SHT45's limits would start producing
+    out-of-band readings, and derive.py would quietly stop publishing VPD for the whole
+    sim fleet. The failure is a chart that goes empty, which looks like a broken pipeline
+    rather than like a fixture someone edited.
+    """
+    from soundings_gateway import emitter
+
+    spec = emitter.NodeSpec(node_id=2)
+    # The emitter swings air temp by ±4 °C and RH by ∓12 % about the defaults, so check
+    # the extremes of that swing rather than the midpoint.
+    for t_c in (spec.air_temp_c - 4.0, spec.air_temp_c + 4.0):
+        assert not vpd.temp_out_of_band(t_c), t_c
+    for rh in (spec.air_rh_pct - 12.0, spec.air_rh_pct + 12.0):
+        assert not vpd.rh_out_of_band(rh), rh
+
+
+def test_the_two_halves_of_the_band_check_are_independent():
+    """⚠ Split out of `out_of_band` on review of issue #21.
+
+    derive.py publishes air temperature and humidity on their own merits and gates only
+    the derived VPD on having both — the same split the soil temperatures take. That
+    needs a per-channel verdict: a humidity channel reading 119 % must not throw away a
+    perfectly good 20 °C sitting beside it.
+    """
+    assert vpd.rh_out_of_band(119.0)
+    assert not vpd.temp_out_of_band(20.0)
+    assert vpd.out_of_band(20.0, 119.0)          # the composite still says "no VPD"
+
+    # And the mirror, so neither predicate can be the one that always answers.
+    assert vpd.temp_out_of_band(130.0)
+    assert not vpd.rh_out_of_band(60.0)
+    assert vpd.out_of_band(130.0, 60.0)
+
+    # Both fine means the composite is fine.
+    assert not vpd.out_of_band(20.0, 60.0)
