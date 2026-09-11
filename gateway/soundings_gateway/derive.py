@@ -22,7 +22,7 @@ from __future__ import annotations
 
 import logging
 
-from . import tank, tension
+from . import tank, tension, vpd
 
 log = logging.getLogger(__name__)
 
@@ -229,6 +229,60 @@ def _derive_bed(msg: dict, cfg) -> list[tuple[str, str]]:
             # The flag says the number is directional rather than quantitative.
             out.append((f"{base}/tension_{bit}_wet_end", "1"))
 
+    out.extend(_derive_air(msg, base, node_id))
+    return out
+
+
+def _derive_air(msg: dict, base: str, node_id) -> list[tuple[str, str]]:
+    """Canopy air: temperature, humidity, and the VPD computed from them (SPEC §5.3).
+
+    Each measurement publishes on its own merits; only the DERIVED value needs both.
+    That is the same split the soil temperatures above take — published first, in their
+    own right, so someone can check a suspicious tension against the temperature that
+    produced it — and the same one _derive_tank takes with distance and headspace temp.
+    A canopy temperature is real information whether or not its RH arrived.
+
+    ⚠ Each channel is band-checked SEPARATELY. The registry's tick conversions span
+    -45..130 °C and -6..119 %RH, which is the raw grid and not what an SHT45 can
+    physically be: zero ticks decodes to a perfectly well-formed -45 °C at -6 %RH, and
+    full scale to 130 °C at 119 %RH — a VPD of -52 kPa. Those are a dead or disconnected
+    part, and a plausible-looking number published from one is worse than a gap because
+    nobody re-checks a reading that looks fine. Quantisation is handled inside the
+    predicates: saturated air lands a tick above 100 % and is not a fault.
+    """
+    out: list[tuple[str, str]] = []
+
+    t_ch = _channel(msg, "AIR_TEMP")
+    t_c = None
+    if t_ch is not None:
+        t_c = vpd.air_temp_c(t_ch["raw"])
+        if vpd.temp_out_of_band(t_c):
+            log.info("node %s: air temp %.3f C is outside the SHT45's range, dropped",
+                     node_id, t_c)
+            t_c = None
+        else:
+            out.append((f"{base}/air_temp_c", _fmt(t_c)))
+
+    rh_ch = _channel(msg, "AIR_RH")
+    rh_pct = None
+    if rh_ch is not None:
+        rh_pct = vpd.air_rh_pct(rh_ch["raw"])
+        if vpd.rh_out_of_band(rh_pct):
+            log.info("node %s: air RH %.3f %% is outside the SHT45's range, dropped",
+                     node_id, rh_pct)
+            rh_pct = None
+        else:
+            out.append((f"{base}/air_rh_pct", _fmt(rh_pct)))
+
+    # ⚠ No humidity, no VPD. Air temperature alone says nothing about drying power, so a
+    # half-present pair derives nothing — the same rule tank.py applies when it withholds
+    # gallons with no headspace temperature. The measured halves above still went out.
+    if t_c is None or rh_pct is None:
+        if t_ch is not None or rh_ch is not None:
+            log.info("node %s: VPD needs both AIR_TEMP and AIR_RH, not derived", node_id)
+        return out
+
+    out.append((f"{base}/vpd_kpa", _fmt(vpd.vpd_kpa(t_c, rh_pct))))
     return out
 
 
