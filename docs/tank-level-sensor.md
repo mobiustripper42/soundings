@@ -193,6 +193,35 @@ One DS18B20 on a 1-Wire bus, in the tank headspace, **shaded from the lid**
 compensation; one reseller claims the sensor has it. DFRobot's own FAQ and ESP32
 guide both tell you to implement it yourself. **Assume none.**
 
+### Read strategy, headspace half (Phase 3.8c)
+
+Built 2026-09-07, from the Analog Devices DS18B20 datasheet rather than from memory.
+Node-side pins and cabling: `HARDWARE_BUILD_PLAN.md` § *Wiring the DS18B20 headspace probe*.
+
+One `read()` is one whole cycle, mirroring the A02YYUW's: rail on, reset, Skip ROM,
+Convert T, poll, read scratchpad, CRC-8, mask, sentinel, band check, rail off. The two
+drivers each cycle the switched rail themselves, so the free-running ultrasonic sensor is
+unpowered while the probe converts — two rail cycles per wake, and simpler than
+ref-counting a rail two owners would have to agree about.
+
+- **9-bit, ~94 ms** against 12-bit's 750 ms (DEC-014). The 0.5 °C step is 1.76 mm of
+  residual at a 2 m path, against the ~141 mm being corrected.
+- **The low three bits are masked.** At 9-bit the datasheet declares bits 2-0 *undefined*,
+  not zero, and `derive.py` divides raw by 16 and trusts it — so unmasked they are up to
+  0.4375 °C of invented temperature.
+- **The conversion wait polls the bus, not a timer.** Externally powered, the part answers
+  read slots with 0 while converting and 1 when done. `IClock` only supplies a deadline
+  backstop, so nothing blocks in `delay()`.
+- **The node writes 9-bit to the probe's EEPROM once, itself** (DEC-015), verified by
+  cycling the rail and bounded to one attempt per boot. There is no bench provisioning step.
+- **`0x0550` (+85.0 °C) is rejected** — it is the power-on reset value of the temperature
+  register, so a scratchpad carrying it means no conversion completed.
+- **The band check is the sensor's own −55…+125 °C only.** Tank plausibility stays
+  gateway-side, same rule as the distance driver.
+
+⚠ **A failed EEPROM write is invisible in the field.** The reading stays good — the cost is
+awake time, not accuracy — and the packet has no status field to carry it. Issue #98.
+
 ### The correction runs gateway-side, in Python (DEC-007)
 
 The node puts **raw distance and raw DS18B20 counts** on the wire and derives

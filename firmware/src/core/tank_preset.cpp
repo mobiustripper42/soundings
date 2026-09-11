@@ -11,9 +11,17 @@ NodeManifest tankPreset(uint8_t node_id) {
     // place for it to be wrong.
     m.intervalMs = kDefaultIntervalMs;
     m.jitterMs   = kDefaultJitterMs;
-    // One sensor, one UART, no analog front end — the reason DEC-005 put this node first.
-    m.channels[0] = ChannelDecl{8, kSensorTypeDistance};   // 8 = TANK_DISTANCE
-    m.count       = 1;
+    // Two sensors, one UART and one 1-Wire bus, still no analog front end — the reason
+    // DEC-005 put this node first survives the second sensor.
+    //
+    // The headspace temperature is not optional garnish. DEC-007 makes it required: the
+    // speed of sound moves ~0.176 %/C, which over a 2 m headspace is 14.1 cm of apparent
+    // level change with no water moving, against a sensor specified to +/-1 cm. A tank node
+    // that declared only the distance channel would report a level that swings with the
+    // weather.
+    m.channels[0] = ChannelDecl{8, kSensorTypeDistance};   // 8 = TANK_DISTANCE  (u16, mm)
+    m.channels[1] = ChannelDecl{4, kSensorTypeDsTemp};     // 4 = SOIL_TEMP_0    (i16, 1/16 C)
+    m.count       = 2;
     return m;
 }
 

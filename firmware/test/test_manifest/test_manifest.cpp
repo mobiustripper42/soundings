@@ -3,8 +3,10 @@
 #include "tank_preset.h"
 #include "missing_sampler.h"
 #include "distance_sampler.h"
+#include "temp_sampler.h"
 #include "../fakes/fake_clock.h"
 #include "../fakes/fake_distance.h"
+#include "../fakes/fake_temp.h"
 #include "../fakes/fake_radio.h"
 #include "../fakes/fake_battery.h"
 #include "../fakes/fake_sleeper.h"
@@ -22,6 +24,7 @@
 using namespace soundings;
 
 static const uint8_t kTankChannel  = 8;    // TANK_DISTANCE
+static const uint8_t kHeadspaceChannel = 4;    // SOIL_TEMP_0, reused for headspace (DEC-007)
 static const uint8_t kSoilChannel  = 0;    // SOIL_TENSION_0
 static const uint8_t kReservedBit  = 13;   // width 0 in the packet.h registry
 
@@ -37,13 +40,16 @@ struct Node {
     FakeSleeper  sleeper{clock};
     FakeRandom   rng;
     FakeSeqStore seq;
+    FakeTemp     temp;
     DistanceSampler distanceSampler{distance};
-    SamplerEntry registry[1] = {{kSensorTypeDistance, &distanceSampler}};
+    TempSampler     tempSampler{temp};
+    SamplerEntry registry[2] = {{kSensorTypeDistance, &distanceSampler},
+                                {kSensorTypeDsTemp,   &tempSampler}};
     SensorSlot   slots[kMaxChannels] = {};
     size_t       slotCount = 0;
 
     BindResult bind(const NodeManifest& m) {
-        return bindManifest(m, registry, 1, slots, kMaxChannels, slotCount);
+        return bindManifest(m, registry, 2, slots, kMaxChannels, slotCount);
     }
     ParseResult received(int i, Packet& out) {
         return deserialize(radio.frame(i), radio.frameLen(i), out);
@@ -62,12 +68,17 @@ static NodeManifest manifestOf(uint8_t node_id, const ChannelDecl* decls, uint8_
 
 // ---- The preset ------------------------------------------------------------
 
-void test_tank_preset_declares_exactly_the_distance_channel() {
+// Renamed with the preset, not just re-numbered: it declared exactly the distance channel
+// until Phase 3.8c, and a test whose name says "exactly" while asserting two channels turns
+// an unverified claim into an apparently-verified one.
+void test_tank_preset_declares_the_distance_and_headspace_channels() {
     NodeManifest m = tankPreset(7);
     TEST_ASSERT_EQUAL_UINT8(7, m.node_id);
-    TEST_ASSERT_EQUAL_UINT8(1, m.count);
+    TEST_ASSERT_EQUAL_UINT8(2, m.count);
     TEST_ASSERT_EQUAL_UINT8(kTankChannel, m.channels[0].channelBit);
     TEST_ASSERT_EQUAL_UINT8(kSensorTypeDistance, m.channels[0].sensorTypeId);
+    TEST_ASSERT_EQUAL_UINT8(kHeadspaceChannel, m.channels[1].channelBit);
+    TEST_ASSERT_EQUAL_UINT8(kSensorTypeDsTemp, m.channels[1].sensorTypeId);
 }
 
 void test_tank_preset_carries_the_spec_cadence() {
@@ -85,12 +96,18 @@ void test_tank_preset_takes_its_node_id_from_the_caller() {
 
 // ---- Binding ---------------------------------------------------------------
 
-void test_preset_binds_to_a_single_slot_on_the_distance_sampler() {
+// Renamed for the same reason as the preset test above: it bound a single slot until Phase
+// 3.8c, and the old name would now be describing a node it no longer builds.
+void test_preset_binds_both_channels_to_their_own_samplers() {
     Node n;
     TEST_ASSERT_TRUE(n.bind(tankPreset(7)) == BindResult::Ok);
-    TEST_ASSERT_EQUAL_size_t(1, n.slotCount);
+    TEST_ASSERT_EQUAL_size_t(2, n.slotCount);
     TEST_ASSERT_EQUAL_UINT8(kTankChannel, n.slots[0].channelBit);
     TEST_ASSERT_EQUAL_PTR(&n.distanceSampler, n.slots[0].sampler);
+    TEST_ASSERT_EQUAL_UINT8(kHeadspaceChannel, n.slots[1].channelBit);
+    // Distinct pointers, not just non-null: two channels resolving to the SAME sampler is
+    // the plausible registry bug here, and it would publish the distance twice.
+    TEST_ASSERT_EQUAL_PTR(&n.tempSampler, n.slots[1].sampler);
 }
 
 // THE DEC-002 TEST. A declared sensor whose driver is absent must ride as declared AND
@@ -204,7 +221,7 @@ void test_count_beyond_the_manifest_array_is_rejected_without_reading_past_it() 
     // numbers being equal — which is exactly the caller discipline this pins.
     SensorSlot roomy[kMaxChannels * 2] = {};
     size_t count = 0;
-    TEST_ASSERT_TRUE(bindManifest(m, n.registry, 1, roomy, kMaxChannels * 2, count)
+    TEST_ASSERT_TRUE(bindManifest(m, n.registry, 2, roomy, kMaxChannels * 2, count)
                      == BindResult::TooManyChannels);
     TEST_ASSERT_EQUAL_size_t(0, count);
 }
@@ -224,7 +241,7 @@ void test_more_declarations_than_slots_is_rejected() {
                                  {kTankChannel, kSensorTypeDistance}};
     NodeManifest m = manifestOf(7, decls, 2);
     size_t count = 0;
-    TEST_ASSERT_TRUE(bindManifest(m, n.registry, 1, n.slots, 1, count)
+    TEST_ASSERT_TRUE(bindManifest(m, n.registry, 2, n.slots, 1, count)
                      == BindResult::TooManyChannels);
 }
 
@@ -273,6 +290,11 @@ void test_manifest_store_to_packet_end_to_end() {
     Node n;
     FakeManifestStore store(tankPreset(7));
     n.distance.push(1347);
+    // -0.5 C, the datasheet's own below-zero row. Chosen over a room temperature on purpose:
+    // this is the only test in the suite that walks a NEGATIVE reading from a sensor seam,
+    // through TempSampler's int16->uint16 cast, through serialize(), and back out through
+    // deserialize(). Every other value would pass whether or not the cast were right.
+    n.temp.setReading((int16_t)0xFFF8);
     n.battery.setReading(3810);
     n.rng.push(0);
 
@@ -290,14 +312,20 @@ void test_manifest_store_to_packet_end_to_end() {
     TEST_ASSERT_FALSE(p.isFault(kTankChannel));
     TEST_ASSERT_EQUAL_UINT16(1347, p.channels[kTankChannel]);
     TEST_ASSERT_EQUAL_UINT16(3810, p.battery_mv);
+
+    // Both sensors ride in ONE packet, and the headspace value survives with its sign.
+    TEST_ASSERT_TRUE(p.hasChannel(kHeadspaceChannel));
+    TEST_ASSERT_FALSE(p.isFault(kHeadspaceChannel));
+    TEST_ASSERT_EQUAL_HEX16(0xFFF8, p.channels[kHeadspaceChannel]);
+    TEST_ASSERT_EQUAL_INT16(-8, (int16_t)p.channels[kHeadspaceChannel]);
 }
 
 int main(int, char**) {
     UNITY_BEGIN();
-    RUN_TEST(test_tank_preset_declares_exactly_the_distance_channel);
+    RUN_TEST(test_tank_preset_declares_the_distance_and_headspace_channels);
     RUN_TEST(test_tank_preset_carries_the_spec_cadence);
     RUN_TEST(test_tank_preset_takes_its_node_id_from_the_caller);
-    RUN_TEST(test_preset_binds_to_a_single_slot_on_the_distance_sampler);
+    RUN_TEST(test_preset_binds_both_channels_to_their_own_samplers);
     RUN_TEST(test_declared_channel_with_no_driver_is_faulted_not_dropped);
     RUN_TEST(test_channel_declared_with_no_sensor_type_is_faulted_not_dropped);
     RUN_TEST(test_registered_driver_that_is_not_declared_is_never_sampled);

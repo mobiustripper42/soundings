@@ -108,6 +108,36 @@
       }
     },
     {
+      "name": "tank_node_with_headspace",
+      "description": "Tank node as actually built from Phase 3.8c: distance AND headspace temperature in one packet, the temperature below zero. DEC-007 makes the second channel required rather than optional -- the speed of sound moves ~0.176 %/C, which over a 2 m headspace is 14.1 cm of apparent level change with no water moving. The sub-zero value is the point: it is the only place the node's int16 sensor value, the uint16 packet word and the gateway's signed read of channel 4 can disagree without anything failing loudly.",
+      "fields": {
+        "proto_ver": 1,
+        "node_id": 10,
+        "fw_version": 264,
+        "seq": 2,
+        "battery_mv": 3690,
+        "channel_mask": 272,
+        "fault_mask": 0,
+        "channels": [
+          {
+            "name": "SOIL_TEMP_0",
+            "raw": -8,
+            "fault": false
+          },
+          {
+            "name": "TANK_DISTANCE",
+            "raw": 1347,
+            "fault": false
+          }
+        ]
+      },
+      "expected": {
+        "hex": "010a080102006a0e10010000f8ff4305f3f4",
+        "len": 18,
+        "crc16": "0xF4F3"
+      }
+    },
+    {
       "name": "bed_node_nominal",
       "description": "Bed node: 2 Watermarks (6\"/12\") + 2 DS18B20 + SHT45 (T,RH). Typical.",
       "fields": {

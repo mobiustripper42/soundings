@@ -4,14 +4,18 @@
 #include "tank_preset.h"
 #include "sensor_registry.h"
 #include "distance_sampler.h"
+#include "temp_sampler.h"
 #include "nodemanifest.h"
 #include "sx1262_radio.h"
 #include "iclock.h"
 #include "ibattery.h"
 #include "isleeper.h"
 #include "idistance.h"
+#include "itemp.h"
 #include "a02yyuw.h"
+#include "ds18b20.h"
 #include "uart_bytesource.h"
+#include "onewire_bus.h"
 #include "vext_rail.h"
 #include "ota_client.h"
 
@@ -27,8 +31,10 @@
 // isn't one.
 //
 // IDistance became real in 3.8b (issue #71): a live A02YYUW on GPIO6, gated by the Vext
-// rail on GPIO36. The headspace DS18B20 that DEC-007 requires is 3.8c (issue #94) and is
-// not declared yet, so this node still ships one channel.
+// rail on GPIO36. ITemp became real in 3.8c (issue #94): a DS18B20 on GPIO7 behind a
+// bit-banged 1-Wire bus, on the same rail. The node now ships two channels — distance on
+// bit 8 and headspace temperature on bit 4 — which is what DEC-007 requires for the
+// gateway's speed-of-sound correction to have an input.
 
 using namespace soundings;
 
@@ -83,11 +89,35 @@ VextRail         g_sensorRail;
 A02yyuwDistance  g_distance(g_sensorBytes, g_sensorRail, g_clock);
 DistanceSampler  g_distanceSampler(g_distance);
 
+// The headspace probe. It shares g_sensorRail with the distance sensor deliberately: each
+// driver cycles the rail itself, so the free-running A02YYUW is unpowered while the DS18B20
+// converts. That is two rail cycles per wake instead of one, and it is simpler than
+// ref-counting a rail two owners would have to agree about.
+RTC_DATA_ATTR bool g_healAttempted = false;
+struct RtcHealAttemptFlag : IHealAttemptFlag {
+    bool attempted() const override { return g_healAttempted; }
+    void markAttempted() override   { g_healAttempted = true; }
+};
+RtcHealAttemptFlag g_healFlag;
+OneWireBus       g_oneWire;
+Ds18b20Temp      g_temp(g_oneWire, g_sensorRail, g_clock, g_healFlag);
+TempSampler      g_tempSampler(g_temp);
+
 constexpr uint8_t  kNodeId     = 7;
 // ⚠ BUMP THIS FOR EVERY IMAGE YOU PUBLISH. The daemon compares it against the manifest's
 // version to decide whether a node is stale, so two different builds sharing a value are
 // indistinguishable and the node will believe it is already current (issue #79).
-constexpr uint16_t kFwVersion  = 0x0108;   // 264 — first image with a live distance sensor
+constexpr uint16_t kFwVersion  = 0x010E;   // 270 — the two bench defects from issue #94, the
+                                           // heal's verify removed (it never worked), and the
+                                           // redundant pre-read reset dropped on code review.
+                                           // First image published over the air carrying a
+                                           // working DS18B20 (2026-09-10).
+                                           // 0x0109 could never talk to a DS18B20 at all:
+                                           // pinMode() cost 14 us inside a 15 us window, so
+                                           // every write-1 went out as a 0 (onewire_bus.cpp).
+                                           // 0x010A fixed that and still faulted, because the
+                                           // part lies about conversion-complete; ds18b20.cpp
+                                           // now floors the wait at the real conversion time.
 
 // The OTA client — the real IDownlinkHandler (issue #79). Declared after kFwVersion
 // because it needs it: bit 0 means "you are not running what I have", and "what I am
@@ -120,6 +150,11 @@ void setup() {
     // Arduino's init() would be configuring a peripheral that is not up yet.
     g_sensorBytes.begin();
 
+    // Idle the 1-Wire line released before the rail ever comes up. A pad left as an output
+    // from a previous boot would hold DQ low through the DS18B20's power-on and the part
+    // would never answer a presence pulse.
+    g_oneWire.begin();
+
     // ⚠ If the radio does not come up we still run the cycle and still sleep. The
     // transmit fails, no window is held, and the node tries again in fifteen minutes —
     // which is recoverable. Halting here would be a node that never wakes again, and
@@ -131,6 +166,23 @@ void setup() {
     // between "it hangs somewhere" and a pin number.
     delay(200);                       // let the USB bridge settle before the first line
     Serial.println("\nsoundings node: setup");
+    // Reported at the START of a wake, not the end, because runOnce() is terminal — there is
+    // no "after" on this program. The flag lives in RTC memory, so this is the record of a
+    // PREVIOUS wake.
+    //
+    // ⚠ IT MEANS "ATTEMPTED", NOT "FAILED", and that difference is the whole point of the
+    // flag. It is marked BEFORE the EEPROM write so the 50,000-write bound holds whatever the
+    // part does with it — nothing on the node can tell whether the write took, and since the
+    // verify was removed nothing pretends to.
+    //
+    // This line used to read "SET — a previous wake could not write the probe's EEPROM",
+    // left over from an earlier design where the flag was set only on failure. On a node that
+    // had healed perfectly it announced a fault that had not happened, which is a trip up a
+    // tank for nothing. Found on the bench 2026-09-09, on exactly such a node.
+    Serial.printf("ds18b20 heal flag: %s\n",
+                  g_healAttempted ? "set — a 9-bit write was attempted on an earlier wake, "
+                                    "and none will be tried again until reboot"
+                                  : "clear — no resolution write attempted since boot");
 #endif
 
     const bool radioUp = g_radio.begin();
@@ -148,6 +200,7 @@ void setup() {
     // manifest and binds a different subset.
     const SamplerEntry registry[] = {
         { kSensorTypeDistance, &g_distanceSampler },
+        { kSensorTypeDsTemp,   &g_tempSampler     },
     };
 
     SensorSlot slots[kMaxChannels];
