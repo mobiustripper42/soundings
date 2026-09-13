@@ -39,10 +39,18 @@ is tracked as **throughput (points per calendar week)** at phase boundaries
 | Phase | Points | Span (d) | Throughput | Re-est'd | Net drift | Sessions |
 |-------|--------|----------|------------|----------|-----------|----------|
 | 1     | 22     | 3.5      | burst (<7d) — 22 pts in 3.5d | 0 | 0 | 1 |
+| 2     | 29     | 86       | not quoted — interleaved with Phase 3 | 1 | −1 | 16 (contaminated) |
 
 Phase 1 was a single-session burst, so no per-week rate is quoted (a sub-week
 denominator is noise). Estimate unit held: every task shipped at its planned
 points (0 re-estimates, 0 net drift).
+
+Phase 2 quotes no rate either, for the opposite reason. It was parked in August
+(DEC-005), overtaken by Phase 3, and finished as leftovers — 22 of its 29 points
+closed in a single sitting on 2026-09-11, months after the code shipped. The
+86-day span measures filing lag, not work, and the session and PR counts in its
+row cover Phase 3's work too. Phase 2's real velocity is unrecoverable; the
+points and the span are the honest record.
 
 ---
 
@@ -89,15 +97,15 @@ zero hardware. The whole pipeline is de-risked before any layer is deepened.
 
 **Phase 1 total: 22 points.**
 
-### Phase 2 — Node firmware core (simulated) — ⏸ **PARKED**
+### Phase 2 — Node firmware core (simulated) — ✅ **CLOSED 2026-09-11**
 
-> **Parked 2026-08-07 (DEC-005), not cancelled.** Zero tasks were started, so
-> nothing is lost. Issues #19–#25 stay open with `phase:2` labels. Phase 3 (the
-> tank slice) builds the node firmware spine — adapter seam, run cycle, a minimal
-> manifest — against one simple sensor; this phase resumes afterward to add the
-> hard sensor math (Watermark, VPD) and the full node-type preset system on top
-> of a spine that has by then been proven on real hardware. Expect 2.1, 2.5 and
-> 2.6 to shrink at resume, since Phase 3 does a narrowed version of each.
+> **Parked 2026-08-07 (DEC-005), resumed, and closed out of order.** Phase 3 (the
+> tank slice) overtook it and built the node firmware spine — adapter seam, run
+> cycle, a minimal manifest — against one simple sensor on real hardware. Phase 2
+> then finished as leftovers: the hard sensor math (Watermark, VPD) landed, and
+> the parts that needed drivers that do not exist yet were deferred to Phase 6.1
+> rather than built speculatively. The prediction that 2.1, 2.5 and 2.6 would
+> shrink at resume was right, and it shrank them to nearly nothing.
 
 Deepen the node: every sensor behind an adapter with a fake driver; the real
 sensor math (Watermark → tension with temp compensation, VPD); the
@@ -110,15 +118,15 @@ packets pass the Phase-1 contract tests.
 
 | Task | Description | Points | Issue |
 |------|-------------|--------|-------|
-| 2.1 | Adapter seam — interface set (`ISoilMoisture`, `ITemp`, `IHumidity`, `IRadio`, `IClock`, battery) + non-sensor fakes (radio queues a packet, clock fakes `millis()`/sleep, settable battery voltage). Sensor-specific fakes ride with their math tasks. | 3 | [#19](https://github.com/mobiustripper42/soundings/issues/19) |
-| 2.2 | Watermark tension math — AC-excitation sampling (both half-cycles, DC cancel), resistance→kPa with temp compensation, valid-tension band, golden vectors for the noisy wet end. Seed coefficients; bench-calibrate in Phase 5. The anchor measurement. | 5 | [#20](https://github.com/mobiustripper42/soundings/issues/20) |
-| 2.3 | VPD + soil-temp math — SHT45 T/RH → SVP/AVP/VPD (test matrix across the tomato band + extremes), DS18B20 read (feeds 2.2's temp comp). | 3 | [#21](https://github.com/mobiustripper42/soundings/issues/21) |
-| 2.4 | Tank-level math — two-segment distance→gallons curve (IBC kink ~46"), dead-zone clamp, raw distance always emitted. **Seed coefficients; empirical fit is a Phase 5 bench task.** | 2 | [#22](https://github.com/mobiustripper42/soundings/issues/22) |
-| 2.5 | Run cycle — wake → sample (walk declared set) → assemble → transmit → sleep, non-blocking against `millis()`, ±30 s wake jitter (injectable RNG), battery read. | 5 | [#23](https://github.com/mobiustripper42/soundings/issues/23) |
-| 2.6 | Declared-manifest config + node-type presets (DEC-002) — manifest format (identity-as-data), bed/tunnel-air/tank/rig presets, declared-but-missing → fault not silent gap. One coherent unit, no split. | 8 | [#24](https://github.com/mobiustripper42/soundings/issues/24) |
-| 2.7 | Wokwi node integration — `diagram.json`, sim build flag (sim-shortened cycle constants), confirm a declared node wakes → samples → assembles → "transmits" in sim. | 3 | [#25](https://github.com/mobiustripper42/soundings/issues/25) |
+| 2.1 | Adapter seam — interface set (`ISoilMoisture`, `ITemp`, `IHumidity`, `IRadio`, `IClock`, battery) + non-sensor fakes (radio queues a packet, clock fakes `millis()`/sleep, settable battery voltage). Sensor-specific fakes ride with their math tasks. | 3 | [x] [#19](https://github.com/mobiustripper42/soundings/issues/19) — `IHumidity` deferred to Phase 6.1 |
+| 2.2 | Watermark tension math — AC-excitation sampling (both half-cycles, DC cancel), resistance→kPa with temp compensation, valid-tension band, golden vectors for the noisy wet end. Seed coefficients; bench-calibrate in Phase 5. The anchor measurement. | 5 | [x] [#20](https://github.com/mobiustripper42/soundings/issues/20) |
+| 2.3 | VPD + soil-temp math — SHT45 T/RH → SVP/AVP/VPD (test matrix across the tomato band + extremes), DS18B20 read (feeds 2.2's temp comp). | 3 | [x] [#21](https://github.com/mobiustripper42/soundings/issues/21) — delivered as 2; the wire was already finished |
+| 2.4 | Tank-level math — two-segment distance→gallons curve (IBC kink ~46"), dead-zone clamp, raw distance always emitted. **Seed coefficients; empirical fit is a Phase 5 bench task.** | 2 | [x] [#22](https://github.com/mobiustripper42/soundings/issues/22) |
+| 2.5 | Run cycle — wake → sample (walk declared set) → assemble → transmit → sleep, non-blocking against `millis()`, ±30 s wake jitter (injectable RNG), battery read. | 5 | [x] [#23](https://github.com/mobiustripper42/soundings/issues/23) — largely satisfied by Phase 3.4 (#43) |
+| 2.6 | Declared-manifest config + node-type presets (DEC-002) — manifest format (identity-as-data), bed/tunnel-air/tank/rig presets, declared-but-missing → fault not silent gap. One coherent unit, no split. | 8 | [x] [#24](https://github.com/mobiustripper42/soundings/issues/24) — bed/tunnel-air/rig presets deferred to Phase 6.1 |
+| 2.7 | Wokwi node integration — `diagram.json`, sim build flag (sim-shortened cycle constants), confirm a declared node wakes → samples → assembles → "transmits" in sim. | 3 | [x] [#25](https://github.com/mobiustripper42/soundings/issues/25) — descoped; Wokwi killed, the node is covered by the node |
 
-**Phase 2 total: 29 points (parked).**
+**Phase 2 total: 29 points. Closed 2026-09-11.**
 
 ### Phase 3 — Tank node vertical slice (the first hardware)
 
