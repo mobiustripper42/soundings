@@ -133,7 +133,7 @@ not come back.
 
 ## Versioning (project)
 
-**There IS a `package.json`** — it builds nothing and carries no dependencies, but it holds the doc-integrity gates (DEC-S036/S037) and the version the workflow bumps. So the shell's version-bump steps in `/retro` and `/bump-major` **do** run here; they no longer no-op. `<VersionTag />` is still N/A — there is no UI to render one in. Packet payloads also carry their own firmware-version field (architecture, above), which is the version that matters operationally; the repo version is the workflow's, not the fleet's, and the two are unrelated.
+**There *is* a `package.json`** — it builds nothing and carries no dependencies, but it holds the doc-integrity gates (DEC-S036/S037) and the version the workflow bumps. So the shell's version-bump steps in `/retro` and `/bump-major` **do** run here; they no longer no-op. `<VersionTag />` is still N/A — there is no UI to render one in. Packet payloads also carry their own firmware-version field (architecture, above), which is the version that matters operationally; the repo version is the workflow's, not the fleet's, and the two are unrelated.
 
 ## PR Workflow (project)
 

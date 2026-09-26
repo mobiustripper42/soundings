@@ -39,10 +39,10 @@ GATES  ( npm run verify )
   check:docs       rosters, links, and the rest of the doc set
 
 THE STOP
-  step 8 is a hard stop. built is not shipped. report what
-  changed and wait. /kill-this is invoked by the operator,
-  never by the session. reaching the same end state by hand
-  skips @code-review and announces that to nobody.
+  built is not shipped. report what changed, show anything a
+  person looks at, and wait. /kill-this is invoked by the
+  operator, never by the session. reaching the same end state
+  by hand skips @code-review and announces that to nobody.
 
 NOT CARRIED  ( these existed in seeds and do not here )
   read-the-tape pause-this restart-this doc-consistency-check

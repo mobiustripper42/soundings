@@ -7,11 +7,12 @@ Vocabulary already in the docs when the gate shipped is grandfathered and does n
 be registered — but registering it is always welcome, and registering one is how its
 alternates start being caught.
 
-11 terms.
+13 terms.
 
 | Term | Says | Not |
 |---|---|---|
 | **bench** | a breadboard node with a real radio and stand-in sensors, on a desk. The tier above simulation and below a real tunnel | — |
+| **CC** | Claude Code, the coding agent that works in this repo. Chat is the other half, doing live web research | — |
 | **EEPROM** | storage inside a sensor that outlives power loss, unlike its scratchpad. It wears out — 50,000 writes on the DS18B20, so the node writes it once per probe | — |
 | **gateway** | the always-on box on the farm network that receives packets, decodes them and publishes. Holds the antenna; stores nothing itself | `base station`, `hub` |
 | **LVC** | low-voltage cutoff — the battery level at which a node stops transmitting to avoid draining a cell past recovery | `low voltage cut-off` |
@@ -20,5 +21,6 @@ alternates start being caught.
 | **packet** | the binary record a node transmits — the contract between the firmware serializer and the gateway parser, pinned by shared test vectors | `frame` |
 | **RTC** | a small memory block on the ESP32 that survives deep sleep but not a power cycle. Home of the sequence counter and the heal-attempt flag | `RTC RAM`, `RTC slow memory` |
 | **tension** | how hard a plant must pull to get water out of the soil, in kilopascals — higher means drier. The anchor measurement; a Watermark sensor reads it directly | `soil moisture`, `moisture level` |
+| **UI** | user interface — a screen someone reads or operates | — |
 | **VPD** | vapour pressure deficit — how much more water the air could hold, derived from canopy temperature and humidity. Drives when to irrigate | — |
 | **wet confirm** | the final gate — real parts in a tunnel, in the ground, reporting. What no test suite can stand in for | `field test` |

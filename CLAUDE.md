@@ -22,22 +22,21 @@ Project-specific docs are listed in `.claude/CLAUDE-context.md` under `## Additi
 
 ## Micro Workflow (every task, no exceptions)
 
-1. **Spec it** — poker estimate + acceptance criteria. Pin what "done" looks like before writing code: enumerate the concrete set from source and confirm it. Live words override prior docs. **Get the whole spec down before step 4** — the model does its best work on a complete brief in one turn, not one assembled across a dozen exchanges.
+1. **Spec it** — poker estimate + acceptance criteria. Pin what "done" looks like before writing code: enumerate the concrete set from source and confirm it. Live words override prior docs. **Get the whole spec down before any code is written** — the model does its best work on a complete brief in one turn, not one assembled across a dozen exchanges.
 2. **Plan it** — summarize what you're going to do. Wait for explicit approval.
 3. **Cut the branch** — `git checkout -b task/X.Y-short-description`.
 4. **Prove it first** — when behaviour changes, the check comes before the change: write it, run it, watch it fail *for the reason you expect*. That failure is what proves the check bites; one written afterwards has never been observed failing, so it may assert nothing. The check must exercise the thing in its own title — a test named for one thing that calls another turns an unverified claim into an apparently-verified one. **What counts as a check: the `Proof` slot in `.claude/CLAUDE-context.md` § Workflow Mechanisms.**
-5. **Build it** — until it passes. Writing code first and then reconstructing the proof by deleting it to watch the test fail is step 4 the long way round.
+5. **Build it** — until it passes. Writing code first and then reconstructing the proof by deleting it to watch the test fail is the prove-it step the long way round.
 6. **Run the proof** — the checks covering what you touched, not the whole suite. **The test is coverage, not confidence:** if the checks you ran exercise the files you changed, that is the whole proof. Running everything again *because you are about to hand back* is the banned case, and the one that actually happens — "I'm finishing" feels like a reason and isn't. If a change plausibly reaches code you can't name, say so and ask. **Command: the `Proof command` slot.**
-7. **Check the surface** — confirm the change is right where a person meets it, which a passing check does not tell you. **How: the `Surface check` slot.**
-8. **Stop. The task is built, not shipped.** Report what changed and what passes, then **stop and wait**. Do not commit, push, open a pull request, or start the next task. This is where the work gets looked at. Waiting is the correct end of a build turn — including when everything is green and the next task is obvious. Handing back *is* the finished state.
-9. **`/kill-this` — the user invokes it, you don't.** It commits, pushes, runs `@code-review`, opens the pull request with `closes #<issue>`, and appends a `## Task <N>` block to the session file. **Reaching the same end state by hand is never acceptable** — a hand-typed `git push` + `gh pr create` produces a pull request that looks identical and has never been read by `@code-review`, and that absence announces itself to nobody. If you believe a task is ready, say so and stop.
-10. **Pick up another task or close out** — step 1 with a new branch, or `/its-dead` once at the end of the window. Merge pull requests whenever.
+7. **Stop. The task is built, not shipped.** Report what changed and what passes, then **stop and wait**. Do not commit, push, open a pull request, or start the next task. This is where the work gets looked at. Waiting is the correct end of a build turn — including when everything is green and the next task is obvious. Handing back *is* the finished state. **If the change made something a person looks at — a screen, a report, a command's output — put it in front of them here**, rendered rather than described. That is part of handing back, not a gate before it.
+8. **`/kill-this` — the user invokes it, you don't.** It commits, pushes, runs `@code-review`, opens the pull request with `closes #<issue>`, and appends a `## Task <N>` block to the session file. **Reaching the same end state by hand is never acceptable** — a hand-typed `git push` + `gh pr create` produces a pull request that looks identical and has never been read by `@code-review`, and that absence announces itself to nobody. If you believe a task is ready, say so and stop.
+9. **Pick up another task or close out** — a new branch and a fresh spec, or `/its-dead` once at the end of the window. Merge pull requests whenever.
 
 **No proof, no push.**
 
-**Steps 4, 6 and 7 name a slot, not a tool.** The shell says what the step must achieve; the context file says how it's done here. Slots are filled, not overridden. Nothing cites a step *number* — numbers move, and a stale cross-reference in an always-loaded file fails silently.
+**The proof steps name a slot, not a tool.** The shell says what the step must achieve; the context file says how it's done here. Slots are filled, not overridden. Nothing cites a step *number* — numbers move, and a stale cross-reference in an always-loaded file fails silently.
 
-**An unfilled slot is a real answer and must be written as one.** `Surface check: none — no human-facing surface` is checkable. Blank is not.
+**An unfilled slot is a real answer and must be written as one.** `Proof: none — this repo has no test runner yet` is checkable. Blank is not.
 
 ## Migration Protocol
 
@@ -56,11 +55,13 @@ Project coding conventions — typing, structure, data fetching, auth, error han
 
 Two things the gate cannot check, which is why they are here:
 
-**Search before you write, every time.** Name the subject, run `grep -rli "<subject>" docs/decisions/`, and **say what came back** in the pull request — *"returned DEC-<id>; this supersedes it"*, or *"nothing on rate limiting; new id."* That sentence is the whole control: a session that would have to write "DEC-<id> covers deposits and this is not that" cannot do it when it's false.
+**Search before you write, every time.** Name the subject, run `grep -rli --exclude-dir=archive "<subject>" docs/decisions/`, and **say what came back** in the pull request — *"returned DEC-<id>; this supersedes it"*, or *"nothing on rate limiting; new id."* That sentence is the whole control: a session that would have to write "DEC-<id> covers deposits and this is not that" cannot do it when it's false.
 
-**A change of mind is a new record, not an edit to the old one** (DEC-J004). The new record carries `supersedes: [DEC-<id>]`; the old one flips to `status: superseded`. Amending in place is retired — records grow, the cap is 2,000 bytes, and the carve-out that let amendments escape it also let a record quoting the convention escape every other rule. Two decisions that merely relate carry a plain **see also**.
+**A change of mind is a new record, not an edit to the old one** (DEC-J005). The new record carries `supersedes: [DEC-<id>]`; the old one flips to `status: superseded`. Amending in place is retired — records grow, the cap is 2,000 bytes, and the carve-out that let amendments escape it also let a record quoting the convention escape every other rule. Two decisions that merely relate carry a plain **see also**.
 
 **Records written before schema v1 are frozen**, listed by fingerprint in `docs/decisions-baseline.txt`. Editing one fails the build; the fix is to convert it to v1, splitting it if it turns out to be several decisions. The list is generated once at adoption by `scripts/gen-decisions-baseline.mjs` and never regenerated.
+
+**A record that is retired but still cited moves to `docs/decisions/archive/`.** It leaves `DECISIONS.md`, stops coming back in the search above, and keeps resolving — so the successor that says *"supersedes DEC-<id>"* stays true. That is why retirement is a move rather than a delete: a citation to a deleted record points at nothing. Use it when the index has grown too long to read, or when a record turns out never to have been a decision. Archiving does **not** unfreeze anything — a frozen record stays frozen in `archive/`.
 
 **Don't cite a decision you only saw in the index.** The index carries titles, not holdings.
 
@@ -78,31 +79,23 @@ Two things the gate cannot check, which is why they are here:
 
 **Task model:** PROJECT_PLAN.md is read at planning and written at retro, untouched mid-phase. Current tasks are GitHub Issues. The phase ends when its issues close.
 
-**Workflow fixes don't get made here.** A skill or shared agent that misbehaves in this project is not fixed in this project — those files are canonical in jig, nothing syncs in either direction, and a local fix becomes invisible drift in a file meant to be identical everywhere. Say what broke; fixing it is a deliberate act in jig.
+**Workflow fixes don't get made here.** A skill or shared agent that misbehaves in this project is not fixed in this project — those files are canonical in jig, no automation syncs them in either direction, and a local fix becomes invisible drift in a file meant to be identical everywhere. Say what broke. Do not edit the file here, and do not copy a fix in from jig yourself: fixing it is a deliberate act in jig, and bringing the fix here is a jig session's copy, asked for by name.
 
 ## Agents
 
 | Agent | Model | When | Purpose |
 |-------|-------|------|---------|
-| @architect | Opus 5 | Before design decisions, new dependencies, scope creep | Coherence vs SPEC + decisions |
+| @architect | Opus | Before design decisions, new dependencies, scope creep | Coherence vs SPEC + decisions |
 | @code-review | Sonnet | After every commit (wired into `/kill-this`) | Catch issues early |
 | @pm | Sonnet | Session start/end via skills | Progress, risks |
 | @ui-reviewer | Sonnet | After interface work, phase boundaries | Design quality |
 
 ## Model Selection
 
-Default to the cheapest model that does the job. **Opus 5 is the standing model** for development and architecture; **Sonnet** handles cheap, scoped work. **Fable is rarely worth it** — on agentic coding at `max` effort Opus 5 lands within half a percent of Fable's peak at half the cost, so the frontier tier is a narrow exception, not an escalation path.
+**Opus runs sessions; Sonnet runs agents.** Write the aliases, `opus` and `sonnet`, never a version. An alias follows each new release on its own; a version number in a file loaded every session is stale the day the next one ships, which is how this section came to name a retired default (DEC-J009).
 
-| Tier | Model | $/MTok (in/out) | Use for |
-|------|-------|-----------------|---------|
-| Cheap | `claude-sonnet-5` | $3 / $15 | Trivial or scoped agents and reviews |
-| Default | `claude-opus-5` | $5 / $25 | Development and architecture. Most work |
-| Frontier (rare) | `claude-fable-5` | $10 / $50 | Only after Opus 5 at `max` has actually failed |
-
-- **Spec it fully, then let it run.** Opus 5's edge is largest on long, coherent, multi-file work handed the complete specification in one turn. Assembling it across turns costs quality and tokens both. This is what makes step 1 load-bearing rather than ceremonial.
-- **`effort` is the primary lever, and it sweeps down.** It buys quality more cheaply than a model jump. Start at `xhigh` for coding and `high` elsewhere, then **try lower** — `low` and `medium` are unusually strong on Opus 5, and effort is what spends the allowance. `max` only when correctness must beat cost.
-- **Fast mode** runs ~2.5× faster at 2× the price. A deliberate choice for a specific impatience, never a default.
-- **Agents:** model in frontmatter. `@architect` is Opus 5; reviewers stay Sonnet. New agents default to Sonnet.
+- **Effort is `medium` by default**, set by `effortLevel` in the settings master. `xhigh` for an 8-point task. `max` occasionally, when correctness has to beat cost.
+- **Agents pin model and effort in frontmatter.** `@architect` is `opus`, the other three are `sonnet`, and all four run at `effort: high` so they do not drop with the session default. A new agent starts at `sonnet` and `high`.
 
 ## Pull Request Workflow
 
@@ -161,7 +154,7 @@ For every task — bug, feature, or question — explain the plan and wait befor
 2. For a bug or question: explain the cause and your proposed fix first.
 3. Wait for "go", "do it", or equivalent.
 
-**Answering a question you asked is not approval.** This is where "or equivalent" gets abused, and it is the observed failure — twice in one session, twice again in another. A scoping answer, a preference between options you offered, and a refusal to decide all say *what the thing should be*. None says *start building it*. Approval is a reply to the plan in step 1, so if no plan was written, nothing said since can have approved one. When the register is collaborative and fast and you're clearly agreeing, that is exactly when this goes wrong.
+**Answering a question you asked is not approval.** This is where "or equivalent" gets abused, and it is the observed failure — twice in one session, twice again in another. A scoping answer, a preference between options you offered, and a refusal to decide all say *what the thing should be*. None says *start building it*. Approval is a reply to the written plan, so if no plan was written, nothing said since can have approved one. When the register is collaborative and fast and you're clearly agreeing, that is exactly when this goes wrong.
 
 **Working through a numbered document is not the ordinary task loop.** A runbook, migration plan or checklist: each step is its own cycle — present, wait, do, wait again before commit or push. Don't fold investigate → edit → commit → push into one turn because the step is numbered and looks atomic.
 
@@ -188,17 +181,30 @@ Occasional dry humor and sarcasm welcome. One good line beats three forced ones.
 
 ## Communication
 
-**Register — length, shape, preamble, when to expand — is set by the `Concise` output style, not by this file.** It's a machine preference in user settings, so one edit covers every repo. Override per-repo in `.claude/settings.local.json`. Takes effect at the next session start, never mid-session.
+**Register — length, shape, preamble, when to expand — is set by the active output style, not by this file.** It's a machine preference in user settings, so one edit covers every repo. Override per-repo in `.claude/settings.local.json`. Takes effect at the next session start, never mid-session.
 
-**Do not re-add register prose here.** This section was 976 words of it and it worked sometimes. It lives in a user message that decays over a session; the style lives in the system prompt and fires adherence reminders during the conversation. If `Concise` is missing something, the answer is a custom output style, not another paragraph here.
+**Do not re-add register prose here.** This section was 976 words of it and it worked sometimes. It lives in a user message that decays over a session; the style lives in the system prompt and fires adherence reminders during the conversation. If the active style is missing something, the answer is a custom output style, not another paragraph here.
 
-**Switching style.** Styles ship in `.claude/output-styles/` — every project carries every one. Turning one on is a per-machine choice, so it goes in `.claude/settings.local.json`, which is gitignored and never travels:
+**The output style is two things, and both live on the machine (DEC-J007).** The **setting** says which style is on. The **file** says what that style is. They are separate, and treating them as one is what cost a full session.
 
-```json
-{ "outputStyle": "One piece" }
+```
+~/.claude/settings.json                { "outputStyle": "One piece" }     the setting — hand-edited, once
+~/.claude/output-styles/one-piece.md   → symlink to jig's copy             the file — jig is the versioned home
 ```
 
-Delete the key to fall back to the machine default. Read once at launch, so it applies at the **next** session start. `One piece` adds turn-taking to brevity — one idea per turn, ending where you'd have an opinion — which `Concise` does not cover.
+**No repo carries either.** Jig's `.claude/settings.json` master defines no `outputStyle`, so `settings-policy.mjs` neither checks nor writes one, and `.claude/output-styles/**` is `jig-only`, so drift reports a project copy as NOT YOURS. The fix for a copy is deletion, never a sync. Edit the style in jig; the symlink means the edit is live at the next session start with nothing to copy.
+
+**Both are one-time hand steps per machine.** A fresh machine has neither until someone does this, with `<jig>` as that machine's jig checkout:
+
+```
+mkdir -p ~/.claude/output-styles && ln -sfn <jig>/.claude/output-styles/one-piece.md ~/.claude/output-styles/one-piece.md
+```
+
+**`settings-policy.mjs` checks the link, and only when the setting names a style jig ships.** Absent, a regular file, a link into another checkout, a link whose target is gone — each is a separate finding carrying the `ln -sfn` that fixes it. Reported, never repaired: `--write` edits `permissions` and the machine keys, and making a symlink in a home directory is not that. An unset `outputStyle` is silent, because nothing is reading the file. What it still cannot see is **which** style is on — that setting is deliberately unmanaged, so a link that is correct says the file is current, not that it is in use.
+
+**Precedence, lowest to highest.** For the setting: `~/.claude/settings.json`, then `<repo>/.claude/settings.json`, then `<repo>/.claude/settings.local.json`. For the file: `~/.claude/output-styles/` loses to `<repo>/.claude/output-styles/` — observed 2026-09-18, a repo holding a stale copy ran it over the machine's newer one. Both run the same way: the more specific location silently beats the machine. That is the trap. Jig shipped the key and the file until 2026-09-18, so setting either "at the machine level" did nothing, in any repo. A repo copy of the style file is therefore not untidy, it is the style that repo runs — delete it. If a style ever fails to take effect, look for the key or the file somewhere more specific than you looked.
+
+Read once at launch, so a change applies at the **next** session start.
 
 **Never lead with a false premise.** If you don't know the cause, ask — "is the server up? which database?" is one line and fair. What's banned is stating a made-up cause as fact and explaining at length on top of it.
 
