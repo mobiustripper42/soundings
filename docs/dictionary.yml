@@ -71,3 +71,11 @@
 - term: RTC
   says: a small memory block on the ESP32 that survives deep sleep but not a power cycle. Home of the sequence counter and the heal-attempt flag
   not: [RTC RAM, RTC slow memory]
+
+- term: CC
+  says: Claude Code, the coding agent that works in this repo. Chat is the other half, doing live web research
+  not: []
+
+- term: UI
+  says: user interface — a screen someone reads or operates
+  not: []

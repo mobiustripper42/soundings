@@ -24,17 +24,19 @@
 //
 // Project-specific knobs — the repo slug, which docs claim to be complete rosters, which are
 // historical ledgers, and which slash commands are deliberately foreign — live in
-// `.claude/doc-check.json`. This file is byte-identical across projects.
+// `.claude/doc-check.json`. This file is project-owned (`presence` class): its contents name this
+// repo and its own rosters, so they are never compared across projects, but it must exist because
+// this gate throws without it. `scaffold/claude/doc-check.json` is the install-time starter.
 
 import { readFileSync, readdirSync, existsSync } from 'node:fs'
 import { PATHISH, isClaim, resolves, checkSections } from './check-context.mjs'
-import { REFERENCE } from './check-decisions.mjs'
+import { ARCHIVE_DIRS, REFERENCE, archivedIds } from './check-decisions.mjs'
 import { load } from './gen-decisions-index.mjs'
 
 const CONFIG = '.claude/doc-check.json'
 
 export function config(path = CONFIG) {
-  if (!existsSync(path)) throw new Error(`${path} is missing — check-docs needs its roster and exemption lists`)
+  if (!existsSync(path)) throw new Error(`${path} is missing — check-docs needs its roster and exemption lists. Copy scaffold/claude/doc-check.json from jig and fill in the repo slug.`)
   return { rosters: {}, historical: {}, foreignDecs: {}, knownForeign: [], knownForeignAgents: [], ...JSON.parse(readFileSync(path, 'utf8')) }
 }
 
@@ -410,7 +412,14 @@ export function check(sources, world) {
     new Set(existsSync(dir) ? readdirSync(dir).map((f) => (strip ? f.replace(/\.md$/, '') : f)) : [])
 
   const w = world ?? {
-    ids: new Set(load().keys()),
+    /**
+     * `load()` plus `archive/`. The index is deliberately non-recursive — that is what drops an
+     * archived record out of `DECISIONS.md` — so on its own it is the wrong set to resolve a
+     * CITATION against, and this gate resolves them in `CLAUDE.md`, `SPEC.md` and every other
+     * document. `check-decisions` was widened first and this was missed, so archiving a record in
+     * muster left that gate green at 164 records and turned this one red with six findings.
+     */
+    ids: new Set([...load().keys(), ...archivedIds(ARCHIVE_DIRS)]),
     scripts: existsSync('package.json') ? JSON.parse(readFileSync('package.json', 'utf8')).scripts : null,
     skills: dirNames('.claude/skills', false),
     agents: dirNames('.claude/agents', true),
