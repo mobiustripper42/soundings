@@ -15,8 +15,9 @@ SESSION
 PHASE
   /start-phase     materialize the phase as Issues
                    ( phase:N + points:X labels )
-  /retro           close phase. mark [x], compute throughput +
-                   estimate calibration, write the retro, bump.
+  /retro           close phase. mark [x], write a one-screen
+                   retro (numbers, what happened, your take,
+                   PM read), bump.
 
 SEMVER  ( needs package.json with a version field )
   /bump-major      breaking change. manual. tag on main.

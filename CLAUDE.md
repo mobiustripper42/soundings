@@ -73,7 +73,7 @@ Two things the gate cannot check, which is why they are here:
 | `/kill-this` | **Per task** | Build check, commit, open a pull request, append `## Task <N>`. Run once per task |
 | `/its-dead` | Session end (once) | Stamp `ended:`, tally points, close the session file |
 | `/start-phase` | Phase start | Materialize the phase as Issues with `phase:N`, `points:X` |
-| `/retro` | Phase end | Throughput (points per calendar week) + estimate calibration from GitHub issue dates and `points:N` labels. No transcript is read. Marks `[x]`, writes the retro, runs version bumps |
+| `/retro` | Phase end | A one-screen retro: points, days and drift from GitHub `points:N` labels, what happened, your take in a sentence or two, a one-paragraph PM read. Marks `[x]`, runs version bumps |
 | `/bump-major` | Breaking change | Major bump, CHANGELOG entry, tag on `main` |
 | `/promote-production` | Ship | ff-merge `main` → `production`, push. Projects with that branch only |
 
