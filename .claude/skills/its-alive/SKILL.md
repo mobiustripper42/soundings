@@ -63,11 +63,11 @@ The session file lives on an orphan `sessions` branch checked out at `.sessions-
 
 **Check for worktree.** `[ -e .sessions-worktree/.git ] && echo present || echo missing`. (`-e`, not `-d`: in a linked worktree `.git` is a *file* — a `gitdir:` pointer — so `-d` reports `missing` on a worktree that is present, and sends the session into sub-case (a) below to fail on `already exists`.)
 
-**If present:** `git -C .sessions-worktree fetch origin sessions && git -C .sessions-worktree reset --hard origin/sessions`. Continue to Step 1. (`git -C`, not `cd` — shell state doesn't persist between Bash calls, and a stray `cd` that fails leaves the next command running in the wrong tree. The `&&` chain here made it safer than the unchained version but not correct.)
+**If present:** `git -C .sessions-worktree fetch origin sessions && git -C .sessions-worktree reset --hard origin/sessions`. Continue to Step 1. (`git -C`, not `cd` — shell state doesn't persist between Bash calls, and a stray `cd` that fails leaves the next command running in the wrong tree. The `&&` chain here made it safer than the unchained version but not correct.) This `reset --hard` is why the permission policy denies the `-C` spellings of force-push, `clean -f` and `branch -D` but not of `reset --hard`: denying it would stop every session from opening.
 
 **If missing — three sub-cases:**
 
-a. **`origin/sessions` exists on remote** (fresh clone / accidental delete): `git fetch origin sessions` then `git worktree add .sessions-worktree sessions`. Continue. (`git worktree add <path> [<commit-ish>]` takes **one** ref — the two-ref form `… sessions origin/sessions` is a usage error, and git answers it with a fragment of its own `--help` output rather than anything that reads like a failure.)
+a. **`origin/sessions` exists on remote** (fresh clone / accidental delete): `git fetch origin sessions` then `git worktree add .sessions-worktree sessions`. Continue. (`git worktree add <path> [<commit-ish>]` takes **one** ref — the two-ref form `… sessions origin/sessions` is a usage error, and git answers it with a fragment of its own `--help` output rather than anything that reads like a failure.) In a linked worktree this fails with `already checked out`: the lane was made without the link from the concurrent-session recipe in Step 2. Stop and give the user that recipe's `ln -s`, settings and ignore lines.
 
 b. **`origin/sessions` does NOT exist** (first run on this project — migration path): bootstrap the orphan branch.
 ```
@@ -118,16 +118,29 @@ Sanitize: lowercase, replace any non-`[a-z0-9.-]` with `-`, collapse repeats.
 
 **Concurrent session check:** `grep -l "^status: open" .sessions-worktree/sessions/*.md 2>/dev/null`. If a session is already open, report it — session number, branch, started — and ask whether it is **live** (another window is working right now: say so and continue, nothing to resolve) or **stale** (mark `status: abandoned` in that file and continue).
 
-**This skill creates exactly one worktree, `.sessions-worktree/`, and never another**. A concurrent session's code worktree is made **before** the session exists, by the user, in a terminal:
+**This skill creates exactly one worktree, `.sessions-worktree/`, and never another**. A concurrent session's code worktree is made **before** the session exists, by the user, in a terminal, from the main checkout — the original one, never a lane, where `.git` is a directory and `.sessions-worktree` is real:
 
 ```
 git worktree add ../<repo>-<slug> -b task/<slug> main
+ln -s "$PWD/.sessions-worktree" ../<repo>-<slug>/.sessions-worktree
+printf '{ "permissions": { "additionalDirectories": ["%s"] } }\n' "$PWD/.sessions-worktree" > ../<repo>-<slug>/.claude/settings.local.json
+for p in .sessions-worktree .claude/settings.local.json; do git -C ../<repo>-<slug> check-ignore -q $p || echo $p >> .git/info/exclude; done
 cd ../<repo>-<slug> && claude
 ```
 
+The link gives the new lane the main checkout's `sessions` worktree: adding a second one fails, because `sessions` is already checked out there. The settings line lets the lane write through the link: the session file resolves outside the lane's working directory, so without it every session-file edit asks for approval. A new worktree has no `settings.local.json` — it is per-checkout and never committed — so writing it fresh overwrites nothing. The ignore line is needed because a `.sessions-worktree/` pattern matches only a directory and a link is not one, and because not every project's `.gitignore` covers `settings.local.json`; it does nothing for a path already ignored.
+
+When the lane is finished — its session closed by `/its-dead`, its pull request merged — clean it up from the main checkout. Removing the worktree takes the link, never the session files behind it. Or keep the lane and cut its next branch there; the setup is then once per repo.
+
+```
+git worktree remove ../<repo>-<slug>
+```
+
+Then the local branch, with `git branch -D` and its name. That one is the user's to run: the permission policy denies it to a session, and the safe `--delete` refuses after a squash merge, which leaves the branch's commits off `main`.
+
 Do not offer to create it here, and do not create it if asked. A worktree made mid-session cannot capture the shell — the harness pins the working directory where `claude` launched and resets any `cd`. The session would end up with its code in one checkout and its shell in another, which is the split every downstream skill then has to detect and work around. Creating the worktree first makes the session's shell, checkout and branch the same thing, which is what every skill already assumes.
 
-If the user asks for a concurrent worktree here, give them those two lines and stop. Starting the session is their next move, not this one's.
+If the user asks for a concurrent worktree here, give them those five lines and stop; asked to clean one up, give them the removal line and the branch deletion. Starting the session is their next move, not this one's.
 
 ## Step 3 — Determine session number
 
@@ -216,7 +229,6 @@ When a recommendation *is* wanted (cold open), grep `docs/PROJECT_PLAN.md`:
 - Deferred: `grep "\[~\]" docs/PROJECT_PLAN.md`
 - Priority: `grep "Next session priority" docs/PROJECT_PLAN.md -A 2`
 - Current phase: `grep -E "^## Phase " docs/PROJECT_PLAN.md | head -3`
-- Velocity: `grep "Velocity baseline" docs/PROJECT_PLAN.md -A 1`
 
 If the project uses phase-rituals: `gh issue list --label "phase:current" --state open --json number,title,labels --limit 50`.
 
@@ -294,5 +306,6 @@ Stop. Do not begin work until the user confirms.
 
 - One Claude window opens **one** session. `/its-dead` runs **once** at the end.
 - `/kill-this` may run multiple times — one per task — each opens its own PR and appends a `## Task <N>` block to this session file (on the sessions branch).
+- Between tasks: `/save-this`, then `/clear`. The save writes what the clear would lose into this file's Next Steps, and the cleared context reads it back.
 - Time math happens at `/retro`, not at close. `/its-dead` displays wall_clock to screen for gut-check but writes no time field.
 - Once `/its-dead` writes `ended:` and `status: closed`, this file is never modified again. Atomic.

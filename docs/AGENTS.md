@@ -7,17 +7,18 @@ This file is installed byte-identical in every project, so it describes the rost
 repo's progress through it. What ships is what appears here: a file in `.claude/skills/` with no
 entry is an unclassified file, which is the state this workflow keeps finding defects in.
 
-## Skills — seven
+## Skills — eight
 
 | Skill | When | What |
 |-------|------|------|
 | `/its-alive` | Session start | Open the per-session file on the orphan `sessions` branch, read context, run the drift and permission-policy checks, recommend a task |
 | `/kill-this` | Per task | Build check, commit, `@code-review`, open the PR with `closes #<issue>`, append a `## Task <N>` block. Step 3.5 reads Blast-Radius Triggers and runs `/security-review` when the diff hits one |
+| `/save-this` | Between tasks, before `/clear` | Replace the session file's Next Steps with the next task, open PRs, standing rules (word for word), the parking lot (nothing dropped unless closed) and a carry-over for the next task; push the `sessions` branch. The cleared context reads it back at the spec step |
 | `/its-dead` | Session end, once | Stamp `ended:`, tally points, display wall clock, close the session file. No time math, no version bump |
 | `/start-phase` | Phase start | Materialize the phase as GitHub Issues with `phase:N` and `points:X` labels |
 | `/retro` | Phase end | A one-screen retro: points, days and drift from issue labels, what happened, the operator's take, a one-paragraph @pm read. Marks `[x]`, writes `RETROSPECTIVES.md`, runs version bumps |
 | `/bump-major` | Breaking change | Major bump with a supplied rationale, CHANGELOG entry, tag on `main` |
-| `/promote-production` | Ship | ff-merge `main` → `production`, push. Projects with that branch only |
+| `/promote-production` | Ship | ff-merge `main` → `production`, push, then wait for the project's post-promote checks to report the deploy landed. Projects with that branch only |
 
 ### Not carried
 
@@ -37,11 +38,15 @@ entry is an unclassified file, which is the state this workflow keeps finding de
 | `@pm` | Sonnet | Session start and end, via skills | Progress, timeline risk, scope cuts |
 | `@ui-reviewer` | Sonnet | After UI work, phase boundaries | Design quality against the project's design system, read from `.claude/ui-context.md` |
 
-All four are `context` class: they arrive as install-time starting points and each project owns its
-copy afterwards. They reason about a project's *substance*, so a good one is necessarily
-project-specific and cannot be derived from a template. The accepted cost is that a good idea
-emerging in one project's reviewer never auto-surfaces for backporting; harvesting it upstream is a
-deliberate act.
+The three reviewers are `context` class: they arrive as install-time starting points and each
+project owns its copy afterwards. They reason about a project's *substance*, so a good one is
+necessarily project-specific and cannot be derived from a template. The accepted cost is that a
+good idea emerging in one project's reviewer never auto-surfaces for backporting; harvesting it
+upstream is a deliberate act.
+
+`@pm` is `logic`, identical everywhere (DEC-J011). It holds no project substance — its facts come
+from the plan, the session files and the retro log — and as `context` it silently fell out of step
+with `/retro`.
 
 **Descriptions are project-agnostic.** An earlier generation carried `[Project]` in the
 `description:` frontmatter, filled in per install, which made every agent permanently differ from

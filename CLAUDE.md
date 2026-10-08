@@ -8,7 +8,7 @@
 
 | File | Purpose |
 |------|---------|
-| `docs/SPEC.md` | What we're building — scope, V1 vs V2 vs V3 |
+| `docs/SPEC.md` | What we're building — scope, and what isn't planned |
 | `docs/decisions/` | Why each choice was made — one decision, one file |
 | `docs/DECISIONS.md` | **Generated** index. Never edit by hand |
 | `docs/PROJECT_PLAN.md` | Phases and scope. Read at planning, written at retro; current tasks are GitHub Issues |
@@ -22,17 +22,17 @@ Project-specific docs are listed in `.claude/CLAUDE-context.md` under `## Additi
 
 ## Micro Workflow (every task, no exceptions)
 
-1. **Spec it** — poker estimate + acceptance criteria. Pin what "done" looks like before writing code: enumerate the concrete set from source and confirm it. Live words override prior docs. **Get the whole spec down before any code is written** — the model does its best work on a complete brief in one turn, not one assembled across a dozen exchanges.
+1. **Spec it** — **after a `/clear`, a fresh context starts by reading the open session file's Next Steps** (found the way `/kill-this` finds it; at session start `/its-alive`'s briefing has already done this, from the previous session): it holds the next task, the standing rules, the parking lot and what the last task left for this one. Restore its parking lot as this conversation's; obey the standing rules from the file. Then: poker estimate + acceptance criteria. A task with a screen is not specced until it names the job in one line, the existing screen and components it reuses, and what's on the screen in order with its actual wording — approved before code. Reuse is the default; anything new is named and argued for. Rules and data alone ("admin can book") are not a spec. Pin what "done" looks like before writing code: enumerate the concrete set from source and confirm it. Live words override prior docs. **Get the whole spec down before any code is written** — the model does its best work on a complete brief in one turn, not one assembled across a dozen exchanges.
 2. **Plan it** — summarize what you're going to do. Wait for explicit approval.
 3. **Cut the branch** — `git checkout -b task/X.Y-short-description`.
 4. **Prove it first** — when behaviour changes, the check comes before the change: write it, run it, watch it fail *for the reason you expect*. That failure is what proves the check bites; one written afterwards has never been observed failing, so it may assert nothing. The check must exercise the thing in its own title — a test named for one thing that calls another turns an unverified claim into an apparently-verified one. **What counts as a check: the `Proof` slot in `.claude/CLAUDE-context.md` § Workflow Mechanisms.**
 5. **Build it** — until it passes. Writing code first and then reconstructing the proof by deleting it to watch the test fail is the prove-it step the long way round.
 6. **Run the proof** — the checks covering what you touched, not the whole suite. **The test is coverage, not confidence:** if the checks you ran exercise the files you changed, that is the whole proof. Running everything again *because you are about to hand back* is the banned case, and the one that actually happens — "I'm finishing" feels like a reason and isn't. If a change plausibly reaches code you can't name, say so and ask. **Command: the `Proof command` slot.**
-7. **Stop. The task is built, not shipped.** Report what changed and what passes, then **stop and wait**. Do not commit, push, open a pull request, or start the next task. This is where the work gets looked at. Waiting is the correct end of a build turn — including when everything is green and the next task is obvious. Handing back *is* the finished state. **If the change made something a person looks at — a screen, a report, a command's output — put it in front of them here**, rendered rather than described. That is part of handing back, not a gate before it.
+7. **Stop. The task is built, not shipped.** Report what changed and what passes, then **stop and wait**. Do not commit, push, open a pull request, or start the next task. This is where the work gets looked at. Waiting is the correct end of a build turn — including when everything is green and the next task is obvious. Handing back *is* the finished state. **If the change made something a person looks at — a screen, a report, a command's output — put it in front of them here**, rendered rather than described. That is part of handing back, not a gate before it. In a terminal session a file card cannot be delivered, so Read each screenshot before the hand-back reply, one PNG per call: the app shows an image the session reads inline in the transcript, where the operator can open it on any device.
 8. **`/kill-this` — the user invokes it, you don't.** It commits, pushes, runs `@code-review`, opens the pull request with `closes #<issue>`, and appends a `## Task <N>` block to the session file. **Reaching the same end state by hand is never acceptable** — a hand-typed `git push` + `gh pr create` produces a pull request that looks identical and has never been read by `@code-review`, and that absence announces itself to nobody. If you believe a task is ready, say so and stop.
-9. **Pick up another task or close out** — a new branch and a fresh spec, or `/its-dead` once at the end of the window. Merge pull requests whenever.
+9. **Pick up another task or close out** — between tasks, `/save-this` then `/clear`, and the next task starts at step 1 in a clean context; or `/its-dead` once at the end of the window. Merge pull requests whenever.
 
-**No proof, no push.**
+**No proof, no push.** Proof is the checks the `Proof` slot names, passing. A person looking at the change is the hand-back at the stop, never a gate on the push — a context file that puts a device, a page or a screenshot inside "proof" has made the look a precondition, and `/kill-this` waits on it every task.
 
 **The proof steps name a slot, not a tool.** The shell says what the step must achieve; the context file says how it's done here. Slots are filled, not overridden. Nothing cites a step *number* — numbers move, and a stale cross-reference in an always-loaded file fails silently.
 
@@ -71,11 +71,12 @@ Two things the gate cannot check, which is why they are here:
 |-------|------|------|
 | `/its-alive` | Session start | Open the per-session file, read context, recommend a task |
 | `/kill-this` | **Per task** | Build check, commit, open a pull request, append `## Task <N>`. Run once per task |
+| `/save-this` | Between tasks, before `/clear` | Write the next task, open PRs, standing rules, parking lot and carry-over into the session file's Next Steps |
 | `/its-dead` | Session end (once) | Stamp `ended:`, tally points, close the session file |
 | `/start-phase` | Phase start | Materialize the phase as Issues with `phase:N`, `points:X` |
 | `/retro` | Phase end | A one-screen retro: points, days and drift from GitHub `points:N` labels, what happened, your take in a sentence or two, a one-paragraph PM read. Marks `[x]`, runs version bumps |
 | `/bump-major` | Breaking change | Major bump, CHANGELOG entry, tag on `main` |
-| `/promote-production` | Ship | ff-merge `main` → `production`, push. Projects with that branch only |
+| `/promote-production` | Ship | ff-merge `main` → `production`, push, wait for the deploy to land. Projects with that branch only |
 
 **Task model:** PROJECT_PLAN.md is read at planning and written at retro, untouched mid-phase. Current tasks are GitHub Issues. The phase ends when its issues close.
 
@@ -162,7 +163,7 @@ For every task — bug, feature, or question — explain the plan and wait befor
 
 ## Scope Discipline
 
-Check `docs/SPEC.md` "Not V1" before adding anything. Apply a change only to the surface named — don't propagate it to sibling pages, and never invent or misattribute a rationale that wasn't stated.
+Check the spec's out-of-scope list in `docs/SPEC.md` before adding anything. Apply a change only to the surface named — don't propagate it to sibling pages, and never invent or misattribute a rationale that wasn't stated.
 
 If a task feels bigger than its estimate: stop, re-estimate, update PROJECT_PLAN.md. If it's scope creep, flag it and move on.
 
