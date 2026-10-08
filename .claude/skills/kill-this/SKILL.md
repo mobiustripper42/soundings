@@ -16,7 +16,14 @@ BRANCH=$(git branch --show-current)
 
 **No match:** STOP. The user must run `/its-alive` first.
 
-**More than one match:** another window has a session open. Report the candidates — `session:`, `branch:`, `started:` — and ask which is yours. Do not sort and do not take the first: `... | head -1` returns the lexically-earliest filename, and session filenames start with a date, so it silently picks the *stale* file whenever that one opened earlier. Nothing errors.
+**More than one match:** another window has a session open. Narrow by checkout before asking. `/its-alive` records the transcript path, and that path is built from the directory the session was opened in (`/its-alive`'s transcript-path step), so it names the checkout:
+
+```
+HERE="$HOME/.claude/projects/$(pwd | tr '/' '-')/"
+grep -lF "transcript: $HERE" <each open file>
+```
+
+The trailing `/` is what keeps `~/muster` from matching `~/muster-s91`'s sessions. **Exactly one file left:** that is `SESSION_FILE`. Two lanes in two checkouts settle here without a question — which matters because a window that began with `/clear` has no memory of which file it opened, and asking every task is the symptom. **Zero or several left** (two windows in one checkout, or a file opened with no transcript path): report the candidates — `session:`, `branch:`, `started:` — and ask which is yours. Do not sort and do not take the first: `... | head -1` returns the lexically-earliest filename, and session filenames start with a date, so it silently picks the *stale* file whenever that one opened earlier. Nothing errors.
 
 `BRANCH` is read from the current directory, and that is correct by construction: a session starts in the checkout its work lives in and stays there. If that stops being true, fix the session, not this skill — every wrong-tree symptom downstream is that one broken assumption wearing a different hat.
 
@@ -79,7 +86,7 @@ Get the project's trigger table from `.claude/CLAUDE-context.md` under `## Blast
 
 **If one or more hit, run the free local pass first, then surface the paid one.** A trigger that only ever produces a suggestion to spend money produces nothing on the days you decide not to spend it — and those are exactly the PRs it fired on.
 
-1. **Run `/security-review`** against the branch. It is local, unbilled, and aimed at this class: authorization boundaries, injection, secret handling, unsafe defaults, failure modes that fail open. This is not a duplicate of Step 3 — `@code-review` hunts the project's conventions and invariants; this hunts the ways a hostile or malformed input gets through. Fold its findings into the PR body under their own heading, so the reviewer can see which pass produced what.
+1. **Run `/security-review`** against the branch. It is local, unbilled, and aimed at this class: authorization boundaries, injection, secret handling, unsafe defaults, failure modes that fail open. This is not a duplicate of Step 3 — `@code-review` hunts the project's conventions and invariants; this hunts the ways a hostile or malformed input gets through. Fold its findings into the PR body under their own heading, so the reviewer can see which pass produced what. Its closing "final reply must contain the markdown report and nothing else" ends that pass, not this skill: take the report and carry on with item 2 below, then Step 3.6 and Step 4, in the same turn.
 
 
 2. **Then print exactly this and continue** — never block, never run the billed tool:

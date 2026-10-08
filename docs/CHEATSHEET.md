@@ -1,6 +1,6 @@
 JIG WORKFLOW CHEATSHEET                                  v6
 
-  /its-alive  ->  [ work ]  ->  /kill-this  ->  /its-dead
+  /its-alive  ->  [ work -> /kill-this -> /save-this -> /clear ] ...  ->  /its-dead
 
 
 SESSION
@@ -9,6 +9,9 @@ SESSION
                    recommends a task. waits for confirmation.
   /kill-this       per task. build + commit + PR + @code-review.
                    run it once per task, not once per session.
+  /save-this       between tasks, before /clear. writes next task,
+                   standing rules, parking lot and carry-over to
+                   the session file; the cleared context reads it.
   /its-dead        end. stamps ended, tallies points, shows the
                    wall-clock gut-check, closes the session file.
 
@@ -21,7 +24,7 @@ PHASE
 
 SEMVER  ( needs package.json with a version field )
   /bump-major      breaking change. manual. tag on main.
-  /promote-production  main -> production ff-merge + push.
+  /promote-production  main -> production ff-merge + push, then waits for the deploy.
                    ( needs origin/production )
   patch bumps      /promote-production on ship, or /retro per
                    merged PR where there is no production branch.
